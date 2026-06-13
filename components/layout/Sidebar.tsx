@@ -2,20 +2,14 @@
 
 import { cn } from '@/lib/utils'
 import {
-  BarChart3,
-  BookOpen,
-  CalendarDays,
-  ChevronRight,
-  ClipboardList,
-  Home,
-  Network,
-  Settings,
-  Users,
+  BarChart3, BookOpen, CalendarDays, ClipboardList,
+  Home, Network, Settings, Users,
 } from 'lucide-react'
+import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
-const navItems = [
+const NAV = [
   { href: '/dashboard', icon: Home, label: '대시보드' },
   { href: '/children', icon: Users, label: '아동 관리' },
   { href: '/classes', icon: BookOpen, label: '반 관리' },
@@ -29,62 +23,59 @@ export function Sidebar() {
   const pathname = usePathname()
 
   return (
-    <aside className="w-56 h-screen bg-[#0d0d0d] border-r border-[#1a1a1a] flex flex-col shrink-0 fixed left-0 top-0 z-30">
+    <aside className="w-[200px] h-screen bg-[#080808] border-r border-[#1a1a1a] flex flex-col fixed left-0 top-0 z-30 shrink-0">
       {/* Logo */}
-      <div className="px-5 py-5 border-b border-[#1a1a1a]">
-        <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center">
-            <span className="text-white font-bold text-sm">L</span>
-          </div>
-          <div>
-            <span className="text-[#f5f5f5] font-semibold text-sm tracking-wide">LUMIX</span>
-            <span className="text-indigo-400 font-semibold text-sm ml-1">Pro</span>
-          </div>
+      <div className="flex items-center gap-3 px-4 py-4 border-b border-[#1a1a1a]">
+        <div className="w-6 h-6 text-[#e8e8e8] shrink-0">
+          <Image src="/logo.svg" alt="LUMIX Pro" width={24} height={24} className="invert" />
+        </div>
+        <div className="leading-none">
+          <span className="text-[13px] font-semibold text-[#e8e8e8] tracking-wider">LUMIX</span>
+          <span className="text-[13px] font-semibold text-[#555555] tracking-wider ml-1">Pro</span>
         </div>
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
-        {navItems.map(({ href, icon: Icon, label }) => {
-          const active = pathname === href || pathname.startsWith(href + '/')
+      {/* Nav */}
+      <nav className="flex-1 py-3 overflow-y-auto">
+        {NAV.map(({ href, icon: Icon, label }) => {
+          const active = pathname === href || (href !== '/dashboard' && pathname.startsWith(href + '/'))
           return (
             <Link
               key={href}
               href={href}
               className={cn(
-                'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all duration-150 group',
+                'flex items-center gap-3 px-4 py-2.5 text-[12px] transition-colors relative group',
                 active
-                  ? 'bg-indigo-600/15 text-indigo-400 font-medium'
-                  : 'text-[#666666] hover:text-[#a0a0a0] hover:bg-[#1a1a1a]'
+                  ? 'text-[#e8e8e8] bg-[#141414]'
+                  : 'text-[#555555] hover:text-[#888888] hover:bg-[#0e0e0e]'
               )}
             >
-              <Icon
-                size={16}
-                className={cn(
-                  'shrink-0 transition-colors',
-                  active ? 'text-indigo-400' : 'text-[#444444] group-hover:text-[#666666]'
-                )}
-              />
-              <span className="flex-1">{label}</span>
-              {active && <ChevronRight size={12} className="text-indigo-400/50" />}
+              {active && (
+                <span className="absolute left-0 top-0 bottom-0 w-[2px] bg-[#e8e8e8]" />
+              )}
+              <Icon size={14} className="shrink-0" />
+              <span className="tracking-wide">{label}</span>
             </Link>
           )
         })}
       </nav>
 
       {/* Settings */}
-      <div className="px-3 py-3 border-t border-[#1a1a1a]">
+      <div className="border-t border-[#1a1a1a] py-2">
         <Link
           href="/settings"
           className={cn(
-            'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all duration-150 group',
+            'flex items-center gap-3 px-4 py-2.5 text-[12px] transition-colors relative',
             pathname === '/settings'
-              ? 'bg-indigo-600/15 text-indigo-400 font-medium'
-              : 'text-[#666666] hover:text-[#a0a0a0] hover:bg-[#1a1a1a]'
+              ? 'text-[#e8e8e8] bg-[#141414]'
+              : 'text-[#555555] hover:text-[#888888] hover:bg-[#0e0e0e]'
           )}
         >
-          <Settings size={16} className="shrink-0 text-[#444444] group-hover:text-[#666666]" />
-          <span>설정</span>
+          {pathname === '/settings' && (
+            <span className="absolute left-0 top-0 bottom-0 w-[2px] bg-[#e8e8e8]" />
+          )}
+          <Settings size={14} className="shrink-0" />
+          <span className="tracking-wide">설정</span>
         </Link>
       </div>
     </aside>

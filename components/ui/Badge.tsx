@@ -1,18 +1,8 @@
 import { cn } from '@/lib/utils'
 
-interface BadgeProps {
-  children: React.ReactNode
-  className?: string
-}
-
-export function Badge({ children, className }: BadgeProps) {
+export function Badge({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <span
-      className={cn(
-        'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium',
-        className
-      )}
-    >
+    <span className={cn('inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium tracking-wide uppercase', className)}>
       {children}
     </span>
   )

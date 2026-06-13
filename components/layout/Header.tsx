@@ -1,6 +1,6 @@
 'use client'
 
-import { Bell, LogOut, Search, User } from 'lucide-react'
+import { LogOut, User } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
 
@@ -17,34 +17,32 @@ export function Header({ title, subtitle, actions }: HeaderProps) {
   const handleLogout = async () => {
     await supabase.auth.signOut()
     router.push('/login')
+    router.refresh()
   }
 
   return (
-    <header className="h-14 bg-[#0d0d0d] border-b border-[#1a1a1a] flex items-center px-6 gap-4 sticky top-0 z-20">
-      <div className="flex-1 min-w-0">
-        <h1 className="text-sm font-semibold text-[#f5f5f5] truncate">{title}</h1>
-        {subtitle && <p className="text-xs text-[#666666] truncate">{subtitle}</p>}
+    <header className="h-12 bg-[#080808] border-b border-[#1a1a1a] flex items-center px-6 gap-4 sticky top-0 z-20 shrink-0">
+      <div className="flex-1 min-w-0 flex items-center gap-3">
+        <h1 className="text-[13px] font-semibold text-[#e8e8e8] tracking-wide truncate">{title}</h1>
+        {subtitle && (
+          <>
+            <span className="text-[#2a2a2a]">/</span>
+            <span className="text-[12px] text-[#444444] truncate">{subtitle}</span>
+          </>
+        )}
       </div>
-
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1">
         {actions}
-        <button className="w-8 h-8 flex items-center justify-center rounded-lg text-[#555555] hover:text-[#a0a0a0] hover:bg-[#1a1a1a] transition-colors">
-          <Search size={15} />
-        </button>
-        <button className="w-8 h-8 flex items-center justify-center rounded-lg text-[#555555] hover:text-[#a0a0a0] hover:bg-[#1a1a1a] transition-colors relative">
-          <Bell size={15} />
-          <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-indigo-500 rounded-full" />
-        </button>
-        <div className="w-px h-4 bg-[#1e1e1e] mx-1" />
         <button
           onClick={handleLogout}
-          className="w-8 h-8 flex items-center justify-center rounded-lg text-[#555555] hover:text-red-400 hover:bg-red-400/10 transition-colors"
           title="로그아웃"
+          className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] text-[#444444] hover:text-[#888888] hover:bg-[#111111] border border-transparent hover:border-[#222222] transition-colors rounded-sm"
         >
-          <LogOut size={15} />
+          <LogOut size={12} />
+          로그아웃
         </button>
-        <div className="w-7 h-7 rounded-full bg-indigo-600/20 border border-indigo-600/30 flex items-center justify-center">
-          <User size={13} className="text-indigo-400" />
+        <div className="w-6 h-6 bg-[#141414] border border-[#222222] flex items-center justify-center ml-1">
+          <User size={12} className="text-[#555555]" />
         </div>
       </div>
     </header>

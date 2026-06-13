@@ -5,12 +5,7 @@ import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Input, Select, Textarea } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
-import {
-  ACTIVITY_STATUS_COLORS,
-  ACTIVITY_STATUS_LABELS,
-  ACTIVITY_TYPE_COLORS,
-  ACTIVITY_TYPE_LABELS,
-} from '@/lib/utils'
+import { ACTIVITY_STATUS_COLORS, ACTIVITY_STATUS_LABELS, ACTIVITY_TYPE_COLORS, ACTIVITY_TYPE_LABELS } from '@/lib/utils'
 import type { Activity, Class } from '@/lib/types'
 import { createClient } from '@/utils/supabase/client'
 import { CalendarDays, Plus, Trash2 } from 'lucide-react'
@@ -20,26 +15,21 @@ import { useState } from 'react'
 interface Props {
   initialActivities: Activity[]
   classes: Pick<Class, 'id' | 'name'>[]
+  centerId: string
 }
 
 const emptyForm = {
-  title: '',
-  description: '',
-  activity_date: '',
-  activity_time: '',
-  class_id: '',
-  type: 'education' as Activity['type'],
-  status: 'planned' as Activity['status'],
+  title: '', description: '', activity_date: '', activity_time: '',
+  class_id: '', type: 'education' as Activity['type'], status: 'planned' as Activity['status'],
 }
 
-export function ActivitiesClient({ initialActivities, classes }: Props) {
+export function ActivitiesClient({ initialActivities, classes, centerId }: Props) {
   const router = useRouter()
   const supabase = createClient()
-
   const [activities, setActivities] = useState(initialActivities)
-  const [modalOpen, setModalOpen] = useState(false)
   const [filterType, setFilterType] = useState<Activity['type'] | 'all'>('all')
   const [filterStatus, setFilterStatus] = useState<Activity['status'] | 'all'>('all')
+  const [modalOpen, setModalOpen] = useState(false)
   const [form, setForm] = useState(emptyForm)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -52,12 +42,11 @@ export function ActivitiesClient({ initialActivities, classes }: Props) {
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault()
-    setLoading(true)
-    setError('')
-
-    const { data, error } = await supabase
-      .from('activities')
+    if (!centerId) { setError('센터 정보를 찾을 수 없습니다.'); return }
+    setLoading(true); setError('')
+    const { data, error } = await supabase.from('activities')
       .insert({
+        center_id: centerId,
         title: form.title,
         description: form.description || null,
         activity_date: form.activity_date || null,
@@ -66,22 +55,16 @@ export function ActivitiesClient({ initialActivities, classes }: Props) {
         type: form.type,
         status: form.status,
       })
-      .select('*, classes(id, name)')
-      .single()
-
+      .select('*, classes(id, name)').single()
     if (error) { setError(error.message); setLoading(false); return }
     setActivities((prev) => [data as Activity, ...prev])
-    setModalOpen(false)
-    setForm(emptyForm)
-    setLoading(false)
+    setModalOpen(false); setForm(emptyForm); setLoading(false)
     router.refresh()
   }
 
   const handleStatusChange = async (id: string, status: Activity['status']) => {
     const { error } = await supabase.from('activities').update({ status }).eq('id', id)
-    if (!error) {
-      setActivities((prev) => prev.map((a) => (a.id === id ? { ...a, status } : a)))
-    }
+    if (!error) setActivities((prev) => prev.map((a) => a.id === id ? { ...a, status } : a))
   }
 
   const handleDelete = async (id: string) => {
@@ -91,155 +74,99 @@ export function ActivitiesClient({ initialActivities, classes }: Props) {
   }
 
   return (
-    <div className="flex-1 p-6 space-y-4">
-      {/* Toolbar */}
-      <div className="flex items-center gap-3">
-        <select
-          value={filterType}
-          onChange={(e) => setFilterType(e.target.value as typeof filterType)}
-          className="bg-[#111111] border border-[#1e1e1e] rounded-lg px-3 py-2 text-sm text-[#a0a0a0] focus:outline-none focus:border-indigo-500 h-9 cursor-pointer"
-        >
+    <div className="flex-1 p-5 space-y-4 overflow-auto">
+      <div className="flex items-center gap-2">
+        <select value={filterType} onChange={(e) => setFilterType(e.target.value as typeof filterType)}
+          className="bg-[#0e0e0e] border border-[#1e1e1e] px-3 text-[12px] text-[#888888] focus:outline-none focus:border-[#333333] h-8 rounded-sm cursor-pointer">
           <option value="all">전체 유형</option>
           {(Object.keys(ACTIVITY_TYPE_LABELS) as Activity['type'][]).map((t) => (
             <option key={t} value={t}>{ACTIVITY_TYPE_LABELS[t]}</option>
           ))}
         </select>
-        <select
-          value={filterStatus}
-          onChange={(e) => setFilterStatus(e.target.value as typeof filterStatus)}
-          className="bg-[#111111] border border-[#1e1e1e] rounded-lg px-3 py-2 text-sm text-[#a0a0a0] focus:outline-none focus:border-indigo-500 h-9 cursor-pointer"
-        >
+        <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value as typeof filterStatus)}
+          className="bg-[#0e0e0e] border border-[#1e1e1e] px-3 text-[12px] text-[#888888] focus:outline-none focus:border-[#333333] h-8 rounded-sm cursor-pointer">
           <option value="all">전체 상태</option>
           {(Object.keys(ACTIVITY_STATUS_LABELS) as Activity['status'][]).map((s) => (
             <option key={s} value={s}>{ACTIVITY_STATUS_LABELS[s]}</option>
           ))}
         </select>
         <div className="flex-1" />
-        <span className="text-xs text-[#555555]">{filtered.length}개</span>
-        <Button onClick={() => setModalOpen(true)}>
-          <Plus size={14} />
-          활동 추가
-        </Button>
+        <span className="text-[11px] text-[#444444]">{filtered.length}개</span>
+        <Button onClick={() => setModalOpen(true)} size="sm"><Plus size={12} /> 활동 추가</Button>
       </div>
 
-      {/* Table */}
       <Card>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full">
             <thead>
               <tr className="border-b border-[#1a1a1a]">
                 {['제목', '날짜', '시간', '반', '유형', '상태', ''].map((h) => (
-                  <th key={h} className="text-left text-xs text-[#555555] font-medium px-5 py-3">{h}</th>
+                  <th key={h} className="text-left text-[10px] text-[#444444] font-medium uppercase tracking-widest px-4 py-3">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="text-center text-[#444444] py-12 text-sm">
-                    <CalendarDays size={32} className="mx-auto mb-3 text-[#2a2a2a]" />
-                    <p>등록된 활동이 없습니다</p>
+                <tr><td colSpan={7} className="text-center py-16">
+                  <CalendarDays size={28} className="mx-auto mb-2 text-[#1e1e1e]" />
+                  <p className="text-[12px] text-[#333333]">등록된 활동이 없습니다</p>
+                </td></tr>
+              ) : filtered.map((a) => (
+                <tr key={a.id} className="border-b border-[#111111] hover:bg-[#0c0c0c] transition-colors">
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <div className={`w-0.5 h-5 ${ACTIVITY_TYPE_COLORS[a.type]?.split(' ')[1] ?? 'bg-[#333333]'}`} />
+                      <span className="text-[12px] font-medium text-[#cccccc]">{a.title}</span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-[12px] text-[#666666]">{a.activity_date ?? '—'}</td>
+                  <td className="px-4 py-3 text-[12px] text-[#666666]">{a.activity_time ?? '—'}</td>
+                  <td className="px-4 py-3 text-[12px] text-[#666666]">{(a.classes as Class | undefined)?.name ?? '전체'}</td>
+                  <td className="px-4 py-3">
+                    <Badge className={ACTIVITY_TYPE_COLORS[a.type]}>{ACTIVITY_TYPE_LABELS[a.type]}</Badge>
+                  </td>
+                  <td className="px-4 py-3">
+                    <select value={a.status} onChange={(e) => handleStatusChange(a.id, e.target.value as Activity['status'])}
+                      className={`text-[10px] px-2 py-0.5 border-0 cursor-pointer focus:outline-none bg-transparent uppercase tracking-wider ${ACTIVITY_STATUS_COLORS[a.status]}`}>
+                      {(Object.keys(ACTIVITY_STATUS_LABELS) as Activity['status'][]).map((s) => (
+                        <option key={s} value={s}>{ACTIVITY_STATUS_LABELS[s]}</option>
+                      ))}
+                    </select>
+                  </td>
+                  <td className="px-4 py-3">
+                    <button onClick={() => handleDelete(a.id)} className="text-[#2a2a2a] hover:text-[#ef4444] transition-colors p-1">
+                      <Trash2 size={13} />
+                    </button>
                   </td>
                 </tr>
-              ) : (
-                filtered.map((activity) => (
-                  <tr key={activity.id} className="border-b border-[#111111] hover:bg-[#141414] transition-colors">
-                    <td className="px-5 py-3">
-                      <div className="flex items-center gap-2">
-                        <div className={`w-1.5 h-6 rounded-full ${ACTIVITY_TYPE_COLORS[activity.type]?.split(' ')[1]}`} />
-                        <span className="font-medium text-[#e0e0e0]">{activity.title}</span>
-                      </div>
-                    </td>
-                    <td className="px-5 py-3 text-[#a0a0a0]">{activity.activity_date ?? '—'}</td>
-                    <td className="px-5 py-3 text-[#a0a0a0]">{activity.activity_time ?? '—'}</td>
-                    <td className="px-5 py-3 text-[#a0a0a0]">
-                      {(activity.classes as Class | undefined)?.name ?? '전체'}
-                    </td>
-                    <td className="px-5 py-3">
-                      <Badge className={ACTIVITY_TYPE_COLORS[activity.type]}>
-                        {ACTIVITY_TYPE_LABELS[activity.type]}
-                      </Badge>
-                    </td>
-                    <td className="px-5 py-3">
-                      <select
-                        value={activity.status}
-                        onChange={(e) => handleStatusChange(activity.id, e.target.value as Activity['status'])}
-                        className={`text-xs px-2 py-0.5 rounded-full border-0 cursor-pointer focus:outline-none ${ACTIVITY_STATUS_COLORS[activity.status]}`}
-                      >
-                        {(Object.keys(ACTIVITY_STATUS_LABELS) as Activity['status'][]).map((s) => (
-                          <option key={s} value={s}>{ACTIVITY_STATUS_LABELS[s]}</option>
-                        ))}
-                      </select>
-                    </td>
-                    <td className="px-5 py-3">
-                      <button
-                        onClick={() => handleDelete(activity.id)}
-                        className="text-[#333333] hover:text-red-400 transition-colors p-1 rounded"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              )}
+              ))}
             </tbody>
           </table>
         </div>
       </Card>
 
-      {/* Add modal */}
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="활동 추가" size="md">
-        <form onSubmit={handleAdd} className="space-y-4">
-          <Input
-            label="활동명 *"
-            placeholder="예: 미술 치료 프로그램"
-            value={form.title}
-            onChange={(e) => setForm({ ...form, title: e.target.value })}
-            required
-          />
+      <Modal open={modalOpen} onClose={() => { setModalOpen(false); setError('') }} title="활동 추가" size="md">
+        <form onSubmit={handleAdd} className="space-y-3">
+          <Input label="활동명 *" placeholder="예: 미술 치료 프로그램" value={form.title}
+            onChange={(e) => setForm({ ...form, title: e.target.value })} required />
           <div className="grid grid-cols-2 gap-3">
-            <Input
-              label="날짜"
-              type="date"
-              value={form.activity_date}
-              onChange={(e) => setForm({ ...form, activity_date: e.target.value })}
-            />
-            <Input
-              label="시간"
-              type="time"
-              value={form.activity_time}
-              onChange={(e) => setForm({ ...form, activity_time: e.target.value })}
-            />
+            <Input label="날짜" type="date" value={form.activity_date}
+              onChange={(e) => setForm({ ...form, activity_date: e.target.value })} />
+            <Input label="시간" type="time" value={form.activity_time}
+              onChange={(e) => setForm({ ...form, activity_time: e.target.value })} />
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <Select
-              label="유형"
-              value={form.type}
-              onChange={(e) => setForm({ ...form, type: e.target.value as Activity['type'] })}
-            >
-              {(Object.entries(ACTIVITY_TYPE_LABELS) as [Activity['type'], string][]).map(([k, v]) => (
-                <option key={k} value={k}>{v}</option>
-              ))}
+            <Select label="유형" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value as Activity['type'] })}>
+              {(Object.entries(ACTIVITY_TYPE_LABELS) as [Activity['type'], string][]).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
             </Select>
-            <Select
-              label="대상 반"
-              value={form.class_id}
-              onChange={(e) => setForm({ ...form, class_id: e.target.value })}
-            >
+            <Select label="대상 반" value={form.class_id} onChange={(e) => setForm({ ...form, class_id: e.target.value })}>
               <option value="">전체</option>
-              {classes.map((cls) => (
-                <option key={cls.id} value={cls.id}>{cls.name}</option>
-              ))}
+              {classes.map((cls) => <option key={cls.id} value={cls.id}>{cls.name}</option>)}
             </Select>
           </div>
-          <Textarea
-            label="설명"
-            rows={3}
-            placeholder="활동에 대한 설명"
-            value={form.description}
-            onChange={(e) => setForm({ ...form, description: e.target.value })}
-          />
-          {error && <p className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">{error}</p>}
+          <Textarea label="설명" rows={3} placeholder="활동에 대한 설명" value={form.description}
+            onChange={(e) => setForm({ ...form, description: e.target.value })} />
+          {error && <div className="border border-[#3a1414] bg-[#120808] px-3 py-2 text-[11px] text-[#ef4444]">{error}</div>}
           <div className="flex gap-2 justify-end pt-2">
             <Button variant="secondary" type="button" onClick={() => setModalOpen(false)}>취소</Button>
             <Button type="submit" loading={loading}>추가</Button>

@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { createClient } from '@/utils/supabase/client'
 import { Lock, Mail } from 'lucide-react'
+import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
@@ -19,53 +20,43 @@ export default function LoginPage() {
     e.preventDefault()
     setLoading(true)
     setError('')
-
     const { error } = await supabase.auth.signInWithPassword({ email, password })
-
     if (error) {
       setError('이메일 또는 비밀번호가 올바르지 않습니다.')
       setLoading(false)
       return
     }
-
     router.push('/dashboard')
     router.refresh()
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-4">
-      {/* Background grid */}
+    <div className="min-h-screen bg-[#080808] flex items-center justify-center p-4">
+      {/* Subtle grid */}
       <div
-        className="absolute inset-0 opacity-[0.03]"
+        className="absolute inset-0 opacity-[0.02] pointer-events-none"
         style={{
           backgroundImage: `linear-gradient(#ffffff 1px, transparent 1px), linear-gradient(90deg, #ffffff 1px, transparent 1px)`,
-          backgroundSize: '40px 40px',
+          backgroundSize: '48px 48px',
         }}
       />
 
-      {/* Glow effect */}
-      <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-indigo-600/10 rounded-full blur-3xl pointer-events-none" />
-
-      <div className="relative w-full max-w-sm">
+      <div className="relative w-full max-w-[360px]">
         {/* Logo */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-2.5 mb-3">
-            <div className="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-600/30">
-              <span className="text-white font-bold text-lg">L</span>
-            </div>
-            <div className="text-left">
-              <div className="text-[#f5f5f5] font-bold text-xl tracking-wide leading-none">
-                LUMIX<span className="text-indigo-400 ml-1">Pro</span>
-              </div>
-              <div className="text-[#555555] text-xs mt-0.5">아동 시설 관리 플랫폼</div>
-            </div>
+        <div className="flex flex-col items-center mb-8 gap-3">
+          <div className="w-10 h-10 text-[#e8e8e8]">
+            <Image src="/logo.svg" alt="LUMIX Pro" width={40} height={40} className="invert" />
           </div>
-          <p className="text-[#555555] text-sm">관리자 계정으로 로그인하세요</p>
+          <div className="text-center">
+            <p className="text-[16px] font-semibold text-[#e8e8e8] tracking-[0.15em]">LUMIX Pro</p>
+            <p className="text-[11px] text-[#444444] tracking-widest mt-0.5 uppercase">아동 시설 관리 플랫폼</p>
+          </div>
         </div>
 
-        {/* Card */}
-        <div className="bg-[#111111] border border-[#1e1e1e] rounded-2xl p-6 shadow-2xl">
-          <form onSubmit={handleLogin} className="space-y-4">
+        {/* Form card */}
+        <div className="bg-[#0e0e0e] border border-[#1e1e1e] p-6">
+          <p className="text-[11px] text-[#444444] uppercase tracking-widest mb-5">관리자 로그인</p>
+          <form onSubmit={handleLogin} className="space-y-3">
             <Input
               label="이메일"
               type="email"
@@ -73,7 +64,7 @@ export default function LoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              icon={<Mail size={14} />}
+              icon={<Mail size={12} />}
             />
             <Input
               label="비밀번호"
@@ -82,37 +73,23 @@ export default function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              icon={<Lock size={14} />}
+              icon={<Lock size={12} />}
             />
-
             {error && (
-              <div className="px-3 py-2.5 bg-red-500/10 border border-red-500/20 rounded-lg">
-                <p className="text-xs text-red-400">{error}</p>
+              <div className="border border-[#3a1414] bg-[#120808] px-3 py-2">
+                <p className="text-[11px] text-[#ef4444]">{error}</p>
               </div>
             )}
-
-            <Button
-              type="submit"
-              className="w-full"
-              size="lg"
-              loading={loading}
-            >
-              로그인
-            </Button>
+            <div className="pt-1">
+              <Button type="submit" className="w-full" size="lg" loading={loading}>
+                로그인
+              </Button>
+            </div>
           </form>
-
-          <div className="mt-4 pt-4 border-t border-[#1e1e1e] text-center">
-            <p className="text-xs text-[#444444]">
-              계정 문의:{' '}
-              <a href="mailto:support@lumixpro.kr" className="text-indigo-400 hover:text-indigo-300 transition-colors">
-                support@lumixpro.kr
-              </a>
-            </p>
-          </div>
         </div>
 
-        <p className="text-center text-[#333333] text-xs mt-6">
-          © 2026 LUMIX Pro. All rights reserved.
+        <p className="text-center text-[10px] text-[#2a2a2a] mt-5 tracking-wider uppercase">
+          © 2026 LUMIX Pro · All rights reserved
         </p>
       </div>
     </div>

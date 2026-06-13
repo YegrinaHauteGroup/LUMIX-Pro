@@ -1,28 +1,24 @@
 import { Header } from '@/components/layout/Header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
+import { getCenterId } from '@/lib/center'
 import { createClient } from '@/utils/supabase/server'
 import { cookies } from 'next/headers'
-import {
-  Users,
-  BookOpen,
-  CalendarDays,
-  TrendingUp,
-  ArrowRight,
-} from 'lucide-react'
+import { Users, BookOpen, CalendarDays, TrendingUp, ArrowRight } from 'lucide-react'
 import Link from 'next/link'
 import { DashboardCharts } from '@/components/features/dashboard/DashboardCharts'
-import { CHILD_STATUS_COLORS, CHILD_STATUS_LABELS, ACTIVITY_TYPE_LABELS, ACTIVITY_TYPE_COLORS, ACTIVITY_STATUS_LABELS, ACTIVITY_STATUS_COLORS } from '@/lib/utils'
+import { CHILD_STATUS_COLORS, CHILD_STATUS_LABELS, ACTIVITY_TYPE_LABELS, ACTIVITY_TYPE_COLORS } from '@/lib/utils'
 import type { Child, Activity, Class } from '@/lib/types'
 
 export default async function DashboardPage() {
   const cookieStore = await cookies()
   const supabase = createClient(cookieStore)
+  const centerId = await getCenterId()
 
   const [childrenRes, activitiesRes, classesRes] = await Promise.all([
-    supabase.from('children').select('*').order('created_at', { ascending: false }),
-    supabase.from('activities').select('*, classes(name)').order('created_at', { ascending: false }).limit(10),
-    supabase.from('classes').select('*, children(id)'),
+    supabase.from('children').select('*').eq('center_id', centerId ?? '').order('created_at', { ascending: false }),
+    supabase.from('activities').select('*, classes(name)').eq('center_id', centerId ?? '').order('created_at', { ascending: false }).limit(10),
+    supabase.from('classes').select('*, children(id)').eq('center_id', centerId ?? ''),
   ])
 
   const children: Child[] = childrenRes.data ?? []
@@ -36,37 +32,14 @@ export default async function DashboardPage() {
   const upcomingActivities = activities.filter((a) => a.status === 'planned').slice(0, 5)
 
   const stats = [
-    {
-      label: '전체 아동',
-      value: totalChildren,
-      sub: `재원 ${activeChildren}명`,
-      icon: Users,
-      color: 'text-indigo-400',
-      bg: 'bg-indigo-400/10',
-    },
-    {
-      label: '운영 반',
-      value: classes.length,
-      sub: `총 정원 ${classes.reduce((acc, c) => acc + (c.capacity ?? 0), 0)}명`,
-      icon: BookOpen,
-      color: 'text-emerald-400',
-      bg: 'bg-emerald-400/10',
-    },
-    {
-      label: '전체 활동',
-      value: activities.length,
-      sub: `예정 ${plannedActivities}개`,
-      icon: CalendarDays,
-      color: 'text-blue-400',
-      bg: 'bg-blue-400/10',
-    },
+    { label: '전체 아동', value: totalChildren, sub: `재원 ${activeChildren}명`, icon: Users },
+    { label: '운영 반', value: classes.length, sub: `총 정원 ${classes.reduce((acc, c) => acc + (c.capacity ?? 0), 0)}명`, icon: BookOpen },
+    { label: '전체 활동', value: activities.length, sub: `예정 ${plannedActivities}개`, icon: CalendarDays },
     {
       label: '재원율',
       value: totalChildren > 0 ? `${Math.round((activeChildren / totalChildren) * 100)}%` : '—',
-      sub: '전월 대비',
+      sub: '현재 기준',
       icon: TrendingUp,
-      color: 'text-yellow-400',
-      bg: 'bg-yellow-400/10',
     },
   ]
 
@@ -89,77 +62,59 @@ export default async function DashboardPage() {
 
   return (
     <>
-      <Header
-        title="대시보드"
-        subtitle="시설 현황 한눈에 보기"
-      />
-      <div className="flex-1 p-6 space-y-6">
+      <Header title="대시보드" subtitle="시설 현황 한눈에 보기" />
+      <div className="flex-1 p-5 space-y-4">
         {/* Stats grid */}
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-4 gap-3">
           {stats.map((stat) => (
-            <Card key={stat.label}>
-              <CardContent className="pt-5">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-xs text-[#666666] mb-1">{stat.label}</p>
-                    <p className="text-2xl font-semibold text-[#f5f5f5]">{stat.value}</p>
-                    <p className="text-xs text-[#555555] mt-1">{stat.sub}</p>
-                  </div>
-                  <div className={`w-9 h-9 rounded-lg ${stat.bg} flex items-center justify-center`}>
-                    <stat.icon size={17} className={stat.color} />
-                  </div>
+            <div key={stat.label} className="bg-[#0e0e0e] border border-[#1e1e1e] px-4 py-4">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-[10px] text-[#444444] uppercase tracking-widest mb-2">{stat.label}</p>
+                  <p className="text-2xl font-semibold text-[#e8e8e8]">{stat.value}</p>
+                  <p className="text-[10px] text-[#333333] mt-1">{stat.sub}</p>
                 </div>
-              </CardContent>
-            </Card>
+                <stat.icon size={15} className="text-[#2a2a2a]" />
+              </div>
+            </div>
           ))}
         </div>
 
         {/* Charts row */}
-        <div className="grid grid-cols-3 gap-4">
-          <DashboardCharts
-            genderStats={genderStats}
-            statusStats={statusStats}
-            classStats={classStats}
-          />
+        <div className="grid grid-cols-3 gap-3">
+          <DashboardCharts genderStats={genderStats} statusStats={statusStats} classStats={classStats} />
         </div>
 
         {/* Bottom row */}
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-3">
           {/* Recent children */}
           <Card>
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
                 <CardTitle>최근 등록 아동</CardTitle>
-                <Link href="/children" className="text-xs text-indigo-400 hover:text-indigo-300 flex items-center gap-1 transition-colors">
-                  전체보기 <ArrowRight size={12} />
+                <Link href="/children" className="text-[10px] text-[#555555] hover:text-[#888888] flex items-center gap-1 transition-colors uppercase tracking-widest">
+                  전체보기 <ArrowRight size={10} />
                 </Link>
               </div>
             </CardHeader>
             <CardContent>
               {recentChildren.length === 0 ? (
-                <p className="text-sm text-[#444444] py-4 text-center">등록된 아동이 없습니다</p>
+                <p className="text-[12px] text-[#333333] py-4 text-center">등록된 아동이 없습니다</p>
               ) : (
-                <div className="space-y-2">
+                <div className="space-y-1">
                   {recentChildren.map((child) => (
-                    <Link
-                      key={child.id}
-                      href={`/children/${child.id}`}
-                      className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[#1a1a1a] transition-colors"
-                    >
-                      <div className="w-7 h-7 rounded-full bg-indigo-600/20 flex items-center justify-center shrink-0">
-                        <span className="text-xs text-indigo-400 font-medium">
-                          {child.name[0]}
-                        </span>
+                    <Link key={child.id} href={`/children/${child.id}`}
+                      className="flex items-center gap-3 px-3 py-2 hover:bg-[#0c0c0c] transition-colors">
+                      <div className="w-6 h-6 bg-[#141414] border border-[#1e1e1e] flex items-center justify-center shrink-0">
+                        <span className="text-[9px] text-[#555555]">{child.name[0]}</span>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm text-[#e0e0e0] font-medium truncate">{child.name}</p>
-                        <p className="text-xs text-[#555555]">
+                        <p className="text-[12px] text-[#cccccc] font-medium truncate">{child.name}</p>
+                        <p className="text-[10px] text-[#444444]">
                           {child.gender === 'male' ? '남' : child.gender === 'female' ? '여' : '기타'}
                         </p>
                       </div>
-                      <Badge className={CHILD_STATUS_COLORS[child.status]}>
-                        {CHILD_STATUS_LABELS[child.status]}
-                      </Badge>
+                      <Badge className={CHILD_STATUS_COLORS[child.status]}>{CHILD_STATUS_LABELS[child.status]}</Badge>
                     </Link>
                   ))}
                 </div>
@@ -172,32 +127,27 @@ export default async function DashboardPage() {
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
                 <CardTitle>예정된 활동</CardTitle>
-                <Link href="/activities" className="text-xs text-indigo-400 hover:text-indigo-300 flex items-center gap-1 transition-colors">
-                  전체보기 <ArrowRight size={12} />
+                <Link href="/activities" className="text-[10px] text-[#555555] hover:text-[#888888] flex items-center gap-1 transition-colors uppercase tracking-widest">
+                  전체보기 <ArrowRight size={10} />
                 </Link>
               </div>
             </CardHeader>
             <CardContent>
               {upcomingActivities.length === 0 ? (
-                <p className="text-sm text-[#444444] py-4 text-center">예정된 활동이 없습니다</p>
+                <p className="text-[12px] text-[#333333] py-4 text-center">예정된 활동이 없습니다</p>
               ) : (
-                <div className="space-y-2">
+                <div className="space-y-1">
                   {upcomingActivities.map((activity) => (
-                    <Link
-                      key={activity.id}
-                      href={`/activities`}
-                      className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[#1a1a1a] transition-colors"
-                    >
-                      <div className={`w-1.5 h-8 rounded-full ${ACTIVITY_TYPE_COLORS[activity.type]?.split(' ')[1] ?? 'bg-gray-400/10'}`} />
+                    <Link key={activity.id} href="/activities"
+                      className="flex items-center gap-3 px-3 py-2 hover:bg-[#0c0c0c] transition-colors">
+                      <div className={`w-0.5 h-6 ${ACTIVITY_TYPE_COLORS[activity.type]?.split(' ')[1] ?? 'bg-[#333333]'}`} />
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm text-[#e0e0e0] font-medium truncate">{activity.title}</p>
-                        <p className="text-xs text-[#555555]">
-                          {activity.activity_date ?? '날짜 미정'} {activity.activity_time ? `• ${activity.activity_time}` : ''}
+                        <p className="text-[12px] text-[#cccccc] font-medium truncate">{activity.title}</p>
+                        <p className="text-[10px] text-[#444444]">
+                          {activity.activity_date ?? '날짜 미정'}{activity.activity_time ? ` · ${activity.activity_time}` : ''}
                         </p>
                       </div>
-                      <Badge className={ACTIVITY_TYPE_COLORS[activity.type]}>
-                        {ACTIVITY_TYPE_LABELS[activity.type]}
-                      </Badge>
+                      <Badge className={ACTIVITY_TYPE_COLORS[activity.type]}>{ACTIVITY_TYPE_LABELS[activity.type]}</Badge>
                     </Link>
                   ))}
                 </div>

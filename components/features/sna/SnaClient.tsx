@@ -195,7 +195,7 @@ export function SnaClient({ children, classes, activities }: Props) {
         <select
           value={filterClass}
           onChange={(e) => setFilterClass(e.target.value)}
-          className="bg-[#111111] border border-[#1e1e1e] rounded-lg px-3 py-2 text-sm text-[#a0a0a0] focus:outline-none focus:border-indigo-500 h-9 cursor-pointer"
+          className="bg-[#0e0e0e] border border-[#1e1e1e] px-3 text-[12px] text-[#888888] focus:outline-none focus:border-[#333333] h-8 rounded-sm cursor-pointer"
         >
           <option value="all">전체 반</option>
           {classes.map((cls) => (

@@ -54,20 +54,20 @@ export function SettingsClient({ user }: Props) {
         </CardHeader>
         <CardContent className="space-y-3">
           <div>
-            <p className="text-xs text-[#555555] mb-1">이메일</p>
-            <p className="text-sm text-[#e0e0e0] bg-[#141414] border border-[#1e1e1e] rounded-lg px-3 py-2">
+            <p className="text-[10px] text-[#444444] uppercase tracking-widest mb-1">이메일</p>
+            <p className="text-[12px] text-[#cccccc] bg-[#141414] border border-[#1e1e1e] px-3 py-2">
               {user?.email ?? '—'}
             </p>
           </div>
           <div>
-            <p className="text-xs text-[#555555] mb-1">계정 ID</p>
-            <p className="text-sm text-[#555555] bg-[#141414] border border-[#1e1e1e] rounded-lg px-3 py-2 font-mono text-xs">
+            <p className="text-[10px] text-[#444444] uppercase tracking-widest mb-1">계정 ID</p>
+            <p className="text-[11px] text-[#444444] bg-[#141414] border border-[#1e1e1e] px-3 py-2 font-mono">
               {user?.id ?? '—'}
             </p>
           </div>
           <div>
-            <p className="text-xs text-[#555555] mb-1">마지막 로그인</p>
-            <p className="text-sm text-[#a0a0a0] bg-[#141414] border border-[#1e1e1e] rounded-lg px-3 py-2">
+            <p className="text-[10px] text-[#444444] uppercase tracking-widest mb-1">마지막 로그인</p>
+            <p className="text-[12px] text-[#888888] bg-[#141414] border border-[#1e1e1e] px-3 py-2">
               {user?.last_sign_in_at
                 ? new Date(user.last_sign_in_at).toLocaleString('ko-KR')
                 : '—'}
@@ -101,10 +101,10 @@ export function SettingsClient({ user }: Props) {
               onChange={(e) => setConfirmPw(e.target.value)}
             />
             {pwMessage && (
-              <div className={`px-3 py-2 rounded-lg text-xs ${
+              <div className={`px-3 py-2 text-[11px] ${
                 pwMessage.type === 'success'
-                  ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400'
-                  : 'bg-red-500/10 border border-red-500/20 text-red-400'
+                  ? 'border border-[#1a3a1a] bg-[#081208] text-emerald-500'
+                  : 'border border-[#3a1414] bg-[#120808] text-red-400'
               }`}>
                 {pwMessage.text}
               </div>

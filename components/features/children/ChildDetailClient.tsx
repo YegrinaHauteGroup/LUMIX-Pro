@@ -85,8 +85,8 @@ export function ChildDetailClient({ child, classes, recentActivities }: Props) {
         <Card className="col-span-1">
           <CardContent className="pt-5">
             <div className="flex flex-col items-center text-center gap-3">
-              <div className="w-16 h-16 rounded-full bg-indigo-600/15 border border-indigo-600/20 flex items-center justify-center">
-                <span className="text-2xl font-semibold text-indigo-400">{child.name[0]}</span>
+              <div className="w-16 h-16 bg-[#141414] border border-[#1e1e1e] flex items-center justify-center">
+                <span className="text-2xl font-semibold text-[#888888]">{child.name[0]}</span>
               </div>
               <div>
                 <h2 className="text-lg font-semibold text-[#f5f5f5]">{child.name}</h2>
