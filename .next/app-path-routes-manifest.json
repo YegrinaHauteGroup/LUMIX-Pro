@@ -1,1 +1,16 @@
-{"/_not-found/page":"/_not-found","/(auth)/login/page":"/login","/auth/callback/route":"/auth/callback","/page":"/","/(dashboard)/activities/page":"/activities","/(dashboard)/children/[id]/page":"/children/[id]","/(dashboard)/children/page":"/children","/(dashboard)/classes/page":"/classes","/(dashboard)/dashboard/page":"/dashboard","/(dashboard)/attendance/page":"/attendance","/(dashboard)/settings/page":"/settings","/(dashboard)/reports/page":"/reports","/(dashboard)/sna/page":"/sna"}
+{
+  "/(auth)/login/page": "/login",
+  "/(dashboard)/activities/page": "/activities",
+  "/(dashboard)/attendance/page": "/attendance",
+  "/(dashboard)/children/[id]/page": "/children/[id]",
+  "/(dashboard)/children/page": "/children",
+  "/(dashboard)/classes/page": "/classes",
+  "/(dashboard)/dashboard/page": "/dashboard",
+  "/(dashboard)/reports/page": "/reports",
+  "/(dashboard)/settings/page": "/settings",
+  "/(dashboard)/sna/page": "/sna",
+  "/_global-error/page": "/_global-error",
+  "/_not-found/page": "/_not-found",
+  "/auth/callback/route": "/auth/callback",
+  "/page": "/"
+}
