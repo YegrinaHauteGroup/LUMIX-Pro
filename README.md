@@ -1,2 +1,4 @@
 # LUMIX-Pro
-beta ver of LUMIX Pro
+OPERATIONAL SYSTEM FOR EDUCATION FACILITIES.
+
+Created by YegrinaHauteGroup2026
