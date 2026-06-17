@@ -45,7 +45,7 @@ export default function LoginPage() {
         {/* Logo */}
         <div className="flex flex-col items-center mb-8 gap-3">
           <div className="w-10 h-10 text-[#e8e8e8]">
-            <Image src="/logo.svg" alt="LUMIX Pro" width={40} height={40} className="invert" />
+            <Image src="/logo.svg" alt="LUMIX Pro" width={40} height={40} />
           </div>
           <div className="text-center">
             <p className="text-[16px] font-semibold text-[#e8e8e8] tracking-[0.15em]">LUMIX Pro</p>
