@@ -27,7 +27,7 @@ export function Sidebar() {
       {/* Logo */}
       <div className="flex items-center gap-3 px-4 py-4 border-b border-[#1a1a1a]">
         <div className="w-6 h-6 text-[#e8e8e8] shrink-0">
-          <Image src="/logo.svg" alt="LUMIX Pro" width={24} height={24} className="invert" />
+          <Image src="/logo.svg" alt="LUMIX Pro" width={24} height={24} />
         </div>
         <div className="leading-none">
           <span className="text-[13px] font-semibold text-[#e8e8e8] tracking-wider">LUMIX</span>
