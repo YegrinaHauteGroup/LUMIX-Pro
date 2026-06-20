@@ -4,24 +4,38 @@ import { createClient } from '@/utils/supabase/server'
 import { cookies } from 'next/headers'
 import { SnaClient } from '@/components/features/sna/SnaClient'
 
+interface SnaNode {
+  child_id: string
+  name: string
+  class_id: string | null
+  connection_count: number
+}
+
+interface SnaEdge {
+  source_id: string
+  target_id: string
+  strength: number
+}
+
 export default async function SnaPage() {
   const cookieStore = await cookies()
   const supabase = createClient(cookieStore)
   const centerId = await getCenterId()
 
-  const [childrenRes, classesRes, activitiesRes] = await Promise.all([
-    supabase.from('children').select('id, name, class_id, status').eq('center_id', centerId ?? '').eq('status', 'active'),
+  const [snaRes, classesRes] = await Promise.all([
+    supabase.rpc('get_sna_graph', { p_center_id: centerId ?? '' }),
     supabase.from('classes').select('id, name').eq('center_id', centerId ?? ''),
-    supabase.from('activities').select('id, title, class_id, type').eq('center_id', centerId ?? ''),
   ])
+
+  const snaData = snaRes.data as { nodes: SnaNode[]; edges: SnaEdge[] } | null
 
   return (
     <>
       <Header title="SNA 분석" subtitle="아동 간 사회적 관계망을 시각화합니다" />
       <SnaClient
-        children={childrenRes.data ?? []}
+        nodes={snaData?.nodes ?? []}
+        edges={snaData?.edges ?? []}
         classes={classesRes.data ?? []}
-        activities={activitiesRes.data ?? []}
       />
     </>
   )
