@@ -1,0 +1,7 @@
+# Supabase project configuration
+# https://supabase.com/docs/guides/cli/config
+
+project_id = "dumvoejqlbhvunjnvzue"
+
+[functions.recompute_sna_brandes]
+verify_jwt = false

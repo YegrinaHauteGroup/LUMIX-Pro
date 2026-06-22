@@ -1,18 +1,31 @@
 'use client'
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
-import type { Child, Activity, Class } from '@/lib/types'
 import { useEffect, useRef, useState } from 'react'
 import * as d3 from 'd3'
 
-interface ChildNode extends Pick<Child, 'id' | 'name' | 'class_id' | 'status'> {}
-interface ActivityItem extends Pick<Activity, 'id' | 'title' | 'class_id' | 'type'> {}
-interface ClassItem extends Pick<Class, 'id' | 'name'> {}
+interface SnaNodeData {
+  child_id: string
+  name: string
+  class_id: string | null
+  connection_count: number
+}
+
+interface SnaEdgeData {
+  source_id: string
+  target_id: string
+  strength: number
+}
+
+interface ClassItem {
+  id: string
+  name: string
+}
 
 interface Props {
-  children: ChildNode[]
+  nodes: SnaNodeData[]
+  edges: SnaEdgeData[]
   classes: ClassItem[]
-  activities: ActivityItem[]
 }
 
 interface D3Node extends d3.SimulationNodeDatum {
@@ -34,7 +47,7 @@ const CLASS_COLORS = [
   '#14b8a6', '#f97316', '#ec4899', '#06b6d4', '#a3e635',
 ]
 
-export function SnaClient({ children, classes, activities }: Props) {
+export function SnaClient({ nodes, edges, classes }: Props) {
   const svgRef = useRef<SVGSVGElement>(null)
   const [selected, setSelected] = useState<D3Node | null>(null)
   const [filterClass, setFilterClass] = useState<string>('all')
@@ -44,52 +57,27 @@ export function SnaClient({ children, classes, activities }: Props) {
     classColorMap[cls.id] = CLASS_COLORS[i % CLASS_COLORS.length]
   })
 
-  const filteredChildren = filterClass === 'all'
-    ? children
-    : children.filter((c) => c.class_id === filterClass)
+  const filteredNodes: D3Node[] = nodes
+    .filter((n) => filterClass === 'all' || n.class_id === filterClass)
+    .map((n) => ({
+      id: n.child_id,
+      name: n.name,
+      classId: n.class_id,
+      className: classes.find((c) => c.id === n.class_id)?.name ?? null,
+      connections: n.connection_count,
+    }))
 
-  // Build SNA: children connected by shared class
-  const nodes: D3Node[] = filteredChildren.map((c) => {
-    const cls = classes.find((cl) => cl.id === c.class_id)
-    const classmates = filteredChildren.filter(
-      (other) => other.id !== c.id && other.class_id === c.class_id
-    ).length
-    const activityConnections = activities.filter(
-      (a) => a.class_id === c.class_id
-    ).length
-    return {
-      id: c.id,
-      name: c.name,
-      classId: c.class_id,
-      className: cls?.name ?? null,
-      connections: classmates + activityConnections,
-    }
-  })
-
-  const linksMap: Map<string, D3Link> = new Map()
-  filteredChildren.forEach((child) => {
-    const classmates = filteredChildren.filter(
-      (other) => other.id !== child.id && other.class_id === child.class_id
-    )
-    classmates.forEach((mate) => {
-      const key = [child.id, mate.id].sort().join('|')
-      if (!linksMap.has(key)) {
-        const sharedActivities = activities.filter(
-          (a) => a.class_id === child.class_id
-        ).length
-        linksMap.set(key, {
-          source: child.id,
-          target: mate.id,
-          strength: sharedActivities + 1,
-        })
-      }
-    })
-  })
-
-  const links: D3Link[] = Array.from(linksMap.values())
+  const nodeIds = new Set(filteredNodes.map((n) => n.id))
+  const filteredLinks: D3Link[] = edges
+    .filter((e) => nodeIds.has(e.source_id) && nodeIds.has(e.target_id))
+    .map((e) => ({
+      source: e.source_id,
+      target: e.target_id,
+      strength: e.strength,
+    }))
 
   useEffect(() => {
-    if (!svgRef.current || nodes.length === 0) return
+    if (!svgRef.current || filteredNodes.length === 0) return
 
     const svg = d3.select(svgRef.current)
     svg.selectAll('*').remove()
@@ -99,7 +87,6 @@ export function SnaClient({ children, classes, activities }: Props) {
 
     const g = svg.append('g')
 
-    // Zoom
     const zoom = d3.zoom<SVGSVGElement, unknown>()
       .scaleExtent([0.3, 3])
       .on('zoom', (event) => {
@@ -107,8 +94,8 @@ export function SnaClient({ children, classes, activities }: Props) {
       })
     svg.call(zoom)
 
-    const simulation = d3.forceSimulation<D3Node>(nodes)
-      .force('link', d3.forceLink<D3Node, D3Link>(links)
+    const simulation = d3.forceSimulation<D3Node>(filteredNodes)
+      .force('link', d3.forceLink<D3Node, D3Link>(filteredLinks)
         .id((d) => d.id)
         .distance((l) => 80 - Math.min((l.strength ?? 1) * 5, 40))
       )
@@ -116,20 +103,18 @@ export function SnaClient({ children, classes, activities }: Props) {
       .force('center', d3.forceCenter(width / 2, height / 2))
       .force('collision', d3.forceCollide(28))
 
-    // Links
     const link = g.append('g')
       .selectAll('line')
-      .data(links)
+      .data(filteredLinks)
       .enter()
       .append('line')
       .attr('stroke', '#2a2a2a')
       .attr('stroke-width', (d) => Math.min((d.strength ?? 1) * 0.8, 3))
       .attr('stroke-opacity', 0.8)
 
-    // Nodes
     const node = g.append('g')
       .selectAll('g')
-      .data(nodes)
+      .data(filteredNodes)
       .enter()
       .append('g')
       .attr('cursor', 'pointer')
@@ -147,7 +132,6 @@ export function SnaClient({ children, classes, activities }: Props) {
           })
       )
 
-    // Circle
     node.append('circle')
       .attr('r', (d) => 14 + Math.min(d.connections * 1.5, 10))
       .attr('fill', (d) => d.classId ? classColorMap[d.classId] ?? '#6366f1' : '#444444')
@@ -155,7 +139,6 @@ export function SnaClient({ children, classes, activities }: Props) {
       .attr('stroke', (d) => d.classId ? classColorMap[d.classId] ?? '#6366f1' : '#444444')
       .attr('stroke-width', 1.5)
 
-    // Label
     node.append('text')
       .text((d) => d.name)
       .attr('text-anchor', 'middle')
@@ -175,22 +158,21 @@ export function SnaClient({ children, classes, activities }: Props) {
     })
 
     return () => { simulation.stop() }
-  }, [nodes.length, links.length, filterClass])
+  }, [filteredNodes.length, filteredLinks.length, filterClass])
 
   const stats = {
-    nodes: nodes.length,
-    links: links.length,
-    density: nodes.length > 1
-      ? ((links.length * 2) / (nodes.length * (nodes.length - 1)) * 100).toFixed(1)
+    nodes: filteredNodes.length,
+    links: filteredLinks.length,
+    density: filteredNodes.length > 1
+      ? ((filteredLinks.length * 2) / (filteredNodes.length * (filteredNodes.length - 1)) * 100).toFixed(1)
       : '0.0',
-    isolated: nodes.filter((n) => !links.some(
-      (l) => (l.source as D3Node).id === n.id || (l.target as D3Node).id === n.id
+    isolated: filteredNodes.filter((n) => !filteredLinks.some(
+      (l) => l.source === n.id || l.target === n.id
     )).length,
   }
 
   return (
     <div className="flex-1 p-6 flex flex-col gap-4">
-      {/* Controls */}
       <div className="flex items-center gap-3">
         <select
           value={filterClass}
@@ -208,7 +190,6 @@ export function SnaClient({ children, classes, activities }: Props) {
       </div>
 
       <div className="flex gap-4 flex-1 min-h-0">
-        {/* Graph */}
         <Card className="flex-1">
           <div className="p-4 border-b border-[#1a1a1a] flex items-center gap-4">
             {classes.map((cls, i) => (
@@ -218,7 +199,7 @@ export function SnaClient({ children, classes, activities }: Props) {
               </div>
             ))}
           </div>
-          {nodes.length === 0 ? (
+          {filteredNodes.length === 0 ? (
             <div className="flex items-center justify-center h-80 text-[#444444] text-sm">
               재원 아동이 없거나 반이 배정되지 않았습니다
             </div>
@@ -231,9 +212,7 @@ export function SnaClient({ children, classes, activities }: Props) {
           )}
         </Card>
 
-        {/* Side panel */}
         <div className="w-60 space-y-4">
-          {/* Stats */}
           <Card>
             <CardHeader><CardTitle>네트워크 지표</CardTitle></CardHeader>
             <CardContent className="space-y-3">
@@ -251,7 +230,6 @@ export function SnaClient({ children, classes, activities }: Props) {
             </CardContent>
           </Card>
 
-          {/* Selected node info */}
           {selected && (
             <Card>
               <CardHeader><CardTitle>선택된 아동</CardTitle></CardHeader>
@@ -282,15 +260,14 @@ export function SnaClient({ children, classes, activities }: Props) {
             </Card>
           )}
 
-          {/* Top connected */}
           <Card>
             <CardHeader><CardTitle>연결 중심성 상위</CardTitle></CardHeader>
             <CardContent>
-              {nodes.length === 0 ? (
+              {filteredNodes.length === 0 ? (
                 <p className="text-xs text-[#444444]">데이터 없음</p>
               ) : (
                 <div className="space-y-2">
-                  {[...nodes]
+                  {[...filteredNodes]
                     .sort((a, b) => b.connections - a.connections)
                     .slice(0, 5)
                     .map((n, i) => (
