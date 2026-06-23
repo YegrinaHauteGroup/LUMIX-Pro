@@ -1,80 +1,139 @@
 'use client'
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
-import { useEffect, useRef, useState } from 'react'
+import { createClient } from '@/utils/supabase/client'
+import { useRouter } from 'next/navigation'
+import { useEffect, useRef, useState, useMemo } from 'react'
 import * as d3 from 'd3'
 
 interface SnaNodeData {
   child_id: string
   name: string
   class_id: string | null
+  class_name: string | null
   connection_count: number
+  weighted_degree: number
+  in_degree: number
+  out_degree: number
+  betweenness: number
+  closeness: number
+  eigenvector: number
+  clustering: number
+  degree_centrality: number
+  community_id: number | null
+  is_isolated: boolean
 }
 
 interface SnaEdgeData {
   source_id: string
   target_id: string
   strength: number
+  relation_types: string[]
+  has_conflict: boolean
 }
 
-interface ClassItem {
-  id: string
-  name: string
+interface ClassItem { id: string; name: string }
+
+interface Insights {
+  summary?: { children: number; isolated: number; communities: number; avg_betweenness: number }
+  isolated?: { child_id: string; name: string; class_name: string | null }[]
+  top_brokers?: { child_id: string; name: string; betweenness: number }[]
+  most_influential?: { child_id: string; name: string; eigenvector: number }[]
+  conflict_children?: { child_id: string; name: string; conflicts: number }[]
+  communities?: { community_id: number; size: number; members: string[] }[]
+  cross_class_links?: number
 }
 
 interface Props {
+  centerId: string
   nodes: SnaNodeData[]
   edges: SnaEdgeData[]
+  insights: Insights | null
   classes: ClassItem[]
 }
 
 interface D3Node extends d3.SimulationNodeDatum {
   id: string
-  name: string
-  classId: string | null
-  className: string | null
-  connections: number
+  data: SnaNodeData
 }
-
 interface D3Link extends d3.SimulationLinkDatum<D3Node> {
   source: string | D3Node
   target: string | D3Node
   strength: number
+  hasConflict: boolean
+  relationTypes: string[]
 }
 
-const CLASS_COLORS = [
+const PALETTE = [
   '#6366f1', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6',
   '#14b8a6', '#f97316', '#ec4899', '#06b6d4', '#a3e635',
 ]
 
-export function SnaClient({ nodes, edges, classes }: Props) {
+type SizeMetric = 'connection_count' | 'betweenness' | 'eigenvector' | 'closeness'
+type ColorMode = 'class' | 'community'
+
+const SIZE_LABELS: Record<SizeMetric, string> = {
+  connection_count: '연결 수 (Degree)',
+  betweenness: '매개 중심성 (Betweenness)',
+  eigenvector: '영향력 (Eigenvector)',
+  closeness: '근접 중심성 (Closeness)',
+}
+
+export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) {
   const svgRef = useRef<SVGSVGElement>(null)
-  const [selected, setSelected] = useState<D3Node | null>(null)
+  const router = useRouter()
+  const [selected, setSelected] = useState<SnaNodeData | null>(null)
   const [filterClass, setFilterClass] = useState<string>('all')
+  const [sizeMetric, setSizeMetric] = useState<SizeMetric>('connection_count')
+  const [colorMode, setColorMode] = useState<ColorMode>('class')
+  const [recomputing, setRecomputing] = useState(false)
+  const [recomputeMsg, setRecomputeMsg] = useState<string | null>(null)
 
-  const classColorMap: Record<string, string> = {}
-  classes.forEach((cls, i) => {
-    classColorMap[cls.id] = CLASS_COLORS[i % CLASS_COLORS.length]
-  })
+  const classColorMap = useMemo(() => {
+    const m: Record<string, string> = {}
+    classes.forEach((cls, i) => { m[cls.id] = PALETTE[i % PALETTE.length] })
+    return m
+  }, [classes])
 
-  const filteredNodes: D3Node[] = nodes
-    .filter((n) => filterClass === 'all' || n.class_id === filterClass)
-    .map((n) => ({
-      id: n.child_id,
-      name: n.name,
-      classId: n.class_id,
-      className: classes.find((c) => c.id === n.class_id)?.name ?? null,
-      connections: n.connection_count,
-    }))
+  const communityColor = (id: number | null) =>
+    id == null ? '#444444' : PALETTE[id % PALETTE.length]
 
-  const nodeIds = new Set(filteredNodes.map((n) => n.id))
-  const filteredLinks: D3Link[] = edges
-    .filter((e) => nodeIds.has(e.source_id) && nodeIds.has(e.target_id))
-    .map((e) => ({
-      source: e.source_id,
-      target: e.target_id,
-      strength: e.strength,
-    }))
+  const nodeColor = (n: SnaNodeData) =>
+    colorMode === 'community'
+      ? communityColor(n.community_id)
+      : (n.class_id ? classColorMap[n.class_id] ?? '#6366f1' : '#444444')
+
+  const filteredNodes = useMemo(
+    () => nodes.filter((n) => filterClass === 'all' || n.class_id === filterClass),
+    [nodes, filterClass],
+  )
+
+  const nodeIds = useMemo(() => new Set(filteredNodes.map((n) => n.child_id)), [filteredNodes])
+  const filteredEdges = useMemo(
+    () => edges.filter((e) => nodeIds.has(e.source_id) && nodeIds.has(e.target_id)),
+    [edges, nodeIds],
+  )
+
+  async function handleRecompute() {
+    if (!centerId) return
+    setRecomputing(true)
+    setRecomputeMsg(null)
+    try {
+      const supabase = createClient()
+      const { data, error } = await supabase.functions.invoke('recompute_sna_metrics', {
+        body: { center_id: centerId, rebuild: true },
+      })
+      if (error) throw error
+      setRecomputeMsg(
+        `재계산 완료 · 노드 ${data?.nodes ?? 0} · 직접연결 ${data?.child_child_edges ?? 0} · 추론연결 ${data?.inferred_edges ?? 0}`,
+      )
+      router.refresh()
+    } catch (e) {
+      setRecomputeMsg(`재계산 실패: ${(e as Error).message}`)
+    } finally {
+      setRecomputing(false)
+    }
+  }
 
   useEffect(() => {
     if (!svgRef.current || filteredNodes.length === 0) return
@@ -85,40 +144,51 @@ export function SnaClient({ nodes, edges, classes }: Props) {
     const width = svgRef.current.clientWidth || 800
     const height = svgRef.current.clientHeight || 500
 
-    const g = svg.append('g')
+    const d3Nodes: D3Node[] = filteredNodes.map((n) => ({ id: n.child_id, data: n }))
+    const d3Links: D3Link[] = filteredEdges.map((e) => ({
+      source: e.source_id,
+      target: e.target_id,
+      strength: e.strength,
+      hasConflict: e.has_conflict,
+      relationTypes: e.relation_types ?? [],
+    }))
 
+    // size scale based on chosen metric
+    const metricVals = d3Nodes.map((d) => (d.data[sizeMetric] as number) ?? 0)
+    const maxVal = Math.max(1, ...metricVals)
+    const radius = (d: D3Node) => 12 + 16 * Math.sqrt(((d.data[sizeMetric] as number) ?? 0) / maxVal)
+
+    const g = svg.append('g')
     const zoom = d3.zoom<SVGSVGElement, unknown>()
       .scaleExtent([0.3, 3])
-      .on('zoom', (event) => {
-        g.attr('transform', event.transform)
-      })
+      .on('zoom', (event) => g.attr('transform', event.transform))
     svg.call(zoom)
 
-    const simulation = d3.forceSimulation<D3Node>(filteredNodes)
-      .force('link', d3.forceLink<D3Node, D3Link>(filteredLinks)
+    const simulation = d3.forceSimulation<D3Node>(d3Nodes)
+      .force('link', d3.forceLink<D3Node, D3Link>(d3Links)
         .id((d) => d.id)
-        .distance((l) => 80 - Math.min((l.strength ?? 1) * 5, 40))
-      )
-      .force('charge', d3.forceManyBody().strength(-200))
+        .distance((l) => 90 - Math.min((l.strength ?? 1) * 18, 50)))
+      .force('charge', d3.forceManyBody().strength(-260))
       .force('center', d3.forceCenter(width / 2, height / 2))
-      .force('collision', d3.forceCollide(28))
+      .force('collision', d3.forceCollide<D3Node>().radius((d) => radius(d) + 6))
 
     const link = g.append('g')
       .selectAll('line')
-      .data(filteredLinks)
+      .data(d3Links)
       .enter()
       .append('line')
-      .attr('stroke', '#2a2a2a')
-      .attr('stroke-width', (d) => Math.min((d.strength ?? 1) * 0.8, 3))
-      .attr('stroke-opacity', 0.8)
+      .attr('stroke', (d) => (d.hasConflict ? '#ef4444' : '#3a3a3a'))
+      .attr('stroke-width', (d) => Math.min(1 + (d.strength ?? 1) * 1.2, 5))
+      .attr('stroke-opacity', (d) => (d.hasConflict ? 0.9 : 0.7))
+      .attr('stroke-dasharray', (d) => (d.hasConflict ? '4 2' : null))
 
     const node = g.append('g')
       .selectAll('g')
-      .data(filteredNodes)
+      .data(d3Nodes)
       .enter()
       .append('g')
       .attr('cursor', 'pointer')
-      .on('click', (_, d) => setSelected(d))
+      .on('click', (_, d) => setSelected(d.data))
       .call(
         d3.drag<SVGGElement, D3Node>()
           .on('start', (event, d) => {
@@ -129,18 +199,19 @@ export function SnaClient({ nodes, edges, classes }: Props) {
           .on('end', (event, d) => {
             if (!event.active) simulation.alphaTarget(0)
             d.fx = null; d.fy = null
-          })
+          }),
       )
 
     node.append('circle')
-      .attr('r', (d) => 14 + Math.min(d.connections * 1.5, 10))
-      .attr('fill', (d) => d.classId ? classColorMap[d.classId] ?? '#6366f1' : '#444444')
-      .attr('fill-opacity', 0.2)
-      .attr('stroke', (d) => d.classId ? classColorMap[d.classId] ?? '#6366f1' : '#444444')
-      .attr('stroke-width', 1.5)
+      .attr('r', radius)
+      .attr('fill', (d) => nodeColor(d.data))
+      .attr('fill-opacity', (d) => (d.data.is_isolated ? 0.05 : 0.22))
+      .attr('stroke', (d) => (d.data.is_isolated ? '#666' : nodeColor(d.data)))
+      .attr('stroke-width', (d) => (d.data.is_isolated ? 1 : 1.8))
+      .attr('stroke-dasharray', (d) => (d.data.is_isolated ? '3 2' : null))
 
     node.append('text')
-      .text((d) => d.name)
+      .text((d) => d.data.name)
       .attr('text-anchor', 'middle')
       .attr('dy', '0.35em')
       .attr('font-size', 11)
@@ -153,66 +224,87 @@ export function SnaClient({ nodes, edges, classes }: Props) {
         .attr('y1', (d) => (d.source as D3Node).y ?? 0)
         .attr('x2', (d) => (d.target as D3Node).x ?? 0)
         .attr('y2', (d) => (d.target as D3Node).y ?? 0)
-
       node.attr('transform', (d) => `translate(${d.x ?? 0},${d.y ?? 0})`)
     })
 
     return () => { simulation.stop() }
-  }, [filteredNodes.length, filteredLinks.length, filterClass])
+  }, [filteredNodes, filteredEdges, sizeMetric, colorMode]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const stats = {
     nodes: filteredNodes.length,
-    links: filteredLinks.length,
+    links: filteredEdges.length,
     density: filteredNodes.length > 1
-      ? ((filteredLinks.length * 2) / (filteredNodes.length * (filteredNodes.length - 1)) * 100).toFixed(1)
+      ? ((filteredEdges.length * 2) / (filteredNodes.length * (filteredNodes.length - 1)) * 100).toFixed(1)
       : '0.0',
-    isolated: filteredNodes.filter((n) => !filteredLinks.some(
-      (l) => l.source === n.id || l.target === n.id
-    )).length,
+    isolated: filteredNodes.filter((n) => n.is_isolated).length,
+    communities: new Set(filteredNodes.map((n) => n.community_id).filter((c) => c != null)).size,
   }
 
   return (
     <div className="flex-1 p-6 flex flex-col gap-4">
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 flex-wrap">
         <select
           value={filterClass}
           onChange={(e) => setFilterClass(e.target.value)}
           className="bg-[#0e0e0e] border border-[#1e1e1e] px-3 text-[12px] text-[#888888] focus:outline-none focus:border-[#333333] h-8 rounded-sm cursor-pointer"
         >
           <option value="all">전체 반</option>
-          {classes.map((cls) => (
-            <option key={cls.id} value={cls.id}>{cls.name}</option>
-          ))}
+          {classes.map((cls) => <option key={cls.id} value={cls.id}>{cls.name}</option>)}
         </select>
-        <span className="text-xs text-[#555555]">
-          드래그로 노드 이동 · 스크롤로 확대/축소
-        </span>
+
+        <select
+          value={sizeMetric}
+          onChange={(e) => setSizeMetric(e.target.value as SizeMetric)}
+          className="bg-[#0e0e0e] border border-[#1e1e1e] px-3 text-[12px] text-[#888888] focus:outline-none focus:border-[#333333] h-8 rounded-sm cursor-pointer"
+        >
+          {Object.entries(SIZE_LABELS).map(([k, v]) => <option key={k} value={k}>크기: {v}</option>)}
+        </select>
+
+        <select
+          value={colorMode}
+          onChange={(e) => setColorMode(e.target.value as ColorMode)}
+          className="bg-[#0e0e0e] border border-[#1e1e1e] px-3 text-[12px] text-[#888888] focus:outline-none focus:border-[#333333] h-8 rounded-sm cursor-pointer"
+        >
+          <option value="class">색상: 반</option>
+          <option value="community">색상: 커뮤니티</option>
+        </select>
+
+        <button
+          onClick={handleRecompute}
+          disabled={recomputing}
+          className="h-8 px-4 text-[12px] rounded-sm bg-indigo-500/15 border border-indigo-500/40 text-indigo-300 hover:bg-indigo-500/25 disabled:opacity-50 cursor-pointer transition-colors"
+        >
+          {recomputing ? '재계산 중…' : 'SNA 재계산'}
+        </button>
+
+        {recomputeMsg && <span className="text-xs text-[#777777]">{recomputeMsg}</span>}
+        <span className="text-xs text-[#555555] ml-auto">드래그 이동 · 스크롤 확대/축소 · 빨간 점선=갈등</span>
       </div>
 
       <div className="flex gap-4 flex-1 min-h-0">
         <Card className="flex-1">
-          <div className="p-4 border-b border-[#1a1a1a] flex items-center gap-4">
-            {classes.map((cls, i) => (
-              <div key={cls.id} className="flex items-center gap-1.5">
-                <div className="w-2.5 h-2.5 rounded-full" style={{ background: CLASS_COLORS[i % CLASS_COLORS.length] }} />
-                <span className="text-xs text-[#a0a0a0]">{cls.name}</span>
+          <div className="p-4 border-b border-[#1a1a1a] flex items-center gap-4 flex-wrap">
+            {(colorMode === 'class' ? classes.map((cls, i) => ({ key: cls.id, label: cls.name, color: PALETTE[i % PALETTE.length] }))
+              : Array.from(new Set(filteredNodes.map((n) => n.community_id).filter((c) => c != null))).map((cid) => ({
+                key: String(cid), label: `커뮤니티 ${cid}`, color: communityColor(cid as number),
+              }))).map((item) => (
+              <div key={item.key} className="flex items-center gap-1.5">
+                <div className="w-2.5 h-2.5 rounded-full" style={{ background: item.color }} />
+                <span className="text-xs text-[#a0a0a0]">{item.label}</span>
               </div>
             ))}
           </div>
           {filteredNodes.length === 0 ? (
-            <div className="flex items-center justify-center h-80 text-[#444444] text-sm">
-              재원 아동이 없거나 반이 배정되지 않았습니다
+            <div className="flex flex-col items-center justify-center h-80 text-[#444444] text-sm gap-2">
+              <p>표시할 관계망 데이터가 없습니다</p>
+              <p className="text-xs text-[#555]">평가 데이터 입력 후 “SNA 재계산”을 눌러주세요</p>
             </div>
           ) : (
-            <svg
-              ref={svgRef}
-              className="w-full h-[500px]"
-              style={{ background: 'transparent' }}
-            />
+            <svg ref={svgRef} className="w-full h-[500px]" style={{ background: 'transparent' }} />
           )}
         </Card>
 
-        <div className="w-60 space-y-4">
+        <div className="w-64 space-y-4 overflow-y-auto">
           <Card>
             <CardHeader><CardTitle>네트워크 지표</CardTitle></CardHeader>
             <CardContent className="space-y-3">
@@ -220,6 +312,7 @@ export function SnaClient({ nodes, edges, classes }: Props) {
                 { label: '노드 수 (아동)', value: stats.nodes },
                 { label: '연결 수 (관계)', value: stats.links },
                 { label: '네트워크 밀도', value: `${stats.density}%` },
+                { label: '커뮤니티 수', value: stats.communities },
                 { label: '고립 아동', value: stats.isolated },
               ].map(({ label, value }) => (
                 <div key={label} className="flex items-center justify-between">
@@ -238,60 +331,80 @@ export function SnaClient({ nodes, edges, classes }: Props) {
                   <div
                     className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold"
                     style={{
-                      background: selected.classId ? `${classColorMap[selected.classId]}22` : '#222',
-                      border: `1.5px solid ${selected.classId ? classColorMap[selected.classId] ?? '#6366f1' : '#444'}`,
-                      color: selected.classId ? classColorMap[selected.classId] ?? '#6366f1' : '#666',
+                      background: `${nodeColor(selected)}22`,
+                      border: `1.5px solid ${nodeColor(selected)}`,
+                      color: nodeColor(selected),
                     }}
                   >
                     {selected.name[0]}
                   </div>
                   <div>
                     <p className="text-sm font-medium text-[#e0e0e0]">{selected.name}</p>
-                    <p className="text-xs text-[#555555]">{selected.className ?? '반 미배정'}</p>
+                    <p className="text-xs text-[#555555]">{selected.class_name ?? '반 미배정'}</p>
                   </div>
                 </div>
                 <div className="border-t border-[#1a1a1a] pt-2 space-y-1">
-                  <div className="flex justify-between text-xs">
-                    <span className="text-[#666666]">연결 수</span>
-                    <span className="text-[#e0e0e0]">{selected.connections}</span>
-                  </div>
+                  {[
+                    ['연결 수', selected.connection_count],
+                    ['가중 연결', selected.weighted_degree?.toFixed(2)],
+                    ['받은 관계(in)', selected.in_degree],
+                    ['매개 중심성', selected.betweenness?.toFixed(2)],
+                    ['근접 중심성', selected.closeness?.toFixed(3)],
+                    ['영향력(eig)', selected.eigenvector?.toFixed(3)],
+                    ['군집 계수', selected.clustering?.toFixed(2)],
+                    ['커뮤니티', selected.community_id ?? '-'],
+                  ].map(([k, v]) => (
+                    <div key={String(k)} className="flex justify-between text-xs">
+                      <span className="text-[#666666]">{k}</span>
+                      <span className="text-[#e0e0e0]">{String(v)}</span>
+                    </div>
+                  ))}
                 </div>
               </CardContent>
             </Card>
           )}
 
-          <Card>
-            <CardHeader><CardTitle>연결 중심성 상위</CardTitle></CardHeader>
-            <CardContent>
-              {filteredNodes.length === 0 ? (
-                <p className="text-xs text-[#444444]">데이터 없음</p>
-              ) : (
-                <div className="space-y-2">
-                  {[...filteredNodes]
-                    .sort((a, b) => b.connections - a.connections)
-                    .slice(0, 5)
-                    .map((n, i) => (
-                      <div key={n.id} className="flex items-center gap-2">
-                        <span className="text-xs text-[#444444] w-4">{i + 1}</span>
-                        <div
-                          className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-medium"
-                          style={{
-                            background: n.classId ? `${classColorMap[n.classId]}22` : '#222',
-                            color: n.classId ? classColorMap[n.classId] ?? '#6366f1' : '#666',
-                          }}
-                        >
-                          {n.name[0]}
-                        </div>
-                        <span className="text-xs text-[#a0a0a0] flex-1 truncate">{n.name}</span>
-                        <span className="text-xs text-[#555555]">{n.connections}</span>
-                      </div>
-                    ))}
+          {insights && (
+            <Card>
+              <CardHeader><CardTitle>분석 인사이트</CardTitle></CardHeader>
+              <CardContent className="space-y-3">
+                <InsightList title="핵심 매개자 (브로커)" color="#22c55e"
+                  items={(insights.top_brokers ?? []).map((b) => `${b.name} · ${b.betweenness.toFixed(1)}`)} />
+                <InsightList title="영향력 상위" color="#6366f1"
+                  items={(insights.most_influential ?? []).map((b) => `${b.name} · ${b.eigenvector.toFixed(2)}`)} />
+                <InsightList title="고립 위험 아동" color="#f59e0b"
+                  items={(insights.isolated ?? []).map((b) => `${b.name}${b.class_name ? ` (${b.class_name})` : ''}`)}
+                  empty="없음" />
+                <InsightList title="갈등 관계 아동" color="#ef4444"
+                  items={(insights.conflict_children ?? []).map((b) => `${b.name} · ${b.conflicts}건`)}
+                  empty="없음" />
+                <div className="flex justify-between text-xs pt-1 border-t border-[#1a1a1a]">
+                  <span className="text-[#666666]">반 경계를 넘는 연결</span>
+                  <span className="text-[#e0e0e0]">{insights.cross_class_links ?? 0}</span>
                 </div>
-              )}
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
+    </div>
+  )
+}
+
+function InsightList({ title, color, items, empty }: { title: string; color: string; items: string[]; empty?: string }) {
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center gap-1.5">
+        <div className="w-2 h-2 rounded-full" style={{ background: color }} />
+        <span className="text-xs font-medium text-[#a0a0a0]">{title}</span>
+      </div>
+      {items.length === 0 ? (
+        <p className="text-xs text-[#444444] pl-3.5">{empty ?? '데이터 없음'}</p>
+      ) : (
+        <ul className="pl-3.5 space-y-0.5">
+          {items.map((it, i) => <li key={i} className="text-xs text-[#888888] truncate">{it}</li>)}
+        </ul>
+      )}
     </div>
   )
 }
