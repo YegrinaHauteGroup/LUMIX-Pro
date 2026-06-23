@@ -31,32 +31,36 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#080808] flex items-center justify-center p-4">
+    <div className="relative min-h-screen bg-canvas flex items-center justify-center p-4 overflow-hidden">
+      {/* Pastel ambient glow */}
+      <div className="pointer-events-none absolute -top-40 -right-32 w-[34rem] h-[34rem] rounded-full bg-accent-soft blur-3xl opacity-70" />
+      <div className="pointer-events-none absolute -bottom-40 -left-32 w-[30rem] h-[30rem] rounded-full bg-[color:var(--color-info-soft)] blur-3xl opacity-70" />
       {/* Subtle grid */}
       <div
-        className="absolute inset-0 opacity-[0.02] pointer-events-none"
+        className="absolute inset-0 opacity-[0.5] pointer-events-none"
         style={{
-          backgroundImage: `linear-gradient(#ffffff 1px, transparent 1px), linear-gradient(90deg, #ffffff 1px, transparent 1px)`,
+          backgroundImage: `linear-gradient(#0e172608 1px, transparent 1px), linear-gradient(90deg, #0e172608 1px, transparent 1px)`,
           backgroundSize: '48px 48px',
+          maskImage: 'radial-gradient(ellipse at center, black 35%, transparent 75%)',
         }}
       />
 
-      <div className="relative w-full max-w-[360px]">
+      <div className="relative w-full max-w-[380px]">
         {/* Logo */}
-        <div className="flex flex-col items-center mb-8 gap-3">
-          <div className="w-10 h-10 text-[#e8e8e8]">
-            <Image src="/logo.svg" alt="LUMIX Pro" width={40} height={40} />
+        <div className="flex flex-col items-center mb-7 gap-3">
+          <div className="w-12 h-12 rounded-2xl bg-surface border border-line shadow-[var(--shadow-card)] flex items-center justify-center">
+            <Image src="/logo.svg" alt="LUMIX Pro" width={28} height={28} />
           </div>
           <div className="text-center">
-            <p className="text-[16px] font-semibold text-[#e8e8e8] tracking-[0.15em]">LUMIX Pro</p>
-            <p className="text-[11px] text-[#444444] tracking-widest mt-0.5 uppercase">아동 시설 관리 플랫폼</p>
+            <p className="text-[18px] font-semibold text-ink tracking-[-0.01em]">LUMIX Pro</p>
+            <p className="text-[11px] text-ink-faint tracking-[0.12em] mt-1 uppercase">아동 시설 관리 플랫폼</p>
           </div>
         </div>
 
         {/* Form card */}
-        <div className="bg-[#0e0e0e] border border-[#1e1e1e] p-6">
-          <p className="text-[11px] text-[#444444] uppercase tracking-widest mb-5">관리자 로그인</p>
-          <form onSubmit={handleLogin} className="space-y-3">
+        <div className="bg-surface border border-line rounded-2xl shadow-[var(--shadow-pop)] p-7">
+          <p className="text-[11px] text-ink-faint uppercase tracking-[0.12em] mb-5">관리자 로그인</p>
+          <form onSubmit={handleLogin} className="space-y-4">
             <Input
               label="이메일"
               type="email"
@@ -64,7 +68,7 @@ export default function LoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              icon={<Mail size={12} />}
+              icon={<Mail size={13} />}
             />
             <Input
               label="비밀번호"
@@ -73,11 +77,11 @@ export default function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              icon={<Lock size={12} />}
+              icon={<Lock size={13} />}
             />
             {error && (
-              <div className="border border-[#3a1414] bg-[#120808] px-3 py-2">
-                <p className="text-[11px] text-[#ef4444]">{error}</p>
+              <div className="border border-[color:var(--color-danger-soft)] bg-[color:var(--color-danger-soft)] rounded-lg px-3 py-2">
+                <p className="text-[11px] text-danger">{error}</p>
               </div>
             )}
             <div className="pt-1">
@@ -88,7 +92,7 @@ export default function LoginPage() {
           </form>
         </div>
 
-        <p className="text-center text-[10px] text-[#2a2a2a] mt-5 tracking-wider uppercase">
+        <p className="text-center text-[10px] text-ink-ghost mt-6 tracking-[0.1em] uppercase">
           © 2026 LUMIX Pro · All rights reserved
         </p>
       </div>

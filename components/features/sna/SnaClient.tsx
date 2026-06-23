@@ -65,7 +65,7 @@ interface D3Link extends d3.SimulationLinkDatum<D3Node> {
 }
 
 const PALETTE = [
-  '#6366f1', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6',
+  '#5a63f2', '#22c55e', '#f59e0b', '#e5484d', '#8b5cf6',
   '#14b8a6', '#f97316', '#ec4899', '#06b6d4', '#a3e635',
 ]
 
@@ -96,12 +96,12 @@ export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) 
   }, [classes])
 
   const communityColor = (id: number | null) =>
-    id == null ? '#444444' : PALETTE[id % PALETTE.length]
+    id == null ? '#8a93a6' : PALETTE[id % PALETTE.length]
 
   const nodeColor = (n: SnaNodeData) =>
     colorMode === 'community'
       ? communityColor(n.community_id)
-      : (n.class_id ? classColorMap[n.class_id] ?? '#6366f1' : '#444444')
+      : (n.class_id ? classColorMap[n.class_id] ?? '#5a63f2' : '#8a93a6')
 
   const filteredNodes = useMemo(
     () => nodes.filter((n) => filterClass === 'all' || n.class_id === filterClass),
@@ -177,7 +177,7 @@ export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) 
       .data(d3Links)
       .enter()
       .append('line')
-      .attr('stroke', (d) => (d.hasConflict ? '#ef4444' : '#3a3a3a'))
+      .attr('stroke', (d) => (d.hasConflict ? '#e5484d' : '#c4ccd9'))
       .attr('stroke-width', (d) => Math.min(1 + (d.strength ?? 1) * 1.2, 5))
       .attr('stroke-opacity', (d) => (d.hasConflict ? 0.9 : 0.7))
       .attr('stroke-dasharray', (d) => (d.hasConflict ? '4 2' : null))
@@ -215,7 +215,7 @@ export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) 
       .attr('text-anchor', 'middle')
       .attr('dy', '0.35em')
       .attr('font-size', 11)
-      .attr('fill', '#e0e0e0')
+      .attr('fill', '#0e1726')
       .attr('pointer-events', 'none')
 
     simulation.on('tick', () => {
@@ -246,7 +246,7 @@ export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) 
         <select
           value={filterClass}
           onChange={(e) => setFilterClass(e.target.value)}
-          className="bg-[#0e0e0e] border border-[#1e1e1e] px-3 text-[12px] text-[#888888] focus:outline-none focus:border-[#333333] h-8 rounded-sm cursor-pointer"
+          className="bg-[#ffffff] border border-[#e6eaf2] px-3 text-[12px] text-[#5a6678] focus:outline-none focus:border-[#5a63f2] h-8 rounded-sm cursor-pointer"
         >
           <option value="all">전체 반</option>
           {classes.map((cls) => <option key={cls.id} value={cls.id}>{cls.name}</option>)}
@@ -255,7 +255,7 @@ export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) 
         <select
           value={sizeMetric}
           onChange={(e) => setSizeMetric(e.target.value as SizeMetric)}
-          className="bg-[#0e0e0e] border border-[#1e1e1e] px-3 text-[12px] text-[#888888] focus:outline-none focus:border-[#333333] h-8 rounded-sm cursor-pointer"
+          className="bg-[#ffffff] border border-[#e6eaf2] px-3 text-[12px] text-[#5a6678] focus:outline-none focus:border-[#5a63f2] h-8 rounded-sm cursor-pointer"
         >
           {Object.entries(SIZE_LABELS).map(([k, v]) => <option key={k} value={k}>크기: {v}</option>)}
         </select>
@@ -263,7 +263,7 @@ export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) 
         <select
           value={colorMode}
           onChange={(e) => setColorMode(e.target.value as ColorMode)}
-          className="bg-[#0e0e0e] border border-[#1e1e1e] px-3 text-[12px] text-[#888888] focus:outline-none focus:border-[#333333] h-8 rounded-sm cursor-pointer"
+          className="bg-[#ffffff] border border-[#e6eaf2] px-3 text-[12px] text-[#5a6678] focus:outline-none focus:border-[#5a63f2] h-8 rounded-sm cursor-pointer"
         >
           <option value="class">색상: 반</option>
           <option value="community">색상: 커뮤니티</option>
@@ -277,25 +277,25 @@ export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) 
           {recomputing ? '재계산 중…' : 'SNA 재계산'}
         </button>
 
-        {recomputeMsg && <span className="text-xs text-[#777777]">{recomputeMsg}</span>}
-        <span className="text-xs text-[#555555] ml-auto">드래그 이동 · 스크롤 확대/축소 · 빨간 점선=갈등</span>
+        {recomputeMsg && <span className="text-xs text-[#667085]">{recomputeMsg}</span>}
+        <span className="text-xs text-[#7a8499] ml-auto">드래그 이동 · 스크롤 확대/축소 · 빨간 점선=갈등</span>
       </div>
 
       <div className="flex gap-4 flex-1 min-h-0">
         <Card className="flex-1">
-          <div className="p-4 border-b border-[#1a1a1a] flex items-center gap-4 flex-wrap">
+          <div className="p-4 border-b border-[#e9edf4] flex items-center gap-4 flex-wrap">
             {(colorMode === 'class' ? classes.map((cls, i) => ({ key: cls.id, label: cls.name, color: PALETTE[i % PALETTE.length] }))
               : Array.from(new Set(filteredNodes.map((n) => n.community_id).filter((c) => c != null))).map((cid) => ({
                 key: String(cid), label: `커뮤니티 ${cid}`, color: communityColor(cid as number),
               }))).map((item) => (
               <div key={item.key} className="flex items-center gap-1.5">
                 <div className="w-2.5 h-2.5 rounded-full" style={{ background: item.color }} />
-                <span className="text-xs text-[#a0a0a0]">{item.label}</span>
+                <span className="text-xs text-[#475467]">{item.label}</span>
               </div>
             ))}
           </div>
           {filteredNodes.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-80 text-[#444444] text-sm gap-2">
+            <div className="flex flex-col items-center justify-center h-80 text-[#8a93a6] text-sm gap-2">
               <p>표시할 관계망 데이터가 없습니다</p>
               <p className="text-xs text-[#555]">평가 데이터 입력 후 “SNA 재계산”을 눌러주세요</p>
             </div>
@@ -316,8 +316,8 @@ export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) 
                 { label: '고립 아동', value: stats.isolated },
               ].map(({ label, value }) => (
                 <div key={label} className="flex items-center justify-between">
-                  <span className="text-xs text-[#666666]">{label}</span>
-                  <span className="text-sm font-semibold text-[#e0e0e0]">{value}</span>
+                  <span className="text-xs text-[#667085]">{label}</span>
+                  <span className="text-sm font-semibold text-[#0e1726]">{value}</span>
                 </div>
               ))}
             </CardContent>
@@ -339,11 +339,11 @@ export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) 
                     {selected.name[0]}
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-[#e0e0e0]">{selected.name}</p>
-                    <p className="text-xs text-[#555555]">{selected.class_name ?? '반 미배정'}</p>
+                    <p className="text-sm font-medium text-[#0e1726]">{selected.name}</p>
+                    <p className="text-xs text-[#7a8499]">{selected.class_name ?? '반 미배정'}</p>
                   </div>
                 </div>
-                <div className="border-t border-[#1a1a1a] pt-2 space-y-1">
+                <div className="border-t border-[#e9edf4] pt-2 space-y-1">
                   {[
                     ['연결 수', selected.connection_count],
                     ['가중 연결', selected.weighted_degree?.toFixed(2)],
@@ -355,8 +355,8 @@ export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) 
                     ['커뮤니티', selected.community_id ?? '-'],
                   ].map(([k, v]) => (
                     <div key={String(k)} className="flex justify-between text-xs">
-                      <span className="text-[#666666]">{k}</span>
-                      <span className="text-[#e0e0e0]">{String(v)}</span>
+                      <span className="text-[#667085]">{k}</span>
+                      <span className="text-[#0e1726]">{String(v)}</span>
                     </div>
                   ))}
                 </div>
@@ -370,17 +370,17 @@ export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) 
               <CardContent className="space-y-3">
                 <InsightList title="핵심 매개자 (브로커)" color="#22c55e"
                   items={(insights.top_brokers ?? []).map((b) => `${b.name} · ${b.betweenness.toFixed(1)}`)} />
-                <InsightList title="영향력 상위" color="#6366f1"
+                <InsightList title="영향력 상위" color="#5a63f2"
                   items={(insights.most_influential ?? []).map((b) => `${b.name} · ${b.eigenvector.toFixed(2)}`)} />
                 <InsightList title="고립 위험 아동" color="#f59e0b"
                   items={(insights.isolated ?? []).map((b) => `${b.name}${b.class_name ? ` (${b.class_name})` : ''}`)}
                   empty="없음" />
-                <InsightList title="갈등 관계 아동" color="#ef4444"
+                <InsightList title="갈등 관계 아동" color="#e5484d"
                   items={(insights.conflict_children ?? []).map((b) => `${b.name} · ${b.conflicts}건`)}
                   empty="없음" />
-                <div className="flex justify-between text-xs pt-1 border-t border-[#1a1a1a]">
-                  <span className="text-[#666666]">반 경계를 넘는 연결</span>
-                  <span className="text-[#e0e0e0]">{insights.cross_class_links ?? 0}</span>
+                <div className="flex justify-between text-xs pt-1 border-t border-[#e9edf4]">
+                  <span className="text-[#667085]">반 경계를 넘는 연결</span>
+                  <span className="text-[#0e1726]">{insights.cross_class_links ?? 0}</span>
                 </div>
               </CardContent>
             </Card>
@@ -396,13 +396,13 @@ function InsightList({ title, color, items, empty }: { title: string; color: str
     <div className="space-y-1">
       <div className="flex items-center gap-1.5">
         <div className="w-2 h-2 rounded-full" style={{ background: color }} />
-        <span className="text-xs font-medium text-[#a0a0a0]">{title}</span>
+        <span className="text-xs font-medium text-[#475467]">{title}</span>
       </div>
       {items.length === 0 ? (
-        <p className="text-xs text-[#444444] pl-3.5">{empty ?? '데이터 없음'}</p>
+        <p className="text-xs text-[#8a93a6] pl-3.5">{empty ?? '데이터 없음'}</p>
       ) : (
         <ul className="pl-3.5 space-y-0.5">
-          {items.map((it, i) => <li key={i} className="text-xs text-[#888888] truncate">{it}</li>)}
+          {items.map((it, i) => <li key={i} className="text-xs text-[#5a6678] truncate">{it}</li>)}
         </ul>
       )}
     </div>

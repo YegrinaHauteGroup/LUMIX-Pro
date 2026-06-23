@@ -74,7 +74,7 @@ export function ChildDetailClient({ child, classes, recentActivities }: Props) {
     <div className="flex-1 p-6 space-y-5">
       <Link
         href="/children"
-        className="inline-flex items-center gap-1.5 text-sm text-[#666666] hover:text-[#a0a0a0] transition-colors"
+        className="inline-flex items-center gap-1.5 text-sm text-[#667085] hover:text-[#475467] transition-colors"
       >
         <ArrowLeft size={14} />
         아동 목록으로
@@ -85,12 +85,12 @@ export function ChildDetailClient({ child, classes, recentActivities }: Props) {
         <Card className="col-span-1">
           <CardContent className="pt-5">
             <div className="flex flex-col items-center text-center gap-3">
-              <div className="w-16 h-16 bg-[#141414] border border-[#1e1e1e] flex items-center justify-center">
-                <span className="text-2xl font-semibold text-[#888888]">{child.name[0]}</span>
+              <div className="w-16 h-16 bg-[#f1f4f9] border border-[#e6eaf2] flex items-center justify-center">
+                <span className="text-2xl font-semibold text-[#5a6678]">{child.name[0]}</span>
               </div>
               <div>
                 <h2 className="text-lg font-semibold text-[#f5f5f5]">{child.name}</h2>
-                <p className="text-sm text-[#555555]">
+                <p className="text-sm text-[#7a8499]">
                   {child.birth_date ? `${calculateAge(child.birth_date)}세` : '나이 미등록'}
                   {' · '}
                   {GENDER_LABELS[child.gender]}
@@ -101,24 +101,24 @@ export function ChildDetailClient({ child, classes, recentActivities }: Props) {
               </Badge>
             </div>
 
-            <div className="mt-5 space-y-3 border-t border-[#1a1a1a] pt-4">
+            <div className="mt-5 space-y-3 border-t border-[#e9edf4] pt-4">
               <div>
-                <p className="text-xs text-[#555555] mb-0.5">소속 반</p>
-                <p className="text-sm text-[#e0e0e0]">
+                <p className="text-xs text-[#7a8499] mb-0.5">소속 반</p>
+                <p className="text-sm text-[#0e1726]">
                   {(child.classes as Class | undefined)?.name ?? '미배정'}
                 </p>
               </div>
               <div>
-                <p className="text-xs text-[#555555] mb-0.5">보호자</p>
-                <p className="text-sm text-[#e0e0e0]">{child.guardian_name ?? '—'}</p>
+                <p className="text-xs text-[#7a8499] mb-0.5">보호자</p>
+                <p className="text-sm text-[#0e1726]">{child.guardian_name ?? '—'}</p>
               </div>
               <div>
-                <p className="text-xs text-[#555555] mb-0.5">연락처</p>
-                <p className="text-sm text-[#e0e0e0]">{child.guardian_phone ?? '—'}</p>
+                <p className="text-xs text-[#7a8499] mb-0.5">연락처</p>
+                <p className="text-sm text-[#0e1726]">{child.guardian_phone ?? '—'}</p>
               </div>
               <div>
-                <p className="text-xs text-[#555555] mb-0.5">등록일</p>
-                <p className="text-sm text-[#e0e0e0]">{formatDate(child.created_at)}</p>
+                <p className="text-xs text-[#7a8499] mb-0.5">등록일</p>
+                <p className="text-sm text-[#0e1726]">{formatDate(child.created_at)}</p>
               </div>
             </div>
           </CardContent>
@@ -212,18 +212,18 @@ export function ChildDetailClient({ child, classes, recentActivities }: Props) {
         </CardHeader>
         <CardContent>
           {recentActivities.length === 0 ? (
-            <p className="text-sm text-[#444444] py-4 text-center">참여한 활동이 없습니다</p>
+            <p className="text-sm text-[#8a93a6] py-4 text-center">참여한 활동이 없습니다</p>
           ) : (
             <div className="grid grid-cols-2 gap-2">
               {recentActivities.slice(0, 6).map((activity) => (
                 <div
                   key={activity.id}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-[#141414] border border-[#1e1e1e]"
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-[#f1f4f9] border border-[#e6eaf2]"
                 >
                   <div className={`w-1.5 h-8 rounded-full ${ACTIVITY_TYPE_COLORS[activity.type]?.split(' ')[1]}`} />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-[#e0e0e0] font-medium truncate">{activity.title}</p>
-                    <p className="text-xs text-[#555555]">{activity.activity_date ?? '날짜 미정'}</p>
+                    <p className="text-sm text-[#0e1726] font-medium truncate">{activity.title}</p>
+                    <p className="text-xs text-[#7a8499]">{activity.activity_date ?? '날짜 미정'}</p>
                   </div>
                   <Badge className={ACTIVITY_STATUS_COLORS[activity.status]}>
                     {ACTIVITY_STATUS_LABELS[activity.status]}

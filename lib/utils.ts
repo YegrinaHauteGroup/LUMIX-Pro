@@ -46,9 +46,9 @@ export const CHILD_STATUS_LABELS = {
 }
 
 export const CHILD_STATUS_COLORS = {
-  active: 'text-emerald-400 bg-emerald-400/10',
-  inactive: 'text-red-400 bg-red-400/10',
-  leave: 'text-yellow-400 bg-yellow-400/10',
+  active: 'text-emerald-700 bg-emerald-50',
+  inactive: 'text-rose-700 bg-rose-50',
+  leave: 'text-amber-700 bg-amber-50',
 }
 
 export const ACTIVITY_TYPE_LABELS = {
@@ -60,11 +60,11 @@ export const ACTIVITY_TYPE_LABELS = {
 }
 
 export const ACTIVITY_TYPE_COLORS = {
-  education: 'text-blue-400 bg-blue-400/10',
-  therapy: 'text-purple-400 bg-purple-400/10',
-  recreation: 'text-green-400 bg-green-400/10',
-  counseling: 'text-orange-400 bg-orange-400/10',
-  other: 'text-gray-400 bg-gray-400/10',
+  education: 'text-indigo-700 bg-indigo-50',
+  therapy: 'text-violet-700 bg-violet-50',
+  recreation: 'text-green-700 bg-green-50',
+  counseling: 'text-orange-700 bg-orange-50',
+  other: 'text-slate-600 bg-slate-100',
 }
 
 export const ACTIVITY_STATUS_LABELS = {
@@ -75,10 +75,10 @@ export const ACTIVITY_STATUS_LABELS = {
 }
 
 export const ACTIVITY_STATUS_COLORS = {
-  planned: 'text-blue-400 bg-blue-400/10',
-  ongoing: 'text-emerald-400 bg-emerald-400/10',
-  completed: 'text-gray-400 bg-gray-400/10',
-  cancelled: 'text-red-400 bg-red-400/10',
+  planned: 'text-indigo-700 bg-indigo-50',
+  ongoing: 'text-emerald-700 bg-emerald-50',
+  completed: 'text-slate-600 bg-slate-100',
+  cancelled: 'text-rose-700 bg-rose-50',
 }
 
 export const ATTENDANCE_STATUS_LABELS = {
@@ -89,8 +89,8 @@ export const ATTENDANCE_STATUS_LABELS = {
 }
 
 export const ATTENDANCE_STATUS_COLORS = {
-  present: 'text-emerald-400 bg-emerald-400/10',
-  absent: 'text-red-400 bg-red-400/10',
-  late: 'text-yellow-400 bg-yellow-400/10',
-  leave: 'text-orange-400 bg-orange-400/10',
+  present: 'text-emerald-700 bg-emerald-50',
+  absent: 'text-rose-700 bg-rose-50',
+  late: 'text-amber-700 bg-amber-50',
+  leave: 'text-orange-700 bg-orange-50',
 }

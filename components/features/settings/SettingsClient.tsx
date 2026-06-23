@@ -66,19 +66,19 @@ export function SettingsClient({ user, center }: Props) {
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
-            <Building2 size={13} className="text-[#444444]" />
+            <Building2 size={13} className="text-[#8a93a6]" />
             <CardTitle>시설 정보</CardTitle>
           </div>
         </CardHeader>
         <CardContent>
           {!center ? (
-            <div className="border border-[#3a2a00] bg-[#120e00] px-3 py-3 text-[11px] text-[#cc8800] mb-3">
+            <div className="border border-[#fdf3e2] bg-[#120e00] px-3 py-3 text-[11px] text-[#b7791f] mb-3">
               센터 정보가 없습니다. 저장 버튼을 클릭하면 자동으로 생성됩니다.
             </div>
           ) : (
             <div className="mb-3">
-              <p className="text-[10px] text-[#333333] uppercase tracking-widest mb-1">센터 ID</p>
-              <p className="text-[11px] text-[#333333] font-mono">{center.id}</p>
+              <p className="text-[10px] text-[#aab2c2] uppercase tracking-widest mb-1">센터 ID</p>
+              <p className="text-[11px] text-[#aab2c2] font-mono">{center.id}</p>
             </div>
           )}
           <form onSubmit={handleCenterSave} className="space-y-3">
@@ -92,8 +92,8 @@ export function SettingsClient({ user, center }: Props) {
             {centerMsg && (
               <div className={`px-3 py-2 text-[11px] ${
                 centerMsg.type === 'success'
-                  ? 'border border-[#1a3a1a] bg-[#081208] text-emerald-500'
-                  : 'border border-[#3a1414] bg-[#120808] text-red-400'
+                  ? 'border border-[#e7f7ed] bg-[#e7f7ed] text-emerald-500'
+                  : 'border border-[#f7caca] bg-[#fdecec] text-red-400'
               }`}>
                 {centerMsg.text}
               </div>
@@ -109,26 +109,26 @@ export function SettingsClient({ user, center }: Props) {
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
-            <UserIcon size={13} className="text-[#444444]" />
+            <UserIcon size={13} className="text-[#8a93a6]" />
             <CardTitle>계정 정보</CardTitle>
           </div>
         </CardHeader>
         <CardContent className="space-y-3">
           <div>
-            <p className="text-[10px] text-[#444444] uppercase tracking-widest mb-1">이메일</p>
-            <p className="text-[12px] text-[#cccccc] bg-[#141414] border border-[#1e1e1e] px-3 py-2">
+            <p className="text-[10px] text-[#8a93a6] uppercase tracking-widest mb-1">이메일</p>
+            <p className="text-[12px] text-[#1c2740] bg-[#f1f4f9] border border-[#e6eaf2] px-3 py-2">
               {user?.email ?? '—'}
             </p>
           </div>
           <div>
-            <p className="text-[10px] text-[#444444] uppercase tracking-widest mb-1">계정 ID</p>
-            <p className="text-[11px] text-[#444444] bg-[#141414] border border-[#1e1e1e] px-3 py-2 font-mono">
+            <p className="text-[10px] text-[#8a93a6] uppercase tracking-widest mb-1">계정 ID</p>
+            <p className="text-[11px] text-[#8a93a6] bg-[#f1f4f9] border border-[#e6eaf2] px-3 py-2 font-mono">
               {user?.id ?? '—'}
             </p>
           </div>
           <div>
-            <p className="text-[10px] text-[#444444] uppercase tracking-widest mb-1">마지막 로그인</p>
-            <p className="text-[12px] text-[#888888] bg-[#141414] border border-[#1e1e1e] px-3 py-2">
+            <p className="text-[10px] text-[#8a93a6] uppercase tracking-widest mb-1">마지막 로그인</p>
+            <p className="text-[12px] text-[#5a6678] bg-[#f1f4f9] border border-[#e6eaf2] px-3 py-2">
               {user?.last_sign_in_at ? new Date(user.last_sign_in_at).toLocaleString('ko-KR') : '—'}
             </p>
           </div>
@@ -139,7 +139,7 @@ export function SettingsClient({ user, center }: Props) {
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
-            <KeyRound size={13} className="text-[#444444]" />
+            <KeyRound size={13} className="text-[#8a93a6]" />
             <CardTitle>비밀번호 변경</CardTitle>
           </div>
         </CardHeader>
@@ -152,8 +152,8 @@ export function SettingsClient({ user, center }: Props) {
             {pwMessage && (
               <div className={`px-3 py-2 text-[11px] ${
                 pwMessage.type === 'success'
-                  ? 'border border-[#1a3a1a] bg-[#081208] text-emerald-500'
-                  : 'border border-[#3a1414] bg-[#120808] text-red-400'
+                  ? 'border border-[#e7f7ed] bg-[#e7f7ed] text-emerald-500'
+                  : 'border border-[#f7caca] bg-[#fdecec] text-red-400'
               }`}>
                 {pwMessage.text}
               </div>
@@ -169,7 +169,7 @@ export function SettingsClient({ user, center }: Props) {
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
-            <Shield size={13} className="text-[#444444]" />
+            <Shield size={13} className="text-[#8a93a6]" />
             <CardTitle>시스템 정보</CardTitle>
           </div>
         </CardHeader>
@@ -180,9 +180,9 @@ export function SettingsClient({ user, center }: Props) {
             { label: 'DB', value: 'Supabase (PostgreSQL)' },
             { label: '지원', value: 'support@lumixpro.kr' },
           ].map(({ label, value }) => (
-            <div key={label} className="flex items-center justify-between py-2 border-b border-[#111111] last:border-0">
-              <span className="text-[11px] text-[#444444] uppercase tracking-widest">{label}</span>
-              <span className="text-[11px] text-[#888888]">{value}</span>
+            <div key={label} className="flex items-center justify-between py-2 border-b border-[#eef2f8] last:border-0">
+              <span className="text-[11px] text-[#8a93a6] uppercase tracking-widest">{label}</span>
+              <span className="text-[11px] text-[#5a6678]">{value}</span>
             </div>
           ))}
         </CardContent>
