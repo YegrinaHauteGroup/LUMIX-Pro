@@ -77,21 +77,21 @@ export function ActivitiesClient({ initialActivities, classes, centerId }: Props
     <div className="flex-1 p-5 space-y-4 overflow-auto">
       <div className="flex items-center gap-2">
         <select value={filterType} onChange={(e) => setFilterType(e.target.value as typeof filterType)}
-          className="bg-[#0e0e0e] border border-[#1e1e1e] px-3 text-[12px] text-[#888888] focus:outline-none focus:border-[#333333] h-8 rounded-sm cursor-pointer">
+          className="bg-[#ffffff] border border-[#e6eaf2] px-3 text-[12px] text-[#5a6678] focus:outline-none focus:border-[#5a63f2] h-8 rounded-sm cursor-pointer">
           <option value="all">전체 유형</option>
           {(Object.keys(ACTIVITY_TYPE_LABELS) as Activity['type'][]).map((t) => (
             <option key={t} value={t}>{ACTIVITY_TYPE_LABELS[t]}</option>
           ))}
         </select>
         <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value as typeof filterStatus)}
-          className="bg-[#0e0e0e] border border-[#1e1e1e] px-3 text-[12px] text-[#888888] focus:outline-none focus:border-[#333333] h-8 rounded-sm cursor-pointer">
+          className="bg-[#ffffff] border border-[#e6eaf2] px-3 text-[12px] text-[#5a6678] focus:outline-none focus:border-[#5a63f2] h-8 rounded-sm cursor-pointer">
           <option value="all">전체 상태</option>
           {(Object.keys(ACTIVITY_STATUS_LABELS) as Activity['status'][]).map((s) => (
             <option key={s} value={s}>{ACTIVITY_STATUS_LABELS[s]}</option>
           ))}
         </select>
         <div className="flex-1" />
-        <span className="text-[11px] text-[#444444]">{filtered.length}개</span>
+        <span className="text-[11px] text-[#8a93a6]">{filtered.length}개</span>
         <Button onClick={() => setModalOpen(true)} size="sm"><Plus size={12} /> 활동 추가</Button>
       </div>
 
@@ -99,29 +99,29 @@ export function ActivitiesClient({ initialActivities, classes, centerId }: Props
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-[#1a1a1a]">
+              <tr className="border-b border-[#e9edf4]">
                 {['제목', '날짜', '시간', '반', '유형', '상태', ''].map((h) => (
-                  <th key={h} className="text-left text-[10px] text-[#444444] font-medium uppercase tracking-widest px-4 py-3">{h}</th>
+                  <th key={h} className="text-left text-[10px] text-[#8a93a6] font-medium uppercase tracking-widest px-4 py-3">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
                 <tr><td colSpan={7} className="text-center py-16">
-                  <CalendarDays size={28} className="mx-auto mb-2 text-[#1e1e1e]" />
-                  <p className="text-[12px] text-[#333333]">등록된 활동이 없습니다</p>
+                  <CalendarDays size={28} className="mx-auto mb-2 text-[#e6eaf2]" />
+                  <p className="text-[12px] text-[#aab2c2]">등록된 활동이 없습니다</p>
                 </td></tr>
               ) : filtered.map((a) => (
-                <tr key={a.id} className="border-b border-[#111111] hover:bg-[#0c0c0c] transition-colors">
+                <tr key={a.id} className="border-b border-[#eef2f8] hover:bg-[#f3f6fb] transition-colors">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
-                      <div className={`w-0.5 h-5 ${ACTIVITY_TYPE_COLORS[a.type]?.split(' ')[1] ?? 'bg-[#333333]'}`} />
-                      <span className="text-[12px] font-medium text-[#cccccc]">{a.title}</span>
+                      <div className={`w-0.5 h-5 ${ACTIVITY_TYPE_COLORS[a.type]?.split(' ')[1] ?? 'bg-[#aab2c2]'}`} />
+                      <span className="text-[12px] font-medium text-[#1c2740]">{a.title}</span>
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-[12px] text-[#666666]">{a.activity_date ?? '—'}</td>
-                  <td className="px-4 py-3 text-[12px] text-[#666666]">{a.activity_time ?? '—'}</td>
-                  <td className="px-4 py-3 text-[12px] text-[#666666]">{(a.classes as Class | undefined)?.name ?? '전체'}</td>
+                  <td className="px-4 py-3 text-[12px] text-[#667085]">{a.activity_date ?? '—'}</td>
+                  <td className="px-4 py-3 text-[12px] text-[#667085]">{a.activity_time ?? '—'}</td>
+                  <td className="px-4 py-3 text-[12px] text-[#667085]">{(a.classes as Class | undefined)?.name ?? '전체'}</td>
                   <td className="px-4 py-3">
                     <Badge className={ACTIVITY_TYPE_COLORS[a.type]}>{ACTIVITY_TYPE_LABELS[a.type]}</Badge>
                   </td>
@@ -134,7 +134,7 @@ export function ActivitiesClient({ initialActivities, classes, centerId }: Props
                     </select>
                   </td>
                   <td className="px-4 py-3">
-                    <button onClick={() => handleDelete(a.id)} className="text-[#2a2a2a] hover:text-[#ef4444] transition-colors p-1">
+                    <button onClick={() => handleDelete(a.id)} className="text-[#d6dce8] hover:text-[#e5484d] transition-colors p-1">
                       <Trash2 size={13} />
                     </button>
                   </td>
@@ -166,7 +166,7 @@ export function ActivitiesClient({ initialActivities, classes, centerId }: Props
           </div>
           <Textarea label="설명" rows={3} placeholder="활동에 대한 설명" value={form.description}
             onChange={(e) => setForm({ ...form, description: e.target.value })} />
-          {error && <div className="border border-[#3a1414] bg-[#120808] px-3 py-2 text-[11px] text-[#ef4444]">{error}</div>}
+          {error && <div className="border border-[#f7caca] bg-[#fdecec] px-3 py-2 text-[11px] text-[#e5484d]">{error}</div>}
           <div className="flex gap-2 justify-end pt-2">
             <Button variant="secondary" type="button" onClick={() => setModalOpen(false)}>취소</Button>
             <Button type="submit" loading={loading}>추가</Button>

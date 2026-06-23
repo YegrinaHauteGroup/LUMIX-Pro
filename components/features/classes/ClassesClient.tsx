@@ -53,14 +53,14 @@ export function ClassesClient({ initialClasses, centerId }: Props) {
   return (
     <div className="flex-1 p-5 space-y-4 overflow-auto">
       <div className="flex items-center justify-between">
-        <span className="text-[11px] text-[#444444] uppercase tracking-widest">총 {classes.length}개 반</span>
+        <span className="text-[11px] text-[#8a93a6] uppercase tracking-widest">총 {classes.length}개 반</span>
         <Button onClick={() => setModalOpen(true)} size="sm"><Plus size={12} /> 반 추가</Button>
       </div>
 
       {classes.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-24 border border-[#1a1a1a]">
-          <BookOpen size={32} className="text-[#1e1e1e] mb-3" />
-          <p className="text-[12px] text-[#333333] mb-4">등록된 반이 없습니다</p>
+        <div className="flex flex-col items-center justify-center py-24 border border-[#e9edf4]">
+          <BookOpen size={32} className="text-[#e6eaf2] mb-3" />
+          <p className="text-[12px] text-[#aab2c2] mb-4">등록된 반이 없습니다</p>
           <Button onClick={() => setModalOpen(true)} size="sm"><Plus size={12} /> 반 만들기</Button>
         </div>
       ) : (
@@ -73,38 +73,38 @@ export function ClassesClient({ initialClasses, centerId }: Props) {
                   <div className="flex items-start justify-between">
                     <div>
                       <CardTitle>{cls.name}</CardTitle>
-                      {cls.description && <p className="text-[11px] text-[#444444] mt-1">{cls.description}</p>}
+                      {cls.description && <p className="text-[11px] text-[#8a93a6] mt-1">{cls.description}</p>}
                     </div>
                     <button onClick={() => handleDelete(cls.id)}
-                      className="text-[#1e1e1e] hover:text-[#ef4444] transition-colors opacity-0 group-hover:opacity-100 p-1">
+                      className="text-[#e6eaf2] hover:text-[#e5484d] transition-colors opacity-0 group-hover:opacity-100 p-1">
                       <Trash2 size={12} />
                     </button>
                   </div>
                 </CardHeader>
                 <CardContent>
                   <div className="flex items-center gap-1.5 text-[11px] mb-3">
-                    <Users size={11} className="text-[#444444]" />
-                    <span className="text-[#cccccc] font-medium">{active}</span>
-                    <span className="text-[#444444]">{cls.capacity ? `/ ${cls.capacity}명` : '명 재원'}</span>
+                    <Users size={11} className="text-[#8a93a6]" />
+                    <span className="text-[#1c2740] font-medium">{active}</span>
+                    <span className="text-[#8a93a6]">{cls.capacity ? `/ ${cls.capacity}명` : '명 재원'}</span>
                   </div>
                   {cls.children.length === 0 ? (
-                    <p className="text-[11px] text-[#333333]">배정된 아동이 없습니다</p>
+                    <p className="text-[11px] text-[#aab2c2]">배정된 아동이 없습니다</p>
                   ) : (
                     <div className="space-y-1">
                       {cls.children.slice(0, 6).map((child) => (
                         <Link key={child.id} href={`/children/${child.id}`}
                           className="flex items-center justify-between py-1 group/item">
                           <div className="flex items-center gap-2">
-                            <div className="w-4 h-4 bg-[#141414] border border-[#1e1e1e] flex items-center justify-center">
-                              <span className="text-[9px] text-[#555555]">{child.name[0]}</span>
+                            <div className="w-4 h-4 bg-[#f1f4f9] border border-[#e6eaf2] flex items-center justify-center">
+                              <span className="text-[9px] text-[#7a8499]">{child.name[0]}</span>
                             </div>
-                            <span className="text-[11px] text-[#888888] group-hover/item:text-[#e8e8e8] transition-colors">{child.name}</span>
+                            <span className="text-[11px] text-[#5a6678] group-hover/item:text-[#0e1726] transition-colors">{child.name}</span>
                           </div>
                           <Badge className={`text-[9px] ${CHILD_STATUS_COLORS[child.status]}`}>{CHILD_STATUS_LABELS[child.status]}</Badge>
                         </Link>
                       ))}
                       {cls.children.length > 6 && (
-                        <p className="text-[10px] text-[#333333] pt-1">+{cls.children.length - 6}명 더</p>
+                        <p className="text-[10px] text-[#aab2c2] pt-1">+{cls.children.length - 6}명 더</p>
                       )}
                     </div>
                   )}
@@ -123,7 +123,7 @@ export function ClassesClient({ initialClasses, centerId }: Props) {
             onChange={(e) => setForm({ ...form, capacity: e.target.value })} />
           <Textarea label="설명" rows={3} placeholder="반에 대한 설명" value={form.description}
             onChange={(e) => setForm({ ...form, description: e.target.value })} />
-          {error && <div className="border border-[#3a1414] bg-[#120808] px-3 py-2 text-[11px] text-[#ef4444]">{error}</div>}
+          {error && <div className="border border-[#f7caca] bg-[#fdecec] px-3 py-2 text-[11px] text-[#e5484d]">{error}</div>}
           <div className="flex gap-2 justify-end pt-2">
             <Button variant="secondary" type="button" onClick={() => setModalOpen(false)}>취소</Button>
             <Button type="submit" loading={loading}>추가</Button>

@@ -21,28 +21,28 @@ export function Header({ title, subtitle, actions }: HeaderProps) {
   }
 
   return (
-    <header className="h-12 bg-[#080808] border-b border-[#1a1a1a] flex items-center px-6 gap-4 sticky top-0 z-20 shrink-0">
-      <div className="flex-1 min-w-0 flex items-center gap-3">
-        <h1 className="text-[13px] font-semibold text-[#e8e8e8] tracking-wide truncate">{title}</h1>
+    <header className="h-14 bg-surface/80 backdrop-blur-md border-b border-line flex items-center px-6 gap-4 sticky top-0 z-20 shrink-0">
+      <div className="flex-1 min-w-0 flex items-center gap-2.5">
+        <h1 className="text-[15px] font-semibold text-ink tracking-[-0.015em] truncate">{title}</h1>
         {subtitle && (
           <>
-            <span className="text-[#2a2a2a]">/</span>
-            <span className="text-[12px] text-[#444444] truncate">{subtitle}</span>
+            <span className="text-line-strong">/</span>
+            <span className="text-[12.5px] text-ink-faint truncate">{subtitle}</span>
           </>
         )}
       </div>
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-2">
         {actions}
         <button
           onClick={handleLogout}
           title="로그아웃"
-          className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] text-[#444444] hover:text-[#888888] hover:bg-[#111111] border border-transparent hover:border-[#222222] transition-colors rounded-sm"
+          className="flex items-center gap-1.5 px-3 h-8 text-[12px] text-ink-soft hover:text-ink bg-surface hover:bg-fill border border-line hover:border-line-strong transition-colors rounded-lg"
         >
-          <LogOut size={12} />
+          <LogOut size={13} />
           로그아웃
         </button>
-        <div className="w-6 h-6 bg-[#141414] border border-[#222222] flex items-center justify-center ml-1">
-          <User size={12} className="text-[#555555]" />
+        <div className="w-8 h-8 bg-accent-soft border border-line rounded-full flex items-center justify-center ml-0.5">
+          <User size={14} className="text-accent" />
         </div>
       </div>
     </header>

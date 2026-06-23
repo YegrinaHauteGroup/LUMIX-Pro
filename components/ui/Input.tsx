@@ -1,6 +1,10 @@
 import { cn } from '@/lib/utils'
 import { forwardRef } from 'react'
 
+const fieldBase =
+  'w-full bg-surface border border-line rounded-lg px-3 py-2 text-[13px] text-ink placeholder-ink-ghost ' +
+  'transition-all focus:outline-none focus:border-accent focus:shadow-[var(--shadow-glow)]'
+
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string
   error?: string
@@ -9,25 +13,19 @@ interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
   ({ className, label, error, icon, ...props }, ref) => (
-    <div className="flex flex-col gap-1">
-      {label && <label className="text-[11px] font-medium text-[#666666] uppercase tracking-wider">{label}</label>}
+    <div className="flex flex-col gap-1.5">
+      {label && <label className="text-[11px] font-medium text-ink-faint uppercase tracking-[0.08em]">{label}</label>}
       <div className="relative">
         {icon && (
-          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#444444]">{icon}</div>
+          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-ghost">{icon}</div>
         )}
         <input
           ref={ref}
-          className={cn(
-            'w-full bg-[#0e0e0e] border border-[#222222] px-3 py-2 text-[13px] text-[#e8e8e8] placeholder-[#333333]',
-            'focus:outline-none focus:border-[#444444] transition-colors h-8 rounded-sm',
-            icon && 'pl-9',
-            error && 'border-[#5a1a1a]',
-            className
-          )}
+          className={cn(fieldBase, 'h-9', icon && 'pl-9', error && 'border-[color:var(--color-danger)]', className)}
           {...props}
         />
       </div>
-      {error && <p className="text-[11px] text-[#ef4444]">{error}</p>}
+      {error && <p className="text-[11px] text-danger">{error}</p>}
     </div>
   )
 )
@@ -40,21 +38,16 @@ interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
 
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(
   ({ className, label, error, children, ...props }, ref) => (
-    <div className="flex flex-col gap-1">
-      {label && <label className="text-[11px] font-medium text-[#666666] uppercase tracking-wider">{label}</label>}
+    <div className="flex flex-col gap-1.5">
+      {label && <label className="text-[11px] font-medium text-ink-faint uppercase tracking-[0.08em]">{label}</label>}
       <select
         ref={ref}
-        className={cn(
-          'w-full bg-[#0e0e0e] border border-[#222222] px-3 py-2 text-[13px] text-[#e8e8e8]',
-          'focus:outline-none focus:border-[#444444] transition-colors h-8 rounded-sm cursor-pointer',
-          error && 'border-[#5a1a1a]',
-          className
-        )}
+        className={cn(fieldBase, 'h-9 cursor-pointer', error && 'border-[color:var(--color-danger)]', className)}
         {...props}
       >
         {children}
       </select>
-      {error && <p className="text-[11px] text-[#ef4444]">{error}</p>}
+      {error && <p className="text-[11px] text-danger">{error}</p>}
     </div>
   )
 )
@@ -67,19 +60,14 @@ interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement
 
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
   ({ className, label, error, ...props }, ref) => (
-    <div className="flex flex-col gap-1">
-      {label && <label className="text-[11px] font-medium text-[#666666] uppercase tracking-wider">{label}</label>}
+    <div className="flex flex-col gap-1.5">
+      {label && <label className="text-[11px] font-medium text-ink-faint uppercase tracking-[0.08em]">{label}</label>}
       <textarea
         ref={ref}
-        className={cn(
-          'w-full bg-[#0e0e0e] border border-[#222222] px-3 py-2 text-[13px] text-[#e8e8e8] placeholder-[#333333]',
-          'focus:outline-none focus:border-[#444444] transition-colors rounded-sm resize-none',
-          error && 'border-[#5a1a1a]',
-          className
-        )}
+        className={cn(fieldBase, 'resize-none', error && 'border-[color:var(--color-danger)]', className)}
         {...props}
       />
-      {error && <p className="text-[11px] text-[#ef4444]">{error}</p>}
+      {error && <p className="text-[11px] text-danger">{error}</p>}
     </div>
   )
 )

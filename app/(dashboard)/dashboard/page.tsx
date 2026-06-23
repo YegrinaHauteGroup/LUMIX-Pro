@@ -67,14 +67,16 @@ export default async function DashboardPage() {
         {/* Stats grid */}
         <div className="grid grid-cols-4 gap-3">
           {stats.map((stat) => (
-            <div key={stat.label} className="bg-[#0e0e0e] border border-[#1e1e1e] px-4 py-4">
+            <div key={stat.label} className="bg-surface border border-line rounded-xl shadow-[var(--shadow-card)] px-4 py-4">
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-[10px] text-[#444444] uppercase tracking-widest mb-2">{stat.label}</p>
-                  <p className="text-2xl font-semibold text-[#e8e8e8]">{stat.value}</p>
-                  <p className="text-[10px] text-[#333333] mt-1">{stat.sub}</p>
+                  <p className="text-[10px] text-ink-faint uppercase tracking-[0.12em] mb-2">{stat.label}</p>
+                  <p className="text-2xl font-semibold text-ink tracking-[-0.02em]">{stat.value}</p>
+                  <p className="text-[10px] text-ink-ghost mt-1">{stat.sub}</p>
                 </div>
-                <stat.icon size={15} className="text-[#2a2a2a]" />
+                <div className="w-8 h-8 rounded-lg bg-accent-soft flex items-center justify-center shrink-0">
+                  <stat.icon size={15} className="text-accent" />
+                </div>
               </div>
             </div>
           ))}
@@ -92,25 +94,25 @@ export default async function DashboardPage() {
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
                 <CardTitle>최근 등록 아동</CardTitle>
-                <Link href="/children" className="text-[10px] text-[#555555] hover:text-[#888888] flex items-center gap-1 transition-colors uppercase tracking-widest">
+                <Link href="/children" className="text-[10px] text-[#7a8499] hover:text-[#5a6678] flex items-center gap-1 transition-colors uppercase tracking-widest">
                   전체보기 <ArrowRight size={10} />
                 </Link>
               </div>
             </CardHeader>
             <CardContent>
               {recentChildren.length === 0 ? (
-                <p className="text-[12px] text-[#333333] py-4 text-center">등록된 아동이 없습니다</p>
+                <p className="text-[12px] text-[#aab2c2] py-4 text-center">등록된 아동이 없습니다</p>
               ) : (
                 <div className="space-y-1">
                   {recentChildren.map((child) => (
                     <Link key={child.id} href={`/children/${child.id}`}
-                      className="flex items-center gap-3 px-3 py-2 hover:bg-[#0c0c0c] transition-colors">
-                      <div className="w-6 h-6 bg-[#141414] border border-[#1e1e1e] flex items-center justify-center shrink-0">
-                        <span className="text-[9px] text-[#555555]">{child.name[0]}</span>
+                      className="flex items-center gap-3 px-3 py-2 hover:bg-[#f3f6fb] transition-colors">
+                      <div className="w-6 h-6 bg-[#f1f4f9] border border-[#e6eaf2] flex items-center justify-center shrink-0">
+                        <span className="text-[9px] text-[#7a8499]">{child.name[0]}</span>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-[12px] text-[#cccccc] font-medium truncate">{child.name}</p>
-                        <p className="text-[10px] text-[#444444]">
+                        <p className="text-[12px] text-[#1c2740] font-medium truncate">{child.name}</p>
+                        <p className="text-[10px] text-[#8a93a6]">
                           {child.gender === 'male' ? '남' : child.gender === 'female' ? '여' : '기타'}
                         </p>
                       </div>
@@ -127,23 +129,23 @@ export default async function DashboardPage() {
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
                 <CardTitle>예정된 활동</CardTitle>
-                <Link href="/activities" className="text-[10px] text-[#555555] hover:text-[#888888] flex items-center gap-1 transition-colors uppercase tracking-widest">
+                <Link href="/activities" className="text-[10px] text-[#7a8499] hover:text-[#5a6678] flex items-center gap-1 transition-colors uppercase tracking-widest">
                   전체보기 <ArrowRight size={10} />
                 </Link>
               </div>
             </CardHeader>
             <CardContent>
               {upcomingActivities.length === 0 ? (
-                <p className="text-[12px] text-[#333333] py-4 text-center">예정된 활동이 없습니다</p>
+                <p className="text-[12px] text-[#aab2c2] py-4 text-center">예정된 활동이 없습니다</p>
               ) : (
                 <div className="space-y-1">
                   {upcomingActivities.map((activity) => (
                     <Link key={activity.id} href="/activities"
-                      className="flex items-center gap-3 px-3 py-2 hover:bg-[#0c0c0c] transition-colors">
-                      <div className={`w-0.5 h-6 ${ACTIVITY_TYPE_COLORS[activity.type]?.split(' ')[1] ?? 'bg-[#333333]'}`} />
+                      className="flex items-center gap-3 px-3 py-2 hover:bg-[#f3f6fb] transition-colors">
+                      <div className={`w-1 h-8 rounded-full ${ACTIVITY_TYPE_COLORS[activity.type]?.split(' ')[1] ?? 'bg-slate-100'}`} />
                       <div className="flex-1 min-w-0">
-                        <p className="text-[12px] text-[#cccccc] font-medium truncate">{activity.title}</p>
-                        <p className="text-[10px] text-[#444444]">
+                        <p className="text-[12px] text-[#1c2740] font-medium truncate">{activity.title}</p>
+                        <p className="text-[10px] text-[#8a93a6]">
                           {activity.activity_date ?? '날짜 미정'}{activity.activity_time ? ` · ${activity.activity_time}` : ''}
                         </p>
                       </div>

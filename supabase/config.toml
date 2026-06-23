@@ -3,5 +3,14 @@
 
 project_id = "dumvoejqlbhvunjnvzue"
 
+# SNA pipeline edge functions. JWT is verified; the browser app invokes
+# them with the user session, and server-to-server calls use the
+# service-role key.
+[functions.rebuild_sna_from_assessments]
+verify_jwt = true
+
+[functions.recompute_sna_metrics]
+verify_jwt = true
+
 [functions.recompute_sna_brandes]
-verify_jwt = false
+verify_jwt = true

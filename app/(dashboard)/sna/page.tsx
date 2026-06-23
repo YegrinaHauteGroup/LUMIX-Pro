@@ -8,13 +8,26 @@ interface SnaNode {
   child_id: string
   name: string
   class_id: string | null
+  class_name: string | null
   connection_count: number
+  weighted_degree: number
+  in_degree: number
+  out_degree: number
+  betweenness: number
+  closeness: number
+  eigenvector: number
+  clustering: number
+  degree_centrality: number
+  community_id: number | null
+  is_isolated: boolean
 }
 
 interface SnaEdge {
   source_id: string
   target_id: string
   strength: number
+  relation_types: string[]
+  has_conflict: boolean
 }
 
 export default async function SnaPage() {
@@ -22,8 +35,9 @@ export default async function SnaPage() {
   const supabase = createClient(cookieStore)
   const centerId = await getCenterId()
 
-  const [snaRes, classesRes] = await Promise.all([
+  const [snaRes, insightsRes, classesRes] = await Promise.all([
     supabase.rpc('get_sna_graph', { p_center_id: centerId ?? '' }),
+    supabase.rpc('get_sna_insights', { p_center_id: centerId ?? '' }),
     supabase.from('classes').select('id, name').eq('center_id', centerId ?? ''),
   ])
 
@@ -31,10 +45,12 @@ export default async function SnaPage() {
 
   return (
     <>
-      <Header title="SNA 분석" subtitle="아동 간 사회적 관계망을 시각화합니다" />
+      <Header title="SNA 분석" subtitle="온톨로지 기반 아동 관계망 · 중심성 · 커뮤니티 분석" />
       <SnaClient
+        centerId={centerId ?? ''}
         nodes={snaData?.nodes ?? []}
         edges={snaData?.edges ?? []}
+        insights={insightsRes.data ?? null}
         classes={classesRes.data ?? []}
       />
     </>
