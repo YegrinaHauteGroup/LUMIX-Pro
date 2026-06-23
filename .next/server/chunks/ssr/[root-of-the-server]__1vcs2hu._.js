@@ -1,3 +1,0 @@
-module.exports=[59828,a=>{a.v({className:"noto_sans_kr_3ae28331-module__j4owoa__className",variable:"noto_sans_kr_3ae28331-module__j4owoa__variable"})},33290,a=>{"use strict";var b=a.i(7997),c=a.i(59828);let d={className:c.default.className,style:{fontFamily:"'Noto Sans KR', 'Noto Sans KR Fallback'",fontStyle:"normal"}};null!=c.default.variable&&(d.variable=c.default.variable),a.s(["default",0,function({children:a}){return(0,b.jsx)("html",{lang:"ko",className:d.variable,children:(0,b.jsx)("body",{children:a})})},"metadata",0,{title:"LUMIX Pro — 아동 시설 관리 플랫폼",description:"시설 아동 통합 관리 솔루션"}],33290)},70864,a=>{a.n(a.i(33290))}];
-
-//# sourceMappingURL=%5Broot-of-the-server%5D__1vcs2hu._.js.map
