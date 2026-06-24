@@ -3,39 +3,68 @@
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { createClient } from '@/utils/supabase/client'
-import { Lock, Mail } from 'lucide-react'
+import { Building2, Lock, Mail, User } from 'lucide-react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
+type Mode = 'login' | 'signup'
+
 export default function LoginPage() {
   const router = useRouter()
   const supabase = createClient()
+  const [mode, setMode] = useState<Mode>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [name, setName] = useState('')
+  const [centerName, setCenterName] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [info, setInfo] = useState('')
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
-    setLoading(true)
-    setError('')
+    setLoading(true); setError(''); setInfo('')
     const { error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) {
       setError('이메일 또는 비밀번호가 올바르지 않습니다.')
       setLoading(false)
       return
     }
+    // ensure the user has a center/profile (idempotent)
+    await supabase.rpc('bootstrap_new_user', { p_center_name: null, p_display_name: null })
     router.push('/dashboard')
     router.refresh()
   }
 
+  const handleSignup = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true); setError(''); setInfo('')
+    const { data, error } = await supabase.auth.signUp({
+      email, password, options: { data: { name } },
+    })
+    if (error) { setError(error.message); setLoading(false); return }
+
+    if (data.session) {
+      // no email confirmation required -> bootstrap center + profile, go in
+      const { error: bErr } = await supabase.rpc('bootstrap_new_user', {
+        p_center_name: centerName, p_display_name: name,
+      })
+      setLoading(false)
+      if (bErr) { setError(`센터 생성 실패: ${bErr.message}`); return }
+      router.push('/dashboard')
+      router.refresh()
+    } else {
+      setLoading(false)
+      setInfo('확인 메일을 보냈습니다. 이메일 인증 후 로그인하면 센터가 자동 생성됩니다.')
+      setMode('login')
+    }
+  }
+
   return (
     <div className="relative min-h-screen bg-canvas flex items-center justify-center p-4 overflow-hidden">
-      {/* Pastel ambient glow */}
       <div className="pointer-events-none absolute -top-40 -right-32 w-[34rem] h-[34rem] rounded-full bg-accent-soft blur-3xl opacity-70" />
       <div className="pointer-events-none absolute -bottom-40 -left-32 w-[30rem] h-[30rem] rounded-full bg-[color:var(--color-info-soft)] blur-3xl opacity-70" />
-      {/* Subtle grid */}
       <div
         className="absolute inset-0 opacity-[0.5] pointer-events-none"
         style={{
@@ -46,7 +75,6 @@ export default function LoginPage() {
       />
 
       <div className="relative w-full max-w-[380px]">
-        {/* Logo */}
         <div className="flex flex-col items-center mb-7 gap-3">
           <div className="w-12 h-12 rounded-2xl bg-surface border border-line shadow-[var(--shadow-card)] flex items-center justify-center">
             <Image src="/logo.svg" alt="LUMIX Pro" width={28} height={28} />
@@ -57,36 +85,51 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* Form card */}
         <div className="bg-surface border border-line rounded-2xl shadow-[var(--shadow-pop)] p-7">
-          <p className="text-[11px] text-ink-faint uppercase tracking-[0.12em] mb-5">관리자 로그인</p>
-          <form onSubmit={handleLogin} className="space-y-4">
-            <Input
-              label="이메일"
-              type="email"
-              placeholder="admin@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              icon={<Mail size={13} />}
-            />
-            <Input
-              label="비밀번호"
-              type="password"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              icon={<Lock size={13} />}
-            />
+          {/* mode tabs */}
+          <div className="flex p-1 bg-fill rounded-xl border border-line mb-5">
+            {(['login', 'signup'] as Mode[]).map((m) => (
+              <button
+                key={m}
+                onClick={() => { setMode(m); setError(''); setInfo('') }}
+                className={
+                  'flex-1 h-8 rounded-lg text-[12.5px] font-medium transition-colors ' +
+                  (mode === m ? 'bg-surface text-ink shadow-[var(--shadow-card)]' : 'text-ink-soft hover:text-ink')
+                }
+              >
+                {m === 'login' ? '로그인' : '회원가입'}
+              </button>
+            ))}
+          </div>
+
+          <form onSubmit={mode === 'login' ? handleLogin : handleSignup} className="space-y-4">
+            {mode === 'signup' && (
+              <>
+                <Input label="이름" placeholder="홍길동" value={name}
+                  onChange={(e) => setName(e.target.value)} required icon={<User size={13} />} />
+                <Input label="센터 이름" placeholder="예: 햇살 어린이집" value={centerName}
+                  onChange={(e) => setCenterName(e.target.value)} required icon={<Building2 size={13} />} />
+              </>
+            )}
+            <Input label="이메일" type="email" placeholder="admin@example.com" value={email}
+              onChange={(e) => setEmail(e.target.value)} required icon={<Mail size={13} />} />
+            <Input label="비밀번호" type="password" placeholder="••••••••" value={password}
+              onChange={(e) => setPassword(e.target.value)} required icon={<Lock size={13} />} />
+
             {error && (
               <div className="border border-[color:var(--color-danger-soft)] bg-[color:var(--color-danger-soft)] rounded-lg px-3 py-2">
                 <p className="text-[11px] text-danger">{error}</p>
               </div>
             )}
+            {info && (
+              <div className="border border-[color:var(--color-success-soft)] bg-[color:var(--color-success-soft)] rounded-lg px-3 py-2">
+                <p className="text-[11px] text-[color:var(--color-success)]">{info}</p>
+              </div>
+            )}
+
             <div className="pt-1">
               <Button type="submit" className="w-full" size="lg" loading={loading}>
-                로그인
+                {mode === 'login' ? '로그인' : '회원가입 및 센터 생성'}
               </Button>
             </div>
           </form>

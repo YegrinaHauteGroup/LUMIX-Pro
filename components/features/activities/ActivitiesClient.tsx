@@ -63,14 +63,20 @@ export function ActivitiesClient({ initialActivities, classes, centerId }: Props
   }
 
   const handleStatusChange = async (id: string, status: Activity['status']) => {
-    const { error } = await supabase.from('activities').update({ status }).eq('id', id)
-    if (!error) setActivities((prev) => prev.map((a) => a.id === id ? { ...a, status } : a))
+    const { data, error } = await supabase.from('activities').update({ status }).eq('id', id).select('id')
+    if (error || !data || data.length === 0) { alert(`상태 변경 실패: ${error?.message ?? '권한 확인 필요'}`); return }
+    setActivities((prev) => prev.map((a) => a.id === id ? { ...a, status } : a))
   }
 
   const handleDelete = async (id: string) => {
     if (!confirm('이 활동을 삭제하시겠습니까?')) return
-    const { error } = await supabase.from('activities').delete().eq('id', id)
-    if (!error) setActivities((prev) => prev.filter((a) => a.id !== id))
+    const { error } = await supabase
+      .from('activities')
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('id', id)
+    if (error) { alert(`삭제 실패: ${error.message}`); return }
+    setActivities((prev) => prev.filter((a) => a.id !== id))
+    router.refresh()
   }
 
   return (

@@ -81,8 +81,13 @@ export function ChildrenClient({ initialChildren, classes, centerId }: Props) {
 
   const handleDelete = async (id: string) => {
     if (!confirm('이 아동을 삭제하시겠습니까?')) return
-    const { error } = await supabase.from('children').delete().eq('id', id)
-    if (!error) setChildren((prev) => prev.filter((c) => c.id !== id))
+    const { error } = await supabase
+      .from('children')
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('id', id)
+    if (error) { alert(`삭제 실패: ${error.message}`); return }
+    setChildren((prev) => prev.filter((c) => c.id !== id))
+    router.refresh()
   }
 
   return (

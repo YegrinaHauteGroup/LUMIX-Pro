@@ -44,11 +44,13 @@ export function ChildDetailClient({ child, classes, recentActivities }: Props) {
   })
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [saveError, setSaveError] = useState('')
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
     setSaving(true)
-    const { error } = await supabase
+    setSaveError('')
+    const { data, error } = await supabase
       .from('children')
       .update({
         name: form.name,
@@ -61,13 +63,17 @@ export function ChildDetailClient({ child, classes, recentActivities }: Props) {
         notes: form.notes || null,
       })
       .eq('id', child.id)
+      .select('id')
 
     setSaving(false)
-    if (!error) {
-      setSaved(true)
-      setTimeout(() => setSaved(false), 2000)
-      router.refresh()
+    if (error) { setSaveError(`저장 실패: ${error.message}`); return }
+    if (!data || data.length === 0) {
+      setSaveError('저장 권한이 없거나 대상을 찾을 수 없습니다. (센터 권한을 확인하세요)')
+      return
     }
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2000)
+    router.refresh()
   }
 
   return (
@@ -89,7 +95,7 @@ export function ChildDetailClient({ child, classes, recentActivities }: Props) {
                 <span className="text-2xl font-semibold text-[#5a6678]">{child.name[0]}</span>
               </div>
               <div>
-                <h2 className="text-lg font-semibold text-[#f5f5f5]">{child.name}</h2>
+                <h2 className="text-lg font-semibold text-ink">{child.name}</h2>
                 <p className="text-sm text-[#7a8499]">
                   {child.birth_date ? `${calculateAge(child.birth_date)}세` : '나이 미등록'}
                   {' · '}
@@ -194,6 +200,11 @@ export function ChildDetailClient({ child, classes, recentActivities }: Props) {
                 value={form.notes}
                 onChange={(e) => setForm({ ...form, notes: e.target.value })}
               />
+              {saveError && (
+                <div className="border border-[color:var(--color-danger-soft)] bg-[color:var(--color-danger-soft)] rounded-lg px-3 py-2 text-[12px] text-danger">
+                  {saveError}
+                </div>
+              )}
               <div className="flex justify-end">
                 <Button type="submit" loading={saving}>
                   <Save size={14} />

@@ -52,13 +52,15 @@ export function AttendanceClient({ children, classes, today, centerId }: Props) 
   const handleStatus = async (childId: string, status: AttStatus) => {
     setSaving(childId)
     if (attendance[childId] === status) {
-      await supabase.from('attendance').delete().eq('child_id', childId).eq('check_date', checkDate)
+      const { error } = await supabase.from('attendance').delete().eq('child_id', childId).eq('check_date', checkDate)
+      if (error) { alert(`저장 실패: ${error.message}`); setSaving(null); return }
       setAttendance((prev) => { const n = { ...prev }; delete n[childId]; return n })
     } else {
-      await supabase.from('attendance').upsert(
+      const { error } = await supabase.from('attendance').upsert(
         { center_id: centerId, child_id: childId, check_date: checkDate, status },
         { onConflict: 'child_id,check_date' }
       )
+      if (error) { alert(`저장 실패: ${error.message}`); setSaving(null); return }
       setAttendance((prev) => ({ ...prev, [childId]: status }))
     }
     setSaving(null)
@@ -66,7 +68,8 @@ export function AttendanceClient({ children, classes, today, centerId }: Props) 
 
   const handleBulkPresent = async () => {
     const updates = filtered.map((c) => ({ center_id: centerId, child_id: c.id, check_date: checkDate, status: 'present' as AttStatus }))
-    await supabase.from('attendance').upsert(updates, { onConflict: 'child_id,check_date' })
+    const { error } = await supabase.from('attendance').upsert(updates, { onConflict: 'child_id,check_date' })
+    if (error) { alert(`저장 실패: ${error.message}`); return }
     const n = { ...attendance }
     filtered.forEach((c) => { n[c.id] = 'present' })
     setAttendance(n)
