@@ -99,6 +99,6 @@ export function DashboardCharts({ genderStats, statusStats, classStats }: ChartP
           )}
         </CardContent>
       </Card>
-    </>
+    </div>
   )
 }
