@@ -1,4 +1,6 @@
 @import "tailwindcss";
+@source "../components"; /* 👈 components 폴더의 파일들을 강제로 스캔하도록 지시 */
+@source "../app";        /* 👈 app 폴더 스캔 지시 */
 
 /* ============================================================
    LUMIX Pro — Design system
