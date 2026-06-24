@@ -11,7 +11,7 @@ import { usePathname } from 'next/navigation'
 
 const NAV_GROUPS: { label: string; items: { href: string; icon: typeof Home; label: string }[] }[] = [
   {
-    label: '운영',
+    label: '운영체계',
     items: [
       { href: '/dashboard', icon: Home, label: '대시보드' },
       { href: '/children', icon: Users, label: '아동 관리' },
@@ -21,7 +21,7 @@ const NAV_GROUPS: { label: string; items: { href: string; icon: typeof Home; lab
     ],
   },
   {
-    label: '분석',
+    label: '분석체계',
     items: [
       { href: '/sna', icon: Network, label: 'SNA 분석' },
       { href: '/assessments', icon: ClipboardCheck, label: '평가 · 관계 입력' },
@@ -39,53 +39,62 @@ export function Sidebar({ centerName }: { centerName?: string | null }) {
       <Link
         href={href}
         className={cn(
-          'flex items-center gap-2.5 mx-2 px-3 py-2 rounded-lg text-[12.5px] transition-colors relative group',
+          'flex items-center gap-3 mx-3 px-3 py-2 rounded-md text-[13px] transition-colors group',
           active
-            ? 'text-accent-ink bg-accent-soft font-medium'
-            : 'text-ink-soft hover:text-ink hover:bg-fill',
+            ? 'text-ink bg-fill font-medium' // Foundry 스타일: 은은한 배경과 명확한 텍스트 대비
+            : 'text-ink-soft hover:text-ink hover:bg-fill/50'
         )}
       >
-        {active && <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-full bg-accent shadow-[0_0_8px_rgba(90,99,242,0.55)]" />}
-        <Icon size={15} className={cn('shrink-0', active ? 'text-accent' : 'text-ink-faint group-hover:text-ink-soft')} />
-        <span className="tracking-[-0.01em]">{label}</span>
+        <Icon 
+          size={16} 
+          className={cn(
+            'shrink-0 transition-colors', 
+            active ? 'text-accent' : 'text-ink-faint group-hover:text-ink-soft'
+          )} 
+        />
+        <span className="tracking-tight">{label}</span>
       </Link>
     )
   }
 
   return (
-    <aside className="w-[216px] h-screen bg-surface border-r border-line flex flex-col fixed left-0 top-0 z-30 shrink-0">
-      {/* Logo */}
-      <div className="flex items-center gap-2.5 px-5 h-14 border-b border-line">
-        <Image src="/logo.svg" alt="LUMIX Pro" width={24} height={24} className="shrink-0" />
-        <div className="leading-none">
-          <span className="text-[14px] font-semibold text-ink tracking-[-0.01em]">LUMIX</span>
-          <span className="text-[14px] font-semibold text-ink-ghost tracking-[-0.01em] ml-1">Pro</span>
+    // 기존 w-[216px]에서 w-[200px]로 축소하여 슬림한 비율 완성
+    <aside className="w-[200px] h-screen bg-surface border-r border-line flex flex-col fixed left-0 top-0 z-30 shrink-0">
+      {/* Logo Area */}
+      <div className="flex items-center gap-3 px-6 h-16 shrink-0">
+        <Image src="/logo.svg" alt="LUMIX Pro" width={22} height={22} className="shrink-0" />
+        <div className="leading-none flex items-baseline">
+          <span className="text-[15px] font-bold text-ink tracking-tight">LUMIX</span>
+          <span className="text-[15px] font-medium text-ink-ghost tracking-tight ml-1">Pro</span>
         </div>
       </div>
 
       {/* Active center */}
       {centerName && (
-        <div className="px-5 py-3 border-b border-line">
-          <p className="text-[10px] font-semibold text-ink-ghost uppercase tracking-[0.14em]">현재 센터</p>
-          <div className="flex items-center gap-2 mt-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-accent shadow-[0_0_6px_rgba(90,99,242,0.6)]" />
-            <p className="text-[13px] font-medium text-ink truncate">{centerName}</p>
+        <div className="px-6 py-4 border-b border-line/60">
+          <p className="text-[10px] font-semibold text-ink-ghost uppercase tracking-widest mb-1.5">현재 센터</p>
+          <div className="flex items-center gap-2.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-accent" />
+            <p className="text-[13px] font-medium text-ink truncate leading-none mt-0.5">{centerName}</p>
           </div>
         </div>
       )}
 
       {/* Nav */}
-      <nav className="flex-1 py-3 overflow-y-auto space-y-4">
+      {/* 그룹 간격을 space-y-4 에서 space-y-6 으로 늘려 여백 확보 */}
+      <nav className="flex-1 py-6 overflow-y-auto space-y-6">
         {NAV_GROUPS.map((group) => (
-          <div key={group.label} className="space-y-0.5">
-            <p className="px-5 mb-1 text-[10px] font-semibold text-ink-ghost uppercase tracking-[0.14em]">{group.label}</p>
+          <div key={group.label} className="space-y-1">
+            <p className="px-6 mb-2 text-[11px] font-medium text-ink-ghost uppercase tracking-wider">
+              {group.label}
+            </p>
             {group.items.map((item) => <NavLink key={item.href} {...item} />)}
           </div>
         ))}
       </nav>
 
       {/* Settings */}
-      <div className="border-t border-line py-2">
+      <div className="p-3 border-t border-line/60 mt-auto">
         <NavLink href="/settings" icon={Settings} label="설정" />
       </div>
     </aside>
