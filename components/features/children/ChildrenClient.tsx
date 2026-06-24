@@ -91,7 +91,7 @@ export function ChildrenClient({ initialChildren, classes, centerId }: Props) {
   }
 
   return (
-    <div className="flex-1 p-5 space-y-4 overflow-auto">
+    <div className="flex-1 p-6 space-y-6 overflow-auto">
       {/* Toolbar */}
       <div className="flex items-center gap-2">
         <div className="relative">
@@ -136,7 +136,7 @@ export function ChildrenClient({ initialChildren, classes, centerId }: Props) {
             <thead>
               <tr className="border-b border-[#e9edf4]">
                 {['이름', '성별', '나이', '반', '보호자', '연락처', '상태', ''].map((h) => (
-                  <th key={h} className="text-left text-[10px] text-[#8a93a6] font-medium uppercase tracking-widest px-4 py-3 first:pl-5">
+                  <th key={h} className="text-left text-[10px] text-[#8a93a6] font-medium uppercase tracking-widest px-6 py-4 first:pl-5">
                     {h}
                   </th>
                 ))}
@@ -152,7 +152,7 @@ export function ChildrenClient({ initialChildren, classes, centerId }: Props) {
                 </tr>
               ) : filtered.map((child) => (
                 <tr key={child.id} className="border-b border-[#eef2f8] hover:bg-[#f3f6fb] transition-colors">
-                  <td className="px-4 py-3 first:pl-5">
+                  <td className="px-6 py-4 first:pl-5">
                     <Link href={`/children/${child.id}`} className="flex items-center gap-2.5 group">
                       <div className="w-6 h-6 bg-[#f1f4f9] border border-[#e1e6ef] flex items-center justify-center shrink-0">
                         <span className="text-[10px] text-[#5a6678]">{child.name[0]}</span>
@@ -162,19 +162,19 @@ export function ChildrenClient({ initialChildren, classes, centerId }: Props) {
                       </span>
                     </Link>
                   </td>
-                  <td className="px-4 py-3 text-[12px] text-[#667085]">{GENDER_LABELS[child.gender]}</td>
-                  <td className="px-4 py-3 text-[12px] text-[#667085]">
+                  <td className="px-6 py-4 text-[12px] text-[#667085]">{GENDER_LABELS[child.gender]}</td>
+                  <td className="px-6 py-4 text-[12px] text-[#667085]">
                     {child.birth_date ? `${calculateAge(child.birth_date)}세` : '—'}
                   </td>
-                  <td className="px-4 py-3 text-[12px] text-[#667085]">
+                  <td className="px-6 py-4 text-[12px] text-[#667085]">
                     {(child.classes as Class | undefined)?.name ?? '—'}
                   </td>
-                  <td className="px-4 py-3 text-[12px] text-[#667085]">{child.guardian_name ?? '—'}</td>
-                  <td className="px-4 py-3 text-[12px] text-[#667085]">{child.guardian_phone ?? '—'}</td>
-                  <td className="px-4 py-3">
+                  <td className="px-6 py-4 text-[12px] text-[#667085]">{child.guardian_name ?? '—'}</td>
+                  <td className="px-6 py-4 text-[12px] text-[#667085]">{child.guardian_phone ?? '—'}</td>
+                  <td className="px-6 py-4">
                     <Badge className={CHILD_STATUS_COLORS[child.status]}>{CHILD_STATUS_LABELS[child.status]}</Badge>
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-6 py-4">
                     <button onClick={() => handleDelete(child.id)} className="text-[#d6dce8] hover:text-[#e5484d] transition-colors p-1">
                       <Trash2 size={13} />
                     </button>
