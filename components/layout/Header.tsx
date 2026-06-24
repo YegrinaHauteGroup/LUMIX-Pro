@@ -21,7 +21,7 @@ export function Header({ title, subtitle, actions }: HeaderProps) {
   }
 
   return (
-    <header className="h-14 bg-surface/80 backdrop-blur-md border-b border-line flex items-center px-6 gap-4 sticky top-0 z-20 shrink-0">
+    <header className="h-14 bg-surface/80 backdrop-blur-md border-b border-line flex items-center px-5 gap-4 sticky top-0 z-20 shrink-0">
       <div className="flex-1 min-w-0 flex items-center gap-2.5">
         <h1 className="text-[15px] font-semibold text-ink tracking-[-0.015em] truncate">{title}</h1>
         {subtitle && (
