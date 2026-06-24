@@ -1,12 +1,12 @@
 @import "tailwindcss";
-@source "../components"; /* 👈 components 폴더의 파일들을 강제로 스캔하도록 지시 */
-@source "../app";        /* 👈 app 폴더 스캔 지시 */
+@source "../components"; /* components scan purpose */
+@source "../app";        /* app folder scan. */
 
 /* ============================================================
    LUMIX Pro — Design system
-   Light, professional B2B SaaS. Palantir Foundry precision
-   meets Apple calm: white canvas, pastel accents, hairline
-   borders, soft shadows, one indigo "neon" accent.
+2026.06.24 22:59 By Haewon.J
+
++ Minjae Kim Where are you?
    ============================================================ */
 @theme {
   --font-family-sans: "Noto Sans KR", "Apple SD Gothic Neo", "AppleGothic", sans-serif;
