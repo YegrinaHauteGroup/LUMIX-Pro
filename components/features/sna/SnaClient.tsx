@@ -367,14 +367,14 @@ export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) 
       )}
 
       {/* Control panel */}
-      <div className="absolute top-4 left-4 z-10 w-[320px] max-h-[calc(100%-2rem)] overflow-y-auto rounded-2xl border border-line bg-surface/95 backdrop-blur-md shadow-[var(--shadow-pop)] p-5">
+      <div className="absolute top-6 left-6 z-10 w-[320px] max-h-[calc(100%-2rem)] overflow-y-auto rounded-2xl border border-line bg-surface/95 backdrop-blur-md shadow-[var(--shadow-pop)] p-5">
         <div className="flex items-center gap-2 mb-1">
           <div className="w-7 h-7 rounded-lg bg-accent flex items-center justify-center">
             <span className="text-white text-[13px] font-bold">L</span>
           </div>
-          <h1 className="text-[15px] font-semibold text-ink tracking-[-0.01em]">SNA 분석</h1>
+          <h1 className="text-[15px] font-semibold text-ink tracking-[-0.01em]">SOCIAL NETWORK ANALYSIS</h1>
         </div>
-        <p className="text-[11px] text-ink-faint mb-4 pb-4 border-b border-line">온톨로지 기반 다차원 관계망 분석</p>
+        <p className="text-[11px] text-ink-faint mb-4 pb-4 border-b border-line">ONTOLOGY 기반 다차원 관계망 분석</p>
 
         <p className="text-[11px] font-semibold text-ink-faint uppercase tracking-[0.1em] mb-2">범례</p>
         <ul className="grid grid-cols-2 gap-y-1.5 gap-x-2 text-[11px] text-ink-soft mb-4 pb-4 border-b border-line">
@@ -414,7 +414,7 @@ export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) 
 
       {/* Insight panel */}
       {insightOpen && (
-        <div className="absolute bottom-4 left-4 z-10 w-[400px] max-w-[calc(100%-2rem)] rounded-2xl border border-line bg-surface/95 backdrop-blur-md shadow-[var(--shadow-pop)] p-5">
+        <div className="absolute bottom-6 left-6 z-10 w-[400px] max-w-[calc(100%-2rem)] rounded-2xl border border-line bg-surface/95 backdrop-blur-md shadow-[var(--shadow-pop)] p-5">
           <div className="flex items-start justify-between border-b border-line pb-2.5 mb-3">
             <h3 className="text-[14px] font-semibold text-ink">{insightHtml.title}</h3>
             <button onClick={() => setInsightOpen(false)} className="text-ink-faint hover:text-ink hover:bg-fill rounded-md p-1 transition-colors">
