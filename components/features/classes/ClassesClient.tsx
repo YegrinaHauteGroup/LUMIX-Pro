@@ -69,7 +69,7 @@ export function ClassesClient({ initialClasses, centerId }: Props) {
           <Button onClick={() => setModalOpen(true)} size="sm"><Plus size={12} /> 반 만들기</Button>
         </div>
       ) : (
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {classes.map((cls) => {
             const active = cls.children.filter((c) => c.status === 'active').length
             return (
