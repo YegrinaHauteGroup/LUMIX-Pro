@@ -83,7 +83,7 @@ export function AttendanceClient({ children, classes, today, centerId }: Props) 
   }
 
   return (
-    <div className="flex-1 p-6 space-y-6 overflow-auto">
+    <div className="flex-1 p-8 max-w-[1600px] mx-auto w-full space-y-6 overflow-auto">
       {/* Controls */}
       <div className="flex items-center gap-2">
         <input type="date" value={checkDate} onChange={(e) => setCheckDate(e.target.value)}
