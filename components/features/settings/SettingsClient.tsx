@@ -60,7 +60,7 @@ export function SettingsClient({ user, center }: Props) {
   }
 
   return (
-    <div className="flex-1 p-6 max-w-2xl space-y-6">
+    <div className="flex-1 p-8 max-w-[1600px] mx-auto w-full space-y-6 overflow-auto">
 
       {/* Center info */}
       <Card>
