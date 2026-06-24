@@ -56,7 +56,7 @@ export function ClassesClient({ initialClasses, centerId }: Props) {
   }
 
   return (
-    <div className="flex-1 p-6 space-y-6 overflow-auto">
+    <div className="flex-1 p-8 max-w-[1600px] mx-auto w-full space-y-6 overflow-auto">
       <div className="flex items-center justify-between">
         <span className="text-[11px] text-[#8a93a6] uppercase tracking-widest">총 {classes.length}개 반</span>
         <Button onClick={() => setModalOpen(true)} size="sm"><Plus size={12} /> 반 추가</Button>
