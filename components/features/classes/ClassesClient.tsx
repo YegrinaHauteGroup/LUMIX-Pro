@@ -56,7 +56,7 @@ export function ClassesClient({ initialClasses, centerId }: Props) {
   }
 
   return (
-    <div className="flex-1 p-5 space-y-4 overflow-auto">
+    <div className="flex-1 p-6 space-y-6 overflow-auto">
       <div className="flex items-center justify-between">
         <span className="text-[11px] text-[#8a93a6] uppercase tracking-widest">총 {classes.length}개 반</span>
         <Button onClick={() => setModalOpen(true)} size="sm"><Plus size={12} /> 반 추가</Button>
@@ -95,10 +95,10 @@ export function ClassesClient({ initialClasses, centerId }: Props) {
                   {cls.children.length === 0 ? (
                     <p className="text-[11px] text-[#aab2c2]">배정된 아동이 없습니다</p>
                   ) : (
-                    <div className="space-y-1">
+                    <div className="space-y-2">
                       {cls.children.slice(0, 6).map((child) => (
                         <Link key={child.id} href={`/children/${child.id}`}
-                          className="flex items-center justify-between py-1 group/item">
+                          className="flex items-center justify-between py-2 group/item">
                           <div className="flex items-center gap-2">
                             <div className="w-4 h-4 bg-[#f1f4f9] border border-[#e6eaf2] flex items-center justify-center">
                               <span className="text-[9px] text-[#7a8499]">{child.name[0]}</span>
