@@ -1,6 +1,6 @@
 @import "tailwindcss";
-@source "../components"; /* components scan purpose */
-@source "./";        /* app folder scan. */
+@source "../components/**/*.{tsx,ts}";
+@source "../app/**/*.{tsx,ts}";
 
 /* ============================================================
    LUMIX Pro — Design system
