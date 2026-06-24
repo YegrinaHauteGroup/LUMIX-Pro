@@ -91,7 +91,7 @@ export function ChildrenClient({ initialChildren, classes, centerId }: Props) {
   }
 
   return (
-    <div className="flex-1 p-6 space-y-6 overflow-auto">
+    <div className="flex-1 p-8 max-w-[1600px] mx-auto w-full space-y-6 overflow-auto">
       {/* Toolbar */}
       <div className="flex items-center gap-2">
         <div className="relative">
