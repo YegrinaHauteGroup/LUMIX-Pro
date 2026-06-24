@@ -192,11 +192,11 @@ export function ChildDetailClient({ child, centerId, classes, staff, health, lin
           <CardContent className="space-y-4">
             {tab === 'basic' && (
               <>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-4">
                   <Input label="이름 *" value={form.name} onChange={(e) => set('name', e.target.value)} />
                   <Input label="생년월일" type="date" value={form.birth_date} onChange={(e) => set('birth_date', e.target.value)} />
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-4">
                   <Select label="성별" value={form.gender} onChange={(e) => set('gender', e.target.value as Child['gender'])}>
                     <option value="male">남</option><option value="female">여</option><option value="other">기타</option>
                   </Select>
@@ -204,7 +204,7 @@ export function ChildDetailClient({ child, centerId, classes, staff, health, lin
                     <option value="active">재원</option><option value="leave">휴원</option><option value="inactive">퇴원</option>
                   </Select>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-4">
                   <Select label="반" value={form.class_id} onChange={(e) => set('class_id', e.target.value)}>
                     <option value="">반 미배정</option>
                     {classes.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -214,7 +214,7 @@ export function ChildDetailClient({ child, centerId, classes, staff, health, lin
                     {staff.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                   </Select>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-4">
                   <Select label="이용 유형" value={form.enrollment_type} onChange={(e) => set('enrollment_type', e.target.value as 'general' | 'beneficiary')}>
                     <option value="general">일반</option><option value="beneficiary">수급/지원</option>
                   </Select>
@@ -224,19 +224,19 @@ export function ChildDetailClient({ child, centerId, classes, staff, health, lin
                   <Input label="주소" value={form.address} onChange={(e) => set('address', e.target.value)} />
                   <Input label="우편번호" value={form.postal_code} onChange={(e) => set('postal_code', e.target.value)} />
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-4">
                   <Input label="학교/기관" value={form.school_name} onChange={(e) => set('school_name', e.target.value)} />
                   <Input label="학년/단계" value={form.grade_level} onChange={(e) => set('grade_level', e.target.value)} />
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-4">
                   <Input label="국적" value={form.nationality} onChange={(e) => set('nationality', e.target.value)} />
                   <Input label="사용 언어" value={form.native_language} onChange={(e) => set('native_language', e.target.value)} />
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-4">
                   <Input label="대표 보호자" value={form.guardian_name} onChange={(e) => set('guardian_name', e.target.value)} />
                   <Input label="보호자 연락처" value={form.guardian_phone} onChange={(e) => set('guardian_phone', e.target.value)} />
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-4">
                   <Input label="비상 연락처 이름" value={form.emergency_contact_name} onChange={(e) => set('emergency_contact_name', e.target.value)} />
                   <Input label="비상 연락처 번호" value={form.emergency_contact_phone} onChange={(e) => set('emergency_contact_phone', e.target.value)} />
                 </div>
@@ -373,7 +373,7 @@ function FamilyTab({ child, centerId, links, guardians, supabase, setMsg }: {
       ) : (
         <div className="space-y-2">
           {links.map((l) => (
-            <div key={l.id} className="flex items-center gap-3 px-3.5 py-2.5 rounded-lg border border-line bg-surface">
+            <div key={l.id} className="flex items-center gap-3 px-5 py-3.5 rounded-lg border border-line bg-surface">
               <div className="w-8 h-8 rounded-full bg-accent-soft flex items-center justify-center shrink-0">
                 <span className="text-[12px] font-semibold text-accent">{l.guardian_profiles?.guardian_name?.[0] ?? '?'}</span>
               </div>
