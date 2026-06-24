@@ -29,7 +29,7 @@ export function DashboardCharts({ genderStats, statusStats, classStats }: ChartP
           {genderStats.length === 0 ? (
             <div className="flex items-center justify-center h-36 text-[12px] text-[#aab2c2]">데이터 없음</div>
           ) : (
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-6">
               <ResponsiveContainer width="60%" height={120}>
                 <PieChart>
                   <Pie data={genderStats} cx="50%" cy="50%" innerRadius={30} outerRadius={50} paddingAngle={2} dataKey="value">

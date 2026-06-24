@@ -83,7 +83,7 @@ export function AttendanceClient({ children, classes, today, centerId }: Props) 
   }
 
   return (
-    <div className="flex-1 p-5 space-y-4 overflow-auto">
+    <div className="flex-1 p-6 space-y-6 overflow-auto">
       {/* Controls */}
       <div className="flex items-center gap-2">
         <input type="date" value={checkDate} onChange={(e) => setCheckDate(e.target.value)}
@@ -100,14 +100,14 @@ export function AttendanceClient({ children, classes, today, centerId }: Props) 
       </div>
 
       {/* Summary */}
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-4 gap-5">
         {[
           { label: '출석', value: counts.present, color: 'text-emerald-500' },
           { label: '결석', value: counts.absent, color: 'text-red-500' },
           { label: '지각', value: counts.late, color: 'text-yellow-500' },
           { label: '조퇴', value: counts.leave, color: 'text-orange-500' },
         ].map((s) => (
-          <div key={s.label} className="bg-[#ffffff] border border-[#e6eaf2] px-4 py-3">
+          <div key={s.label} className="bg-[#ffffff] border border-[#e6eaf2] px-5 py-4">
             <p className="text-[10px] text-[#8a93a6] uppercase tracking-widest mb-1">{s.label}</p>
             <p className={`text-2xl font-semibold ${s.color}`}>{s.value}</p>
           </div>
@@ -132,7 +132,7 @@ export function AttendanceClient({ children, classes, today, centerId }: Props) 
               {filtered.map((child) => {
                 const status = attendance[child.id]
                 return (
-                  <div key={child.id} className="flex items-center gap-4 px-5 py-3 border-b border-[#eef2f8] hover:bg-[#f3f6fb] transition-colors last:border-0">
+                  <div key={child.id} className="flex items-center gap-4 px-6 py-4 border-b border-[#eef2f8] hover:bg-[#f3f6fb] transition-colors last:border-0">
                     <div className="w-6 h-6 bg-[#f1f4f9] border border-[#e6eaf2] flex items-center justify-center shrink-0">
                       <span className="text-[10px] text-[#7a8499]">{child.name[0]}</span>
                     </div>

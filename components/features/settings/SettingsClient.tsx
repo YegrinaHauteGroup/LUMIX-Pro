@@ -60,7 +60,7 @@ export function SettingsClient({ user, center }: Props) {
   }
 
   return (
-    <div className="flex-1 p-5 max-w-2xl space-y-4">
+    <div className="flex-1 p-6 max-w-2xl space-y-6">
 
       {/* Center info */}
       <Card>
@@ -90,7 +90,7 @@ export function SettingsClient({ user, center }: Props) {
               required
             />
             {centerMsg && (
-              <div className={`px-3 py-2 text-[11px] ${
+              <div className={`px-3 py-3 text-[11px] ${
                 centerMsg.type === 'success'
                   ? 'border border-[#e7f7ed] bg-[#e7f7ed] text-emerald-500'
                   : 'border border-[#f7caca] bg-[#fdecec] text-red-400'
@@ -116,19 +116,19 @@ export function SettingsClient({ user, center }: Props) {
         <CardContent className="space-y-3">
           <div>
             <p className="text-[10px] text-[#8a93a6] uppercase tracking-widest mb-1">이메일</p>
-            <p className="text-[12px] text-[#1c2740] bg-[#f1f4f9] border border-[#e6eaf2] px-3 py-2">
+            <p className="text-[12px] text-[#1c2740] bg-[#f1f4f9] border border-[#e6eaf2] px-3 py-3">
               {user?.email ?? '—'}
             </p>
           </div>
           <div>
             <p className="text-[10px] text-[#8a93a6] uppercase tracking-widest mb-1">계정 ID</p>
-            <p className="text-[11px] text-[#8a93a6] bg-[#f1f4f9] border border-[#e6eaf2] px-3 py-2 font-mono">
+            <p className="text-[11px] text-[#8a93a6] bg-[#f1f4f9] border border-[#e6eaf2] px-3 py-3 font-mono">
               {user?.id ?? '—'}
             </p>
           </div>
           <div>
             <p className="text-[10px] text-[#8a93a6] uppercase tracking-widest mb-1">마지막 로그인</p>
-            <p className="text-[12px] text-[#5a6678] bg-[#f1f4f9] border border-[#e6eaf2] px-3 py-2">
+            <p className="text-[12px] text-[#5a6678] bg-[#f1f4f9] border border-[#e6eaf2] px-3 py-3">
               {user?.last_sign_in_at ? new Date(user.last_sign_in_at).toLocaleString('ko-KR') : '—'}
             </p>
           </div>
@@ -150,7 +150,7 @@ export function SettingsClient({ user, center }: Props) {
             <Input label="새 비밀번호 확인" type="password" placeholder="비밀번호 재입력"
               value={confirmPw} onChange={(e) => setConfirmPw(e.target.value)} />
             {pwMessage && (
-              <div className={`px-3 py-2 text-[11px] ${
+              <div className={`px-3 py-3 text-[11px] ${
                 pwMessage.type === 'success'
                   ? 'border border-[#e7f7ed] bg-[#e7f7ed] text-emerald-500'
                   : 'border border-[#f7caca] bg-[#fdecec] text-red-400'
@@ -180,7 +180,7 @@ export function SettingsClient({ user, center }: Props) {
             { label: 'DB', value: 'Supabase (PostgreSQL)' },
             { label: '지원', value: 'support@lumixpro.kr' },
           ].map(({ label, value }) => (
-            <div key={label} className="flex items-center justify-between py-2 border-b border-[#eef2f8] last:border-0">
+            <div key={label} className="flex items-center justify-between py-3 border-b border-[#eef2f8] last:border-0">
               <span className="text-[11px] text-[#8a93a6] uppercase tracking-widest">{label}</span>
               <span className="text-[11px] text-[#5a6678]">{value}</span>
             </div>

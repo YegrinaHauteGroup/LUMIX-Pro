@@ -80,7 +80,7 @@ export function ActivitiesClient({ initialActivities, classes, centerId }: Props
   }
 
   return (
-    <div className="flex-1 p-5 space-y-4 overflow-auto">
+    <div className="flex-1 p-6 space-y-6 overflow-auto">
       <div className="flex items-center gap-2">
         <select value={filterType} onChange={(e) => setFilterType(e.target.value as typeof filterType)}
           className="bg-[#ffffff] border border-[#e6eaf2] px-3 text-[12px] text-[#5a6678] focus:outline-none focus:border-[#5a63f2] h-8 rounded-sm cursor-pointer">
@@ -107,7 +107,7 @@ export function ActivitiesClient({ initialActivities, classes, centerId }: Props
             <thead>
               <tr className="border-b border-[#e9edf4]">
                 {['제목', '날짜', '시간', '반', '유형', '상태', ''].map((h) => (
-                  <th key={h} className="text-left text-[10px] text-[#8a93a6] font-medium uppercase tracking-widest px-4 py-3">{h}</th>
+                  <th key={h} className="text-left text-[10px] text-[#8a93a6] font-medium uppercase tracking-widest px-6 py-3.5 first:pl-6 last:pr-6">{h}</th>
                 ))}
               </tr>
             </thead>
@@ -119,19 +119,19 @@ export function ActivitiesClient({ initialActivities, classes, centerId }: Props
                 </td></tr>
               ) : filtered.map((a) => (
                 <tr key={a.id} className="border-b border-[#eef2f8] hover:bg-[#f3f6fb] transition-colors">
-                  <td className="px-4 py-3">
+                  <td className="px-6 py-3.5 first:pl-6 last:pr-6">
                     <div className="flex items-center gap-2">
                       <div className={`w-0.5 h-5 ${ACTIVITY_TYPE_COLORS[a.type]?.split(' ')[1] ?? 'bg-[#aab2c2]'}`} />
                       <span className="text-[12px] font-medium text-[#1c2740]">{a.title}</span>
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-[12px] text-[#667085]">{a.activity_date ?? '—'}</td>
-                  <td className="px-4 py-3 text-[12px] text-[#667085]">{a.activity_time ?? '—'}</td>
-                  <td className="px-4 py-3 text-[12px] text-[#667085]">{(a.classes as Class | undefined)?.name ?? '전체'}</td>
-                  <td className="px-4 py-3">
+                  <td className="px-6 py-3.5 first:pl-6 last:pr-6 text-[12px] text-[#667085]">{a.activity_date ?? '—'}</td>
+                  <td className="px-6 py-3.5 first:pl-6 last:pr-6 text-[12px] text-[#667085]">{a.activity_time ?? '—'}</td>
+                  <td className="px-6 py-3.5 first:pl-6 last:pr-6 text-[12px] text-[#667085]">{(a.classes as Class | undefined)?.name ?? '전체'}</td>
+                  <td className="px-6 py-3.5 first:pl-6 last:pr-6">
                     <Badge className={ACTIVITY_TYPE_COLORS[a.type]}>{ACTIVITY_TYPE_LABELS[a.type]}</Badge>
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-6 py-3.5 first:pl-6 last:pr-6">
                     <select value={a.status} onChange={(e) => handleStatusChange(a.id, e.target.value as Activity['status'])}
                       className={`text-[10px] px-2 py-0.5 border-0 cursor-pointer focus:outline-none bg-transparent uppercase tracking-wider ${ACTIVITY_STATUS_COLORS[a.status]}`}>
                       {(Object.keys(ACTIVITY_STATUS_LABELS) as Activity['status'][]).map((s) => (
@@ -139,7 +139,7 @@ export function ActivitiesClient({ initialActivities, classes, centerId }: Props
                       ))}
                     </select>
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-6 py-3.5 first:pl-6 last:pr-6">
                     <button onClick={() => handleDelete(a.id)} className="text-[#d6dce8] hover:text-[#e5484d] transition-colors p-1">
                       <Trash2 size={13} />
                     </button>

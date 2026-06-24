@@ -170,7 +170,7 @@ function RecentTable<T extends { id: string }>({
         ) : (
           <div className="divide-y divide-[color:var(--color-line)]">
             {rows.map((r) => (
-              <div key={r.id} className="flex items-center gap-3 px-5 py-2.5 hover:bg-fill-2 transition-colors">
+              <div key={r.id} className="flex items-center gap-3 px-6 py-3.5 hover:bg-fill-2 transition-colors">
                 <div className="flex-1 min-w-0">{render(r)}</div>
                 <button onClick={() => onDelete(r.id)} className="text-ink-ghost hover:text-danger transition-colors p-1">
                   <Trash2 size={13} />
