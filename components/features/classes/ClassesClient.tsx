@@ -46,8 +46,13 @@ export function ClassesClient({ initialClasses, centerId }: Props) {
 
   const handleDelete = async (id: string) => {
     if (!confirm('이 반을 삭제하시겠습니까?')) return
-    const { error } = await supabase.from('classes').delete().eq('id', id)
-    if (!error) setClasses((prev) => prev.filter((c) => c.id !== id))
+    const { error } = await supabase
+      .from('classes')
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('id', id)
+    if (error) { alert(`삭제 실패: ${error.message}`); return }
+    setClasses((prev) => prev.filter((c) => c.id !== id))
+    router.refresh()
   }
 
   return (

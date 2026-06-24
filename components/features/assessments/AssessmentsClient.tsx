@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/Badge'
 import { createClient } from '@/utils/supabase/client'
 import { useRouter } from 'next/navigation'
 import { useMemo, useState } from 'react'
-import { Trash2, RefreshCw, Plus, ArrowRight, Sparkles } from 'lucide-react'
+import { Trash2, RefreshCw, Plus, ArrowRight } from 'lucide-react'
 
 type Dim = 'social' | 'communication' | 'learning' | 'self_help' | 'behavior' | 'health'
 
@@ -116,7 +116,7 @@ export function AssessmentsClient(props: Props) {
             ? 'bg-[color:var(--color-success-soft)] border-[color:var(--color-success-soft)] text-[color:var(--color-success)]'
             : 'bg-[color:var(--color-danger-soft)] border-[color:var(--color-danger-soft)] text-[color:var(--color-danger)]')
         }>
-          <Sparkles size={13} /> {msg.text}
+          {msg.text}
         </div>
       )}
 

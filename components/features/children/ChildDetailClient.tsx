@@ -5,32 +5,45 @@ import { Button } from '@/components/ui/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Input, Select, Textarea } from '@/components/ui/Input'
 import {
-  ACTIVITY_STATUS_COLORS,
-  ACTIVITY_STATUS_LABELS,
-  ACTIVITY_TYPE_COLORS,
-  ACTIVITY_TYPE_LABELS,
-  CHILD_STATUS_COLORS,
-  CHILD_STATUS_LABELS,
-  GENDER_LABELS,
-  calculateAge,
-  formatDate,
+  ACTIVITY_STATUS_COLORS, ACTIVITY_STATUS_LABELS, ACTIVITY_TYPE_COLORS,
+  CHILD_STATUS_COLORS, CHILD_STATUS_LABELS, GENDER_LABELS, calculateAge, formatDate,
 } from '@/lib/utils'
-import type { Activity, Child, Class } from '@/lib/types'
+import type { Activity, Child, Class, ChildGuardian, HealthProfile } from '@/lib/types'
 import { createClient } from '@/utils/supabase/client'
-import { ArrowLeft, Save } from 'lucide-react'
+import { ArrowLeft, Plus, Save, Trash2 } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
+
+interface Guardian { id: string; guardian_name: string; guardian_phone: string | null }
 
 interface Props {
-  child: Child
+  child: Child & { center_id?: string }
+  centerId: string
   classes: Pick<Class, 'id' | 'name'>[]
+  staff: { id: string; name: string }[]
+  health: HealthProfile | null
+  links: ChildGuardian[]
+  guardians: Guardian[]
   recentActivities: Activity[]
 }
 
-export function ChildDetailClient({ child, classes, recentActivities }: Props) {
+type Tab = 'basic' | 'health' | 'family' | 'dev'
+const TABS: { key: Tab; label: string }[] = [
+  { key: 'basic', label: '기본 정보' },
+  { key: 'health', label: '신체 · 건강' },
+  { key: 'family', label: '가족 · 관계' },
+  { key: 'dev', label: '발달 · 메모' },
+]
+
+const RELATIONSHIP_OPTIONS = ['부', '모', '조부', '조모', '형제', '자매', '친척', '기타']
+
+export function ChildDetailClient({ child, centerId, classes, staff, health, links, guardians, recentActivities }: Props) {
   const router = useRouter()
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
+  const [tab, setTab] = useState<Tab>('basic')
+  const [saving, setSaving] = useState(false)
+  const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null)
 
   const [form, setForm] = useState({
     name: child.name,
@@ -38,196 +51,251 @@ export function ChildDetailClient({ child, classes, recentActivities }: Props) {
     gender: child.gender,
     class_id: child.class_id ?? '',
     status: child.status,
+    enrollment_type: (child.enrollment_type ?? 'general') as 'general' | 'beneficiary',
+    primary_teacher_id: child.primary_teacher_id ?? '',
+    phone: child.phone ?? '',
+    address: child.address ?? '',
+    postal_code: child.postal_code ?? '',
+    school_name: child.school_name ?? '',
+    grade_level: child.grade_level ?? '',
+    nationality: child.nationality ?? '',
+    native_language: child.native_language ?? '',
     guardian_name: child.guardian_name ?? '',
     guardian_phone: child.guardian_phone ?? '',
+    emergency_contact_name: child.emergency_contact_name ?? '',
+    emergency_contact_phone: child.emergency_contact_phone ?? '',
+    height_cm: child.height_cm?.toString() ?? '',
+    weight_kg: child.weight_kg?.toString() ?? '',
+    blood_type: child.blood_type ?? '',
+    dietary_notes: child.dietary_notes ?? '',
+    learning_level: child.learning_level ?? '',
+    characteristics: child.characteristics ?? '',
+    developmental_notes: child.developmental_notes ?? '',
     notes: child.notes ?? '',
   })
-  const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
+  const [hp, setHp] = useState({
+    allergies: health?.allergies ?? '',
+    medications: health?.medications ?? '',
+    conditions: health?.conditions ?? '',
+  })
 
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setSaving(true)
-    const { error } = await supabase
-      .from('children')
-      .update({
-        name: form.name,
-        birth_date: form.birth_date || null,
-        gender: form.gender,
-        class_id: form.class_id || null,
-        status: form.status,
-        guardian_name: form.guardian_name || null,
-        guardian_phone: form.guardian_phone || null,
-        notes: form.notes || null,
-      })
-      .eq('id', child.id)
+  function set<K extends keyof typeof form>(k: K, v: (typeof form)[K]) { setForm((f) => ({ ...f, [k]: v })) }
 
+  async function saveChild() {
+    setSaving(true); setMsg(null)
+    const { data, error } = await supabase.from('children').update({
+      name: form.name,
+      birth_date: form.birth_date || null,
+      gender: form.gender,
+      class_id: form.class_id || null,
+      status: form.status,
+      enrollment_type: form.enrollment_type,
+      primary_teacher_id: form.primary_teacher_id || null,
+      phone: form.phone || null,
+      address: form.address || null,
+      postal_code: form.postal_code || null,
+      school_name: form.school_name || null,
+      grade_level: form.grade_level || null,
+      nationality: form.nationality || null,
+      native_language: form.native_language || null,
+      guardian_name: form.guardian_name || null,
+      guardian_phone: form.guardian_phone || null,
+      emergency_contact_name: form.emergency_contact_name || null,
+      emergency_contact_phone: form.emergency_contact_phone || null,
+      height_cm: form.height_cm ? Number(form.height_cm) : null,
+      weight_kg: form.weight_kg ? Number(form.weight_kg) : null,
+      blood_type: form.blood_type || null,
+      dietary_notes: form.dietary_notes || null,
+      learning_level: form.learning_level || null,
+      characteristics: form.characteristics || null,
+      developmental_notes: form.developmental_notes || null,
+      notes: form.notes || null,
+    }).eq('id', child.id).select('id')
     setSaving(false)
-    if (!error) {
-      setSaved(true)
-      setTimeout(() => setSaved(false), 2000)
-      router.refresh()
-    }
+    if (error) { setMsg({ kind: 'err', text: `저장 실패: ${error.message}` }); return }
+    if (!data || data.length === 0) { setMsg({ kind: 'err', text: '저장 권한이 없거나 대상을 찾을 수 없습니다.' }); return }
+    setMsg({ kind: 'ok', text: '저장되었습니다.' }); router.refresh()
   }
 
+  async function saveHealth() {
+    setSaving(true); setMsg(null)
+    const payload = { allergies: hp.allergies || null, medications: hp.medications || null, conditions: hp.conditions || null }
+    let error
+    if (health?.id) {
+      ({ error } = await supabase.from('health_profiles').update(payload).eq('id', health.id))
+    } else {
+      ({ error } = await supabase.from('health_profiles').insert({ center_id: centerId, child_id: child.id, ...payload }))
+    }
+    setSaving(false)
+    if (error) { setMsg({ kind: 'err', text: `건강정보 저장 실패: ${error.message}` }); return }
+    setMsg({ kind: 'ok', text: '건강 정보가 저장되었습니다.' }); router.refresh()
+  }
+
+  const age = child.birth_date ? `${calculateAge(child.birth_date)}세` : '나이 미등록'
+
   return (
-    <div className="flex-1 p-6 space-y-5">
-      <Link
-        href="/children"
-        className="inline-flex items-center gap-1.5 text-sm text-[#667085] hover:text-[#475467] transition-colors"
-      >
-        <ArrowLeft size={14} />
-        아동 목록으로
-      </Link>
+    <div className="flex-1 p-6 space-y-5 overflow-auto">
+      <div className="flex items-center justify-between">
+        <Link href="/children" className="inline-flex items-center gap-1.5 text-sm text-ink-soft hover:text-ink transition-colors">
+          <ArrowLeft size={14} /> 아동 목록으로
+        </Link>
+        {msg && (
+          <span className={`text-[12px] ${msg.kind === 'ok' ? 'text-[color:var(--color-success)]' : 'text-danger'}`}>{msg.text}</span>
+        )}
+      </div>
 
       <div className="grid grid-cols-3 gap-5">
         {/* Profile card */}
-        <Card className="col-span-1">
+        <Card className="col-span-1 h-fit">
           <CardContent className="pt-5">
             <div className="flex flex-col items-center text-center gap-3">
-              <div className="w-16 h-16 bg-[#f1f4f9] border border-[#e6eaf2] flex items-center justify-center">
-                <span className="text-2xl font-semibold text-[#5a6678]">{child.name[0]}</span>
+              <div className="w-16 h-16 rounded-2xl bg-accent-soft border border-line flex items-center justify-center">
+                <span className="text-2xl font-semibold text-accent">{child.name[0]}</span>
               </div>
               <div>
-                <h2 className="text-lg font-semibold text-[#f5f5f5]">{child.name}</h2>
-                <p className="text-sm text-[#7a8499]">
-                  {child.birth_date ? `${calculateAge(child.birth_date)}세` : '나이 미등록'}
-                  {' · '}
-                  {GENDER_LABELS[child.gender]}
-                </p>
+                <h2 className="text-lg font-semibold text-ink">{child.name}</h2>
+                <p className="text-sm text-ink-faint">{age} · {GENDER_LABELS[child.gender]}</p>
               </div>
-              <Badge className={CHILD_STATUS_COLORS[child.status]}>
-                {CHILD_STATUS_LABELS[child.status]}
-              </Badge>
+              <Badge className={CHILD_STATUS_COLORS[child.status]}>{CHILD_STATUS_LABELS[child.status]}</Badge>
             </div>
-
-            <div className="mt-5 space-y-3 border-t border-[#e9edf4] pt-4">
-              <div>
-                <p className="text-xs text-[#7a8499] mb-0.5">소속 반</p>
-                <p className="text-sm text-[#0e1726]">
-                  {(child.classes as Class | undefined)?.name ?? '미배정'}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-[#7a8499] mb-0.5">보호자</p>
-                <p className="text-sm text-[#0e1726]">{child.guardian_name ?? '—'}</p>
-              </div>
-              <div>
-                <p className="text-xs text-[#7a8499] mb-0.5">연락처</p>
-                <p className="text-sm text-[#0e1726]">{child.guardian_phone ?? '—'}</p>
-              </div>
-              <div>
-                <p className="text-xs text-[#7a8499] mb-0.5">등록일</p>
-                <p className="text-sm text-[#0e1726]">{formatDate(child.created_at)}</p>
-              </div>
+            <div className="mt-5 space-y-3 border-t border-line pt-4">
+              {[
+                ['소속 반', (child.classes as Class | undefined)?.name ?? '미배정'],
+                ['담임 교사', staff.find((s) => s.id === form.primary_teacher_id)?.name ?? '미배정'],
+                ['이용 유형', form.enrollment_type === 'beneficiary' ? '수급/지원' : '일반'],
+                ['학교', child.school_name ?? '—'],
+                ['연락처', child.phone ?? child.guardian_phone ?? '—'],
+                ['등록일', formatDate(child.created_at)],
+              ].map(([k, v]) => (
+                <div key={k}>
+                  <p className="text-xs text-ink-faint mb-0.5">{k}</p>
+                  <p className="text-sm text-ink">{v}</p>
+                </div>
+              ))}
             </div>
           </CardContent>
         </Card>
 
-        {/* Edit form */}
+        {/* Editor */}
         <Card className="col-span-2">
-          <CardHeader>
-            <CardTitle>정보 수정</CardTitle>
+          <CardHeader className="pb-0">
+            <div className="flex items-center gap-1 p-1 bg-fill rounded-xl border border-line w-fit">
+              {TABS.map((t) => (
+                <button key={t.key} onClick={() => setTab(t.key)}
+                  className={'px-3.5 h-8 rounded-lg text-[12.5px] font-medium transition-colors ' +
+                    (tab === t.key ? 'bg-surface text-ink shadow-[var(--shadow-card)]' : 'text-ink-soft hover:text-ink')}>
+                  {t.label}
+                </button>
+              ))}
+            </div>
           </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSave} className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <Input
-                  label="이름 *"
-                  value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  required
-                />
-                <Input
-                  label="생년월일"
-                  type="date"
-                  value={form.birth_date}
-                  onChange={(e) => setForm({ ...form, birth_date: e.target.value })}
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <Select
-                  label="성별"
-                  value={form.gender}
-                  onChange={(e) => setForm({ ...form, gender: e.target.value as Child['gender'] })}
-                >
-                  <option value="male">남</option>
-                  <option value="female">여</option>
-                  <option value="other">기타</option>
-                </Select>
-                <Select
-                  label="반"
-                  value={form.class_id}
-                  onChange={(e) => setForm({ ...form, class_id: e.target.value })}
-                >
-                  <option value="">반 미배정</option>
-                  {classes.map((cls) => (
-                    <option key={cls.id} value={cls.id}>{cls.name}</option>
-                  ))}
-                </Select>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <Input
-                  label="보호자 이름"
-                  value={form.guardian_name}
-                  onChange={(e) => setForm({ ...form, guardian_name: e.target.value })}
-                />
-                <Input
-                  label="보호자 연락처"
-                  value={form.guardian_phone}
-                  onChange={(e) => setForm({ ...form, guardian_phone: e.target.value })}
-                />
-              </div>
-              <Select
-                label="재원 상태"
-                value={form.status}
-                onChange={(e) => setForm({ ...form, status: e.target.value as Child['status'] })}
-              >
-                <option value="active">재원</option>
-                <option value="leave">휴원</option>
-                <option value="inactive">퇴원</option>
-              </Select>
-              <Textarea
-                label="메모"
-                rows={3}
-                placeholder="특이사항, 주의사항 등을 입력하세요"
-                value={form.notes}
-                onChange={(e) => setForm({ ...form, notes: e.target.value })}
-              />
-              <div className="flex justify-end">
-                <Button type="submit" loading={saving}>
-                  <Save size={14} />
-                  {saved ? '저장됨' : '저장'}
-                </Button>
-              </div>
-            </form>
+          <CardContent className="space-y-4">
+            {tab === 'basic' && (
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <Input label="이름 *" value={form.name} onChange={(e) => set('name', e.target.value)} />
+                  <Input label="생년월일" type="date" value={form.birth_date} onChange={(e) => set('birth_date', e.target.value)} />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <Select label="성별" value={form.gender} onChange={(e) => set('gender', e.target.value as Child['gender'])}>
+                    <option value="male">남</option><option value="female">여</option><option value="other">기타</option>
+                  </Select>
+                  <Select label="재원 상태" value={form.status} onChange={(e) => set('status', e.target.value as Child['status'])}>
+                    <option value="active">재원</option><option value="leave">휴원</option><option value="inactive">퇴원</option>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <Select label="반" value={form.class_id} onChange={(e) => set('class_id', e.target.value)}>
+                    <option value="">반 미배정</option>
+                    {classes.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </Select>
+                  <Select label="담임 교사" value={form.primary_teacher_id} onChange={(e) => set('primary_teacher_id', e.target.value)}>
+                    <option value="">미배정</option>
+                    {staff.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </Select>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <Select label="이용 유형" value={form.enrollment_type} onChange={(e) => set('enrollment_type', e.target.value as 'general' | 'beneficiary')}>
+                    <option value="general">일반</option><option value="beneficiary">수급/지원</option>
+                  </Select>
+                  <Input label="아동 연락처" value={form.phone} onChange={(e) => set('phone', e.target.value)} />
+                </div>
+                <div className="grid grid-cols-[2fr_1fr] gap-3">
+                  <Input label="주소" value={form.address} onChange={(e) => set('address', e.target.value)} />
+                  <Input label="우편번호" value={form.postal_code} onChange={(e) => set('postal_code', e.target.value)} />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <Input label="학교/기관" value={form.school_name} onChange={(e) => set('school_name', e.target.value)} />
+                  <Input label="학년/단계" value={form.grade_level} onChange={(e) => set('grade_level', e.target.value)} />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <Input label="국적" value={form.nationality} onChange={(e) => set('nationality', e.target.value)} />
+                  <Input label="사용 언어" value={form.native_language} onChange={(e) => set('native_language', e.target.value)} />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <Input label="대표 보호자" value={form.guardian_name} onChange={(e) => set('guardian_name', e.target.value)} />
+                  <Input label="보호자 연락처" value={form.guardian_phone} onChange={(e) => set('guardian_phone', e.target.value)} />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <Input label="비상 연락처 이름" value={form.emergency_contact_name} onChange={(e) => set('emergency_contact_name', e.target.value)} />
+                  <Input label="비상 연락처 번호" value={form.emergency_contact_phone} onChange={(e) => set('emergency_contact_phone', e.target.value)} />
+                </div>
+                <SaveBar saving={saving} onSave={saveChild} />
+              </>
+            )}
+
+            {tab === 'health' && (
+              <>
+                <div className="grid grid-cols-3 gap-3">
+                  <Input label="키 (cm)" type="number" value={form.height_cm} onChange={(e) => set('height_cm', e.target.value)} />
+                  <Input label="몸무게 (kg)" type="number" value={form.weight_kg} onChange={(e) => set('weight_kg', e.target.value)} />
+                  <Input label="혈액형" value={form.blood_type} onChange={(e) => set('blood_type', e.target.value)} placeholder="A / B / O / AB" />
+                </div>
+                <Textarea label="식이 특이사항" rows={2} value={form.dietary_notes} onChange={(e) => set('dietary_notes', e.target.value)} placeholder="편식, 식사 보조 필요 등" />
+                <SaveBar saving={saving} onSave={saveChild} label="신체 정보 저장" />
+                <div className="border-t border-line pt-4 space-y-4">
+                  <p className="text-[11px] font-semibold text-ink-faint uppercase tracking-[0.08em]">건강 기록</p>
+                  <Textarea label="알레르기" rows={2} value={hp.allergies} onChange={(e) => setHp((h) => ({ ...h, allergies: e.target.value }))} placeholder="예: 땅콩, 우유" />
+                  <Textarea label="복용 약물" rows={2} value={hp.medications} onChange={(e) => setHp((h) => ({ ...h, medications: e.target.value }))} />
+                  <Textarea label="기저 질환 / 특이사항" rows={2} value={hp.conditions} onChange={(e) => setHp((h) => ({ ...h, conditions: e.target.value }))} />
+                  <SaveBar saving={saving} onSave={saveHealth} label="건강 기록 저장" />
+                </div>
+              </>
+            )}
+
+            {tab === 'family' && (
+              <FamilyTab child={child} centerId={centerId} links={links} guardians={guardians} supabase={supabase} setMsg={setMsg} />
+            )}
+
+            {tab === 'dev' && (
+              <>
+                <Input label="학습 수준" value={form.learning_level} onChange={(e) => set('learning_level', e.target.value)} placeholder="예: 한글 읽기 가능, 수 세기 10까지" />
+                <Textarea label="성향 / 특징" rows={3} value={form.characteristics} onChange={(e) => set('characteristics', e.target.value)} placeholder="성격, 관심사, 또래 관계 특성 등" />
+                <Textarea label="발달 기록" rows={3} value={form.developmental_notes} onChange={(e) => set('developmental_notes', e.target.value)} placeholder="발달 관찰, 상담 내용 등" />
+                <Textarea label="메모" rows={3} value={form.notes} onChange={(e) => set('notes', e.target.value)} placeholder="기타 특이사항" />
+                <SaveBar saving={saving} onSave={saveChild} />
+              </>
+            )}
           </CardContent>
         </Card>
       </div>
 
-      {/* Recent activities */}
+      {/* Participation */}
       <Card>
-        <CardHeader>
-          <CardTitle>참여 활동</CardTitle>
-        </CardHeader>
+        <CardHeader><CardTitle>참여 활동</CardTitle></CardHeader>
         <CardContent>
           {recentActivities.length === 0 ? (
-            <p className="text-sm text-[#8a93a6] py-4 text-center">참여한 활동이 없습니다</p>
+            <p className="text-sm text-ink-faint py-4 text-center">참여한 활동이 없습니다</p>
           ) : (
             <div className="grid grid-cols-2 gap-2">
-              {recentActivities.slice(0, 6).map((activity) => (
-                <div
-                  key={activity.id}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-[#f1f4f9] border border-[#e6eaf2]"
-                >
-                  <div className={`w-1.5 h-8 rounded-full ${ACTIVITY_TYPE_COLORS[activity.type]?.split(' ')[1]}`} />
+              {recentActivities.slice(0, 6).map((a) => (
+                <div key={a.id} className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-fill border border-line">
+                  <div className={`w-1.5 h-8 rounded-full ${ACTIVITY_TYPE_COLORS[a.type]?.split(' ')[1]}`} />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-[#0e1726] font-medium truncate">{activity.title}</p>
-                    <p className="text-xs text-[#7a8499]">{activity.activity_date ?? '날짜 미정'}</p>
+                    <p className="text-sm text-ink font-medium truncate">{a.title}</p>
+                    <p className="text-xs text-ink-faint">{a.activity_date ?? '날짜 미정'}</p>
                   </div>
-                  <Badge className={ACTIVITY_STATUS_COLORS[activity.status]}>
-                    {ACTIVITY_STATUS_LABELS[activity.status]}
-                  </Badge>
+                  <Badge className={ACTIVITY_STATUS_COLORS[a.status]}>{ACTIVITY_STATUS_LABELS[a.status]}</Badge>
                 </div>
               ))}
             </div>
@@ -235,5 +303,127 @@ export function ChildDetailClient({ child, classes, recentActivities }: Props) {
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+function SaveBar({ saving, onSave, label = '저장' }: { saving: boolean; onSave: () => void; label?: string }) {
+  return (
+    <div className="flex justify-end pt-1">
+      <Button onClick={onSave} loading={saving}><Save size={14} /> {label}</Button>
+    </div>
+  )
+}
+
+type SB = ReturnType<typeof createClient>
+type Setter = (m: { kind: 'ok' | 'err'; text: string } | null) => void
+
+function FamilyTab({ child, centerId, links, guardians, supabase, setMsg }: {
+  child: Child; centerId: string; links: ChildGuardian[]; guardians: Guardian[]; supabase: SB; setMsg: Setter
+}) {
+  const router = useRouter()
+  const [guardianId, setGuardianId] = useState('')
+  const [relationship, setRelationship] = useState('모')
+  const [newName, setNewName] = useState('')
+  const [newPhone, setNewPhone] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  async function addExisting() {
+    if (!guardianId) { setMsg({ kind: 'err', text: '보호자를 선택하세요.' }); return }
+    setBusy(true)
+    const { error } = await supabase.from('child_guardians').insert({
+      center_id: centerId, child_id: child.id, guardian_id: guardianId,
+      relationship, is_primary: links.length === 0,
+    })
+    setBusy(false)
+    if (error) { setMsg({ kind: 'err', text: `연결 실패: ${error.message}` }); return }
+    setGuardianId(''); router.refresh()
+  }
+
+  async function createAndLink() {
+    if (!newName.trim()) { setMsg({ kind: 'err', text: '보호자 이름을 입력하세요.' }); return }
+    setBusy(true)
+    const { data: g, error: gErr } = await supabase.from('guardian_profiles')
+      .insert({ center_id: centerId, guardian_name: newName.trim(), guardian_phone: newPhone || null })
+      .select('id').single()
+    if (gErr || !g) { setBusy(false); setMsg({ kind: 'err', text: `보호자 생성 실패: ${gErr?.message}` }); return }
+    const { error } = await supabase.from('child_guardians').insert({
+      center_id: centerId, child_id: child.id, guardian_id: g.id, relationship, is_primary: links.length === 0,
+    })
+    setBusy(false)
+    if (error) { setMsg({ kind: 'err', text: `연결 실패: ${error.message}` }); return }
+    setNewName(''); setNewPhone(''); router.refresh()
+  }
+
+  async function toggle(linkId: string, field: 'is_primary' | 'is_emergency_contact' | 'can_pickup', value: boolean) {
+    await supabase.from('child_guardians').update({ [field]: value }).eq('id', linkId)
+    router.refresh()
+  }
+  async function remove(linkId: string) {
+    await supabase.from('child_guardians').update({ deleted_at: new Date().toISOString() }).eq('id', linkId)
+    router.refresh()
+  }
+
+  const linkedIds = new Set(links.map((l) => l.guardian_id))
+  const available = guardians.filter((g) => !linkedIds.has(g.id))
+
+  return (
+    <div className="space-y-4">
+      {links.length === 0 ? (
+        <p className="text-sm text-ink-faint py-2">연결된 가족이 없습니다. 아래에서 추가하세요.</p>
+      ) : (
+        <div className="space-y-2">
+          {links.map((l) => (
+            <div key={l.id} className="flex items-center gap-3 px-3.5 py-2.5 rounded-lg border border-line bg-surface">
+              <div className="w-8 h-8 rounded-full bg-accent-soft flex items-center justify-center shrink-0">
+                <span className="text-[12px] font-semibold text-accent">{l.guardian_profiles?.guardian_name?.[0] ?? '?'}</span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[13px] font-medium text-ink truncate">
+                  {l.guardian_profiles?.guardian_name ?? '보호자'}
+                  <span className="ml-1.5 text-ink-faint font-normal">{l.relationship}</span>
+                </p>
+                <p className="text-[11px] text-ink-faint">{l.guardian_profiles?.guardian_phone ?? '연락처 없음'}</p>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Toggle on={l.is_primary} label="대표" onClick={() => toggle(l.id, 'is_primary', !l.is_primary)} />
+                <Toggle on={l.is_emergency_contact} label="비상" onClick={() => toggle(l.id, 'is_emergency_contact', !l.is_emergency_contact)} />
+                <Toggle on={l.can_pickup} label="인계" onClick={() => toggle(l.id, 'can_pickup', !l.can_pickup)} />
+                <button onClick={() => remove(l.id)} className="text-ink-ghost hover:text-danger transition-colors p-1"><Trash2 size={13} /></button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-4 border-t border-line pt-4">
+        <div className="space-y-2">
+          <p className="text-[11px] font-semibold text-ink-faint uppercase tracking-[0.08em]">기존 보호자 연결</p>
+          <Select label="" value={guardianId} onChange={(e) => setGuardianId(e.target.value)}>
+            <option value="">보호자 선택</option>
+            {available.map((g) => <option key={g.id} value={g.id}>{g.guardian_name}</option>)}
+          </Select>
+          <Select label="" value={relationship} onChange={(e) => setRelationship(e.target.value)}>
+            {RELATIONSHIP_OPTIONS.map((r) => <option key={r} value={r}>{r}</option>)}
+          </Select>
+          <Button variant="secondary" className="w-full" onClick={addExisting} loading={busy}><Plus size={13} /> 연결</Button>
+        </div>
+        <div className="space-y-2">
+          <p className="text-[11px] font-semibold text-ink-faint uppercase tracking-[0.08em]">새 보호자 추가</p>
+          <Input label="" placeholder="이름" value={newName} onChange={(e) => setNewName(e.target.value)} />
+          <Input label="" placeholder="연락처" value={newPhone} onChange={(e) => setNewPhone(e.target.value)} />
+          <Button className="w-full" onClick={createAndLink} loading={busy}><Plus size={13} /> 추가 및 연결</Button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function Toggle({ on, label, onClick }: { on: boolean; label: string; onClick: () => void }) {
+  return (
+    <button onClick={onClick}
+      className={'px-2 h-6 rounded-md text-[10px] font-semibold transition-colors ' +
+        (on ? 'bg-accent-soft text-accent' : 'bg-fill text-ink-ghost hover:text-ink-soft')}>
+      {label}
+    </button>
   )
 }

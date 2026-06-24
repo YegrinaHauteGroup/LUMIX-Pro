@@ -30,7 +30,7 @@ const NAV_GROUPS: { label: string; items: { href: string; icon: typeof Home; lab
   },
 ]
 
-export function Sidebar() {
+export function Sidebar({ centerName }: { centerName?: string | null }) {
   const pathname = usePathname()
 
   const NavLink = ({ href, icon: Icon, label }: { href: string; icon: typeof Home; label: string }) => {
@@ -62,6 +62,17 @@ export function Sidebar() {
           <span className="text-[14px] font-semibold text-ink-ghost tracking-[-0.01em] ml-1">Pro</span>
         </div>
       </div>
+
+      {/* Active center */}
+      {centerName && (
+        <div className="px-5 py-3 border-b border-line">
+          <p className="text-[10px] font-semibold text-ink-ghost uppercase tracking-[0.14em]">현재 센터</p>
+          <div className="flex items-center gap-2 mt-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-accent shadow-[0_0_6px_rgba(90,99,242,0.6)]" />
+            <p className="text-[13px] font-medium text-ink truncate">{centerName}</p>
+          </div>
+        </div>
+      )}
 
       {/* Nav */}
       <nav className="flex-1 py-3 overflow-y-auto space-y-4">
