@@ -144,7 +144,7 @@ export function ChildDetailClient({ child, centerId, classes, staff, health, lin
         )}
       </div>
 
-      <div className="grid grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Profile card */}
         <Card className="col-span-1 h-fit">
           <CardContent className="pt-5">
