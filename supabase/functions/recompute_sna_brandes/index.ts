@@ -12,6 +12,12 @@ import { createClient } from 'npm:@supabase/supabase-js@2.47.1'
 
 type Body = { center_id?: string }
 
+const CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+}
+
 function weightToDistance(w: number): number { return 1 / Math.max(w, 1e-6) }
 
 function serviceClient() {
@@ -26,11 +32,12 @@ function serviceClient() {
 }
 
 function json(obj: unknown, status = 200) {
-  return new Response(JSON.stringify(obj), { status, headers: { 'content-type': 'application/json' } })
+  return new Response(JSON.stringify(obj), { status, headers: { 'content-type': 'application/json', ...CORS } })
 }
 
 Deno.serve(async (req) => {
-  if (req.method !== 'POST') return new Response('Method Not Allowed', { status: 405 })
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
+  if (req.method !== 'POST') return new Response('Method Not Allowed', { status: 405, headers: CORS })
   let body: Body = {}
   try { const raw = await req.text(); body = raw ? JSON.parse(raw) : {} } catch { /* empty */ }
   if (!body.center_id) return json({ ok: false, error: 'center_id is required' }, 400)
