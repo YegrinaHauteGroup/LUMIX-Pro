@@ -468,7 +468,7 @@ export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) 
   ]
 
   return (
-    <div className="relative flex-1 h-[calc(100vh-3.5rem)] overflow-hidden bg-canvas">
+    <div className="relative flex-1 h-[calc(100vh-3rem)] overflow-hidden bg-canvas">
       {nodes.length === 0 ? (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-ink-faint">
           <p className="text-sm">표시할 관계망 데이터가 없습니다</p>
@@ -543,7 +543,7 @@ export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) 
 
       {/* Insight drawer */}
       {report && (
-        <div className="absolute top-6 right-6 bottom-6 z-10 w-[420px] max-w-[calc(100%-3rem)] flex flex-col rounded-2xl border border-line bg-surface/97 backdrop-blur-md shadow-[var(--shadow-pop)] overflow-hidden">
+        <div className="absolute top-6 right-6 bottom-6 z-10 w-[330px] max-w-[calc(100%-3rem)] flex flex-col rounded-2xl border border-line bg-surface/97 backdrop-blur-md shadow-[var(--shadow-pop)] overflow-hidden">
           <div className="px-6 py-4 border-b border-line flex items-center justify-between">
             <span className="text-[14px] font-semibold text-ink">{report.title}</span>
             <button onClick={() => setReport(null)} className="text-ink-faint hover:text-ink hover:bg-fill rounded-md w-7 h-7 flex items-center justify-center transition-colors">✕</button>

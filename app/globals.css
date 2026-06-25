@@ -11,11 +11,21 @@
 @theme {
   --font-family-sans: "Noto Sans KR", "Apple SD Gothic Neo", "AppleGothic", sans-serif;
 
-  /* Surfaces */
-  --color-canvas: #f5f7fb;
+  /* Surfaces — Foundry-light: cool neutral gray canvas, crisp white panels */
+  --color-canvas: #f1f3f6;
   --color-surface: #ffffff;
-  --color-fill: #eef2f8;        /* subtle fills / hover */
-  --color-fill-2: #f3f6fb;
+  --color-fill: #eceff4;        /* subtle fills / hover */
+  --color-fill-2: #f4f6f9;
+
+  /* Data-viz palette (charts / indices) */
+  --chart-1: #2563eb;
+  --chart-2: #0ea5e9;
+  --chart-3: #14b8a6;
+  --chart-4: #f59e0b;
+  --chart-5: #8b5cf6;
+  --chart-6: #ec4899;
+  --chart-7: #10b981;
+  --chart-8: #f43f5e;
 
   /* Lines */
   --color-line: #e6eaf2;
@@ -81,6 +91,10 @@ input, textarea, select {
 
 /* Native focus glow for keyboard users on form controls */
 .focus-glow:focus-visible { box-shadow: var(--shadow-glow); border-color: var(--color-accent); }
+
+/* Hidden scrollbar (overlay panels, rails) */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
 /* Recharts — light theme */
 .recharts-cartesian-axis-tick-value { fill: #8a93a6 !important; }

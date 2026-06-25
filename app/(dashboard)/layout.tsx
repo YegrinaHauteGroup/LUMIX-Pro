@@ -7,7 +7,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   return (
     <div className="flex min-h-screen bg-canvas">
       <Sidebar centerName={center?.name ?? null} />
-      <div className="flex-1 flex flex-col min-h-screen min-w-0" style={{ marginLeft: '200px' }}>
+      <div className="flex-1 flex flex-col min-h-screen min-w-0" style={{ marginLeft: '56px' }}>
         {children}
       </div>
     </div>
