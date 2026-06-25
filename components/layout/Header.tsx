@@ -139,11 +139,11 @@ export function Header({ subtitle, actions }: HeaderProps) {
         {/* data history */}
         <div className="relative">
           <button onClick={toggleHistory} title="데이터 변경 이력"
-            className="w-8 h-8 flex items-center justify-center rounded-lg text-ink-faint hover:text-ink hover:bg-fill border border-line transition-colors">
+            className="w-8 h-8 flex items-center justify-center rounded-[3px] text-ink-faint hover:text-ink hover:bg-fill border border-line transition-colors">
             <History size={14} />
           </button>
           {histOpen && (
-            <div className="absolute right-0 mt-1.5 w-[320px] bg-surface border border-line rounded-lg shadow-[var(--shadow-pop)] z-40 overflow-hidden">
+            <div className="absolute right-0 mt-1.5 w-[320px] bg-surface border border-line rounded-[3px] shadow-[var(--shadow-pop)] z-40 overflow-hidden">
               <div className="px-3.5 py-2.5 border-b border-line">
                 <p className="text-[12px] font-semibold text-ink">데이터 변경 이력</p>
                 <p className="text-[10.5px] text-ink-faint mt-0.5">{crumb.page || '전체'} · 시설 관리자 편집 기록</p>
@@ -173,13 +173,13 @@ export function Header({ subtitle, actions }: HeaderProps) {
 
         {/* bug report */}
         <a href="https://www.officialyegrina.com" target="_blank" rel="noreferrer" title="버그 문의"
-          className="w-8 h-8 flex items-center justify-center rounded-lg text-ink-faint hover:text-ink hover:bg-fill border border-line transition-colors">
+          className="w-8 h-8 flex items-center justify-center rounded-[3px] text-ink-faint hover:text-ink hover:bg-fill border border-line transition-colors">
           <Bug size={14} />
         </a>
 
         {/* logout */}
         <button onClick={handleLogout}
-          className="flex items-center gap-1.5 px-3 h-8 text-[12px] text-ink-soft hover:text-ink bg-surface hover:bg-fill border border-line transition-colors rounded-lg">
+          className="flex items-center gap-1.5 px-3 h-8 text-[12px] text-ink-soft hover:text-ink bg-surface hover:bg-fill border border-line transition-colors rounded-[3px]">
           <LogOut size={13} />
           로그아웃
         </button>

@@ -149,7 +149,7 @@ export function ChildDetailClient({ child, centerId, classes, staff, health, lin
         <Card className="col-span-1 h-fit">
           <CardContent className="pt-5">
             <div className="flex flex-col items-center text-center gap-3">
-              <div className="w-16 h-16 rounded-2xl bg-accent-soft border border-line flex items-center justify-center">
+              <div className="w-16 h-16 rounded-[3px] bg-accent-soft border border-line flex items-center justify-center">
                 <span className="text-2xl font-semibold text-accent">{child.name[0]}</span>
               </div>
               <div>
@@ -179,10 +179,10 @@ export function ChildDetailClient({ child, centerId, classes, staff, health, lin
         {/* Editor */}
         <Card className="col-span-2">
           <CardHeader className="pb-0">
-            <div className="flex items-center gap-1 p-1 bg-fill rounded-xl border border-line w-fit">
+            <div className="flex items-center gap-1 p-1 bg-fill rounded-[3px] border border-line w-fit">
               {TABS.map((t) => (
                 <button key={t.key} onClick={() => setTab(t.key)}
-                  className={'px-3.5 h-8 rounded-lg text-[12.5px] font-medium transition-colors ' +
+                  className={'px-3.5 h-8 rounded-[3px] text-[12.5px] font-medium transition-colors ' +
                     (tab === t.key ? 'bg-surface text-ink shadow-[var(--shadow-card)]' : 'text-ink-soft hover:text-ink')}>
                   {t.label}
                 </button>
@@ -289,7 +289,7 @@ export function ChildDetailClient({ child, centerId, classes, staff, health, lin
           ) : (
             <div className="grid grid-cols-2 gap-2">
               {recentActivities.slice(0, 6).map((a) => (
-                <div key={a.id} className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-fill border border-line">
+                <div key={a.id} className="flex items-center gap-3 px-3 py-2.5 rounded-[3px] bg-fill border border-line">
                   <div className={`w-1.5 h-8 rounded-full ${ACTIVITY_TYPE_COLORS[a.type]?.split(' ')[1]}`} />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-ink font-medium truncate">{a.title}</p>
@@ -373,7 +373,7 @@ function FamilyTab({ child, centerId, links, guardians, supabase, setMsg }: {
       ) : (
         <div className="space-y-2">
           {links.map((l) => (
-            <div key={l.id} className="flex items-center gap-3 px-5 py-3.5 rounded-lg border border-line bg-surface">
+            <div key={l.id} className="flex items-center gap-3 px-5 py-3.5 rounded-[3px] border border-line bg-surface">
               <div className="w-8 h-8 rounded-full bg-accent-soft flex items-center justify-center shrink-0">
                 <span className="text-[12px] font-semibold text-accent">{l.guardian_profiles?.guardian_name?.[0] ?? '?'}</span>
               </div>
@@ -421,7 +421,7 @@ function FamilyTab({ child, centerId, links, guardians, supabase, setMsg }: {
 function Toggle({ on, label, onClick }: { on: boolean; label: string; onClick: () => void }) {
   return (
     <button onClick={onClick}
-      className={'px-2 h-6 rounded-md text-[10px] font-semibold transition-colors ' +
+      className={'px-2 h-6 rounded-[3px] text-[10px] font-semibold transition-colors ' +
         (on ? 'bg-accent-soft text-accent' : 'bg-fill text-ink-ghost hover:text-ink-soft')}>
       {label}
     </button>

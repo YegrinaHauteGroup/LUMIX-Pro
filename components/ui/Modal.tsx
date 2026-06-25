@@ -9,7 +9,7 @@ interface ModalProps {
   onClose: () => void
   title: string
   children: React.ReactNode
-  size?: 'sm' | 'md' | 'lg'
+  size?: 'sm' | 'md' | 'lg' | 'xl'
 }
 
 export function Modal({ open, onClose, title, children, size = 'md' }: ModalProps) {
@@ -21,22 +21,22 @@ export function Modal({ open, onClose, title, children, size = 'md' }: ModalProp
 
   if (!open) return null
 
-  const sizes = { sm: 'max-w-sm', md: 'max-w-lg', lg: 'max-w-2xl' }
+  const sizes = { sm: 'max-w-sm', md: 'max-w-lg', lg: 'max-w-2xl', xl: 'max-w-5xl' }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-[#0e1726]/35 backdrop-blur-sm" onClick={onClose} />
       <div className={cn('relative w-full bg-surface border border-line rounded-[4px] shadow-[var(--shadow-pop)]', sizes[size])}>
-        <div className="flex items-center justify-between px-6 py-5 border-b border-line">
-          <h2 className="text-[14px] font-semibold text-ink tracking-[-0.01em]">{title}</h2>
+        <div className="flex items-center justify-between px-4 py-3 border-b border-line bg-fill-2">
+          <h2 className="text-[13px] font-semibold text-ink tracking-[-0.01em]">{title}</h2>
           <button
             onClick={onClose}
-            className="text-ink-faint hover:text-ink hover:bg-fill rounded-md transition-colors p-1.5"
+            className="text-ink-faint hover:text-ink hover:bg-fill rounded-[3px] transition-colors p-1.5"
           >
             <X size={15} />
           </button>
         </div>
-        <div className="p-6">{children}</div>
+        <div className="p-5 max-h-[82vh] overflow-y-auto">{children}</div>
       </div>
     </div>
   )

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button'
 import { useRouter } from 'next/navigation'
 import { Database, Filter, FlaskConical, Play, BarChart3, ChevronRight, Trash2 } from 'lucide-react'
 import { useMemo, useState } from 'react'
+import { PipelineCanvas } from './PipelineCanvas'
 
 interface QuestRow { primary: string; secondary?: string; tag?: string }
 interface QuestResult { headline: string; stats: { label: string; value: string | number }[]; rows: QuestRow[] }
@@ -132,7 +133,14 @@ export function QuestsClient({ centerId, initialQuests, insights, classes, staff
 
   return (
     <div className="flex-1 p-5 w-full space-y-4 overflow-auto">
-      {/* Pipeline strip */}
+      {/* Interactive pipeline canvas */}
+      <PipelineCanvas
+        centerId={centerId} classes={classes} insights={insights}
+        staffCount={staffCount} entityCount={entityCount}
+        onResult={(q) => setQuests((prev) => [q as unknown as Quest, ...prev.filter((x) => x.id !== q.id)])}
+      />
+
+      {/* Pipeline summary strip */}
       <div className="flex items-stretch gap-0 overflow-x-auto pb-1">
         {STAGES.map((s, i) => (
           <div key={s.title} className="flex items-center shrink-0">

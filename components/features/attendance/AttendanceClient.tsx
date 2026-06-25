@@ -99,9 +99,9 @@ export function AttendanceClient({ children, classes, today, centerId }: Props) 
       {/* Controls */}
       <div className="flex items-center gap-2">
         <input type="date" value={checkDate} onChange={(e) => setCheckDate(e.target.value)}
-          className="bg-surface border border-line px-3 text-[12px] text-ink focus:outline-none focus:border-accent h-8 rounded-lg" />
+          className="bg-surface border border-line px-3 text-[12px] text-ink focus:outline-none focus:border-accent h-8 rounded-[3px]" />
         <select value={filterClass} onChange={(e) => setFilterClass(e.target.value)}
-          className="bg-surface border border-line px-3 text-[12px] text-ink-soft focus:outline-none focus:border-accent h-8 rounded-lg cursor-pointer">
+          className="bg-surface border border-line px-3 text-[12px] text-ink-soft focus:outline-none focus:border-accent h-8 rounded-[3px] cursor-pointer">
           <option value="all">전체 반</option>
           {classes.map((cls) => <option key={cls.id} value={cls.id}>{cls.name}</option>)}
         </select>
@@ -111,7 +111,7 @@ export function AttendanceClient({ children, classes, today, centerId }: Props) 
         </Button>
       </div>
 
-      {err && <div className="px-3 py-2.5 text-[12px] rounded-lg text-danger bg-danger-soft border border-[color:var(--color-danger-soft)]">{err}</div>}
+      {err && <div className="px-3 py-2.5 text-[12px] rounded-[3px] text-danger bg-danger-soft border border-[color:var(--color-danger-soft)]">{err}</div>}
 
       {/* Summary */}
       <div className="grid grid-cols-5 gap-3">
@@ -122,7 +122,7 @@ export function AttendanceClient({ children, classes, today, centerId }: Props) 
           { label: '결석', value: counts.absent, color: 'text-rose-600' },
           { label: '출석률', value: `${rate}%`, color: 'text-accent' },
         ].map((s) => (
-          <div key={s.label} className="bg-surface border border-line rounded-xl shadow-[var(--shadow-card)] px-5 py-4">
+          <div key={s.label} className="bg-surface border border-line rounded-[3px] shadow-[var(--shadow-card)] px-5 py-4">
             <p className="text-[10px] text-ink-faint uppercase tracking-widest mb-1.5">{s.label}</p>
             <p className={`text-2xl font-semibold ${s.color}`}>{s.value}</p>
           </div>
@@ -148,7 +148,7 @@ export function AttendanceClient({ children, classes, today, centerId }: Props) 
                 const status = attendance[child.id]
                 return (
                   <div key={child.id} className="flex items-center gap-4 px-6 py-3 border-b border-line hover:bg-fill-2 transition-colors last:border-0">
-                    <div className="w-7 h-7 bg-fill border border-line rounded-lg flex items-center justify-center shrink-0">
+                    <div className="w-7 h-7 bg-fill border border-line rounded-[3px] flex items-center justify-center shrink-0">
                       <span className="text-[10px] text-ink-faint">{child.name[0]}</span>
                     </div>
                     <div className="flex-1 min-w-0">
@@ -158,7 +158,7 @@ export function AttendanceClient({ children, classes, today, centerId }: Props) 
                     <div className="flex items-center gap-1">
                       {ORDER.map((s) => (
                         <button key={s} onClick={() => handleStatus(child.id, s)} disabled={saving === child.id}
-                          className={`flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium transition-colors rounded-lg ${
+                          className={`flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium transition-colors rounded-[3px] ${
                             status === s ? STATUS_COLORS[s] : 'text-ink-ghost hover:text-ink-soft hover:bg-fill'
                           }`}>
                           {STATUS_ICONS[s]}{STATUS_LABELS[s]}

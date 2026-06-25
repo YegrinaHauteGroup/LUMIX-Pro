@@ -4,6 +4,9 @@ import { createClient } from '@/utils/supabase/client'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
+} from 'recharts'
 
 interface DailyForecast { date: string; summary: string; tmax: number; tmin: number; precip: number }
 interface Weather {
@@ -85,15 +88,42 @@ export function DashboardFeed({ centerId, hasLocation }: { centerId: string; has
               </div>
             </div>
             {w.daily?.length > 0 && (
-              <div className="grid grid-cols-3 gap-2 mt-3">
-                {w.daily.slice(0, 3).map((d) => (
-                  <div key={d.date} className="px-3 py-2 bg-fill-2 border border-line rounded-lg">
-                    <p className="text-[10px] text-ink-faint">{new Date(d.date).toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric', weekday: 'short' })}</p>
-                    <p className="text-[12px] text-ink mt-0.5">{d.summary}</p>
-                    <p className="text-[11px] text-ink-soft mt-0.5">{Math.round(d.tmax)}° / {Math.round(d.tmin)}° · 강수 {d.precip ?? 0}%</p>
+              <>
+                <div className="mt-3 border border-line rounded-[3px] p-2.5">
+                  <p className="text-[10px] font-semibold text-ink-faint uppercase tracking-wider mb-1">기온·강수 분석</p>
+                  <ResponsiveContainer width="100%" height={150}>
+                    <ComposedChart data={w.daily.map((d) => ({
+                      day: new Date(d.date).toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric', weekday: 'short' }),
+                      최고: Math.round(d.tmax), 최저: Math.round(d.tmin), 강수확률: d.precip ?? 0,
+                    }))} margin={{ top: 6, right: 4, left: -24, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e3e9ee" vertical={false} />
+                      <XAxis dataKey="day" tick={{ fontSize: 10, fill: '#8a9ba8' }} axisLine={false} tickLine={false} />
+                      <YAxis yAxisId="t" tick={{ fontSize: 10, fill: '#8a9ba8' }} axisLine={false} tickLine={false} width={28} unit="°" />
+                      <YAxis yAxisId="p" orientation="right" tick={{ fontSize: 10, fill: '#8a9ba8' }} axisLine={false} tickLine={false} width={28} unit="%" domain={[0, 100]} />
+                      <Tooltip contentStyle={{ background: '#fff', border: '1px solid #ced9e0', borderRadius: 3, fontSize: 11 }} />
+                      <Legend wrapperStyle={{ fontSize: 10 }} iconType="circle" iconSize={7} />
+                      <Bar yAxisId="p" dataKey="강수확률" barSize={16} fill="#0ea5e9" radius={[2, 2, 0, 0]} opacity={0.45} />
+                      <Line yAxisId="t" type="monotone" dataKey="최고" stroke="#db3737" strokeWidth={2} dot={{ r: 2 }} />
+                      <Line yAxisId="t" type="monotone" dataKey="최저" stroke="#137cbd" strokeWidth={2} dot={{ r: 2 }} />
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                </div>
+                {w.air && (
+                  <div className="grid grid-cols-3 gap-2 mt-2">
+                    {[
+                      { label: '습도', value: `${w.current.humidity}%`, w: w.current.humidity, c: '#137cbd' },
+                      { label: '바람', value: `${Math.round(w.current.wind)}m/s`, w: Math.min(100, w.current.wind * 8), c: '#14b8a6' },
+                      { label: 'PM2.5', value: `${Math.round(w.air.pm25)} ${w.air.grade}`, w: Math.min(100, w.air.pm25), c: w.air.pm25 > 75 ? '#db3737' : w.air.pm25 > 35 ? '#d9822b' : '#0f9960' },
+                    ].map((m) => (
+                      <div key={m.label} className="px-2.5 py-2 bg-fill-2 border border-line rounded-[3px]">
+                        <p className="text-[10px] text-ink-faint">{m.label}</p>
+                        <p className="text-[12px] text-ink font-medium mt-0.5">{m.value}</p>
+                        <div className="h-1 bg-fill rounded-full mt-1.5 overflow-hidden"><div className="h-full rounded-full" style={{ width: `${m.w}%`, background: m.c }} /></div>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
+                )}
+              </>
             )}
           </div>
         )}

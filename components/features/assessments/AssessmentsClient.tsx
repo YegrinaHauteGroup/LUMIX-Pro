@@ -89,13 +89,13 @@ export function AssessmentsClient(props: Props) {
     <div className="flex-1 p-5 w-full space-y-5 overflow-auto">
       {/* Action bar */}
       <div className="flex items-center gap-3 flex-wrap">
-        <div className="flex items-center gap-1 p-1 bg-fill rounded-xl border border-line">
+        <div className="flex items-center gap-1 p-1 bg-fill rounded-[3px] border border-line">
           {TABS.map((t) => (
             <button
               key={t.key}
               onClick={() => { setTab(t.key); setMsg(null) }}
               className={
-                'px-3.5 h-8 rounded-lg text-[12.5px] font-medium transition-colors ' +
+                'px-3.5 h-8 rounded-[3px] text-[12.5px] font-medium transition-colors ' +
                 (tab === t.key ? 'bg-surface text-ink shadow-[var(--shadow-card)]' : 'text-ink-soft hover:text-ink')
               }
             >
@@ -111,7 +111,7 @@ export function AssessmentsClient(props: Props) {
 
       {msg && (
         <div className={
-          'flex items-center gap-2 rounded-lg px-3.5 py-2.5 text-[12px] border ' +
+          'flex items-center gap-2 rounded-[3px] px-3.5 py-2.5 text-[12px] border ' +
           (msg.kind === 'ok'
             ? 'bg-[color:var(--color-success-soft)] border-[color:var(--color-success-soft)] text-[color:var(--color-success)]'
             : 'bg-[color:var(--color-danger-soft)] border-[color:var(--color-danger-soft)] text-[color:var(--color-danger)]')

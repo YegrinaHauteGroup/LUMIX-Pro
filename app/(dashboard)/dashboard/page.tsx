@@ -113,16 +113,16 @@ export default async function DashboardPage() {
       <Header title="대시보드" subtitle="시설 현황 한눈에 보기" />
       <div className="flex-1 p-5 space-y-4">
         {/* Stats grid */}
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {stats.map((stat) => (
-            <div key={stat.label} className="bg-surface border border-line rounded-xl shadow-[var(--shadow-card)] px-4 py-4">
+            <div key={stat.label} className="bg-surface border border-line rounded-[3px] shadow-[var(--shadow-card)] px-4 py-3.5">
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-[10px] text-ink-faint uppercase tracking-[0.12em] mb-2">{stat.label}</p>
+                  <p className="text-[10px] text-ink-faint uppercase tracking-[0.12em] mb-1.5">{stat.label}</p>
                   <p className="text-2xl font-semibold text-ink tracking-[-0.02em]">{stat.value}</p>
                   <p className="text-[10px] text-ink-ghost mt-1">{stat.sub}</p>
                 </div>
-                <div className="w-8 h-8 rounded-lg bg-accent-soft flex items-center justify-center shrink-0">
+                <div className="w-8 h-8 rounded-[3px] bg-accent-soft flex items-center justify-center shrink-0">
                   <stat.icon size={15} className="text-accent" />
                 </div>
               </div>
@@ -130,18 +130,7 @@ export default async function DashboardPage() {
           ))}
         </div>
 
-        {/* Location-based feed (#4) */}
-        <DashboardFeed centerId={centerId ?? ''} hasLocation={hasLocation} />
-
-        {/* Calendar (#8) */}
-        <DashboardCalendar
-          centerId={centerId ?? ''}
-          initialActivities={(calActRes.data ?? []) as never[]}
-          careNotes={((careRes.data ?? []) as unknown as { id: string; child_id: string; content: string; noted_on: string; note_type: string; children: { name: string } | null }[])
-            .map((c) => ({ id: c.id, child_id: c.child_id, content: c.content, noted_on: c.noted_on, note_type: c.note_type, child_name: c.children?.name ?? '아동' }))}
-        />
-
-        {/* Analytics */}
+        {/* Analytics (top) */}
         <DashboardCharts
           genderStats={genderStats}
           statusStats={statusStats}
@@ -150,6 +139,17 @@ export default async function DashboardPage() {
           attendanceTrend={attendanceTrend}
           snaStats={snaStats}
         />
+
+        {/* Calendar + location feed (half-width) */}
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 items-start">
+          <DashboardCalendar
+            centerId={centerId ?? ''}
+            initialActivities={(calActRes.data ?? []) as never[]}
+            careNotes={((careRes.data ?? []) as unknown as { id: string; child_id: string; content: string; noted_on: string; note_type: string; children: { name: string } | null }[])
+              .map((c) => ({ id: c.id, child_id: c.child_id, content: c.content, noted_on: c.noted_on, note_type: c.note_type, child_name: c.children?.name ?? '아동' }))}
+          />
+          <DashboardFeed centerId={centerId ?? ''} hasLocation={hasLocation} />
+        </div>
 
         {/* Bottom row */}
         <div className="grid grid-cols-2 gap-3">

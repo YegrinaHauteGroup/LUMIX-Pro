@@ -21,7 +21,7 @@ export function Sidebar({ centerName }: { centerName?: string | null }) {
     return (
       <Link href={item.href} title={item.label}
         className={cn(
-          'flex items-center h-9 mx-2 rounded-lg transition-colors group/link',
+          'flex items-center h-9 mx-2 rounded-[3px] transition-colors group/link',
           open ? 'px-2.5 gap-3' : 'px-0 justify-center',
           active ? 'bg-accent-soft text-accent-ink font-medium' : 'text-ink-soft hover:text-ink hover:bg-fill',
         )}>

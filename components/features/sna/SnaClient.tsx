@@ -130,6 +130,33 @@ function displayLabel(n: SnaNode): string {
 
 interface Report { title: string; body: React.ReactNode }
 
+function MetricBar({ label, value, pct, color }: { label: string; value: string; pct: number; color: string }) {
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-[11px] text-ink-soft">{label}</span>
+        <span className="text-[11px] font-semibold text-ink tabular-nums">{value}</span>
+      </div>
+      <div className="h-1.5 bg-fill rounded-full overflow-hidden">
+        <div className="h-full rounded-full" style={{ width: `${Math.max(3, Math.min(100, pct))}%`, background: color }} />
+      </div>
+    </div>
+  )
+}
+
+// decision-support actions derived from a child node's status / relations
+function childActions(group: Group, hasAllergy: boolean, hasConflict: boolean, betwHigh: boolean): string[] {
+  const a: string[] = []
+  if (group === 'child_sick') a.push('즉시 격리 및 선호 공간 소독', '보호자 알림톡 발송 · 밀접 접촉 아동 체온 추적')
+  if (group === 'child_highrisk') a.push('체온 정기 모니터링 · 활동 동선 분리')
+  if (group === 'child_isolated') a.push('관심사 기반 또래 짝 활동 배정', '담당 교사 관찰 빈도 상향')
+  if (hasAllergy) a.push('식단 분리 철저 · 응급 키트(에피펜) 점검')
+  if (hasConflict) a.push('갈등 상대와 좌석·활동 분리 후 중재 프로그램')
+  if (betwHigh) a.push('핵심 매개자로서 또래 튜터·중재자 역할 부여')
+  if (a.length === 0) a.push('현재 특이 위험 신호 없음 · 정기 관찰 유지')
+  return a
+}
+
 export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
@@ -147,6 +174,8 @@ export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) 
 
   const nodeById = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes])
   const maxBetw = useMemo(() => Math.max(1, ...nodes.map((n) => n.betweenness || 0)), [nodes])
+  const maxEig = useMemo(() => Math.max(0.001, ...nodes.map((n) => n.eigenvector || 0)), [nodes])
+  const maxConn = useMemo(() => Math.max(1, ...nodes.map((n) => n.connection_count || 0)), [nodes])
 
   const adj = useMemo(() => {
     const m = new Map<string, Set<string>>()
@@ -315,18 +344,47 @@ export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) 
       })
       const cls = n.class_name ?? '미배정'
       const statusText = n.group === 'child_sick' ? '보건 확진' : n.group === 'child_highrisk' ? '감염 고위험' : n.group === 'child_isolated' ? '고립/관찰요망' : '일반/활발'
+      const statusTone = n.group === 'child_sick' ? 'text-[#db3737] bg-[#fbeaea] border-[#f5cccc]' : n.group === 'child_highrisk' ? 'text-[#bf7326] bg-[#fdf3e7] border-[#f5dcb8]' : n.group === 'child_isolated' ? 'text-ink-soft bg-fill border-line' : 'text-[#0d8050] bg-[#e8f5ef] border-[#bfe0cf]'
+      const actions = childActions(n.group, n.has_allergy, edges.some((e) => e.has_conflict && (e.source_id === id || e.target_id === id)), n.betweenness > maxBetw * 0.5)
       setReport({
         title: n.name,
         body: (
-          <div className="space-y-1">
-            <p className="text-[12px] text-ink-soft mb-2">{cls} 소속 · {statusText}{n.has_allergy ? ' · 알레르기 주의' : ''}</p>
-            <p className="text-[12px] text-ink-faint mb-3">연결 {n.connection_count} · 매개 {n.betweenness.toFixed(2)} · 영향력 {n.eigenvector.toFixed(2)}{n.community_id != null ? ` · 그룹 ${n.community_id}` : ''}</p>
-            {list('보호자', guardians, 'text-rose-600')}
-            {list('교우·돌봄 관계', friends, 'text-blue-600')}
-            {list('주 활동공간', spaces, 'text-slate-700')}
-            {list('성취 및 긍정 요소', achieve, 'text-emerald-600')}
-            {list('위험 요소 및 특이사항', issues, 'text-red-600')}
-            {friends.length + spaces.length + achieve.length + issues.length + guardians.length === 0 && <p className="text-[12px] text-ink-faint">수집된 관계 데이터가 없습니다.</p>}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <span className={`text-[10px] px-1.5 py-0.5 rounded-[2px] border ${statusTone}`}>{statusText}</span>
+              <span className="text-[11px] text-ink-faint">{cls}{n.has_allergy ? ' · 알레르기 주의' : ''}{n.community_id != null ? ` · 그룹 ${n.community_id}` : ''}</span>
+            </div>
+
+            <div className="space-y-2.5 border border-line rounded-[3px] p-3 bg-fill-2">
+              <p className="text-[10px] font-semibold text-ink-faint uppercase tracking-wider">중심성 지표</p>
+              <MetricBar label="연결 (Degree)" value={String(n.connection_count)} pct={(n.connection_count / maxConn) * 100} color="#137cbd" />
+              <MetricBar label="매개 (Betweenness)" value={n.betweenness.toFixed(1)} pct={(n.betweenness / maxBetw) * 100} color="#8b5cf6" />
+              <MetricBar label="영향력 (Eigenvector)" value={n.eigenvector.toFixed(2)} pct={(n.eigenvector / maxEig) * 100} color="#0f9960" />
+              <MetricBar label="근접 (Closeness)" value={n.closeness.toFixed(2)} pct={n.closeness * 100} color="#d9822b" />
+            </div>
+
+            <div className="space-y-1.5">
+              <p className="text-[10px] font-semibold text-ink-faint uppercase tracking-wider">권장 조치</p>
+              {actions.map((act, i) => (
+                <div key={i} className="flex items-start gap-2 text-[12px] text-ink-soft">
+                  <span className="w-1.5 h-1.5 rounded-full bg-accent mt-1.5 shrink-0" />{act}
+                </div>
+              ))}
+            </div>
+
+            <div>
+              {list('보호자', guardians, 'text-[#9f1239]')}
+              {list('교우·돌봄 관계', friends, 'text-[#137cbd]')}
+              {list('주 활동공간', spaces, 'text-ink-soft')}
+              {list('성취 및 긍정 요소', achieve, 'text-[#0d8050]')}
+              {list('위험 요소 및 특이사항', issues, 'text-[#db3737]')}
+            </div>
+
+            <div className="flex flex-wrap gap-2 pt-1 border-t border-line">
+              <a href={`/children/${n.id}`} className="text-[11px] text-accent hover:text-accent-hover font-medium">아동 프로필 →</a>
+              <a href="/attendance" className="text-[11px] text-ink-soft hover:text-ink">출결 기록</a>
+              <a href="/quests" className="text-[11px] text-ink-soft hover:text-ink">퀘스트 분석</a>
+            </div>
           </div>
         ),
       })
@@ -473,7 +531,7 @@ export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) 
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-ink-faint">
           <p className="text-sm">표시할 관계망 데이터가 없습니다</p>
           <p className="text-xs text-ink-ghost">평가·관계 입력 후 재계산을 실행하세요</p>
-          <button onClick={handleRecompute} disabled={recomputing} className="mt-2 h-8 px-4 text-[12px] rounded-lg bg-accent text-white hover:bg-accent-hover disabled:opacity-50">
+          <button onClick={handleRecompute} disabled={recomputing} className="mt-2 h-8 px-4 text-[12px] rounded-[3px] bg-accent text-white hover:bg-accent-hover disabled:opacity-50">
             {recomputing ? '재계산 중…' : 'SNA 재계산'}
           </button>
         </div>
@@ -482,7 +540,7 @@ export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) 
       )}
 
       {/* Control panel */}
-      <div className="absolute top-6 left-6 z-10 w-[330px] max-h-[calc(100%-3rem)] overflow-y-auto rounded-2xl border border-line bg-surface/95 backdrop-blur-md shadow-[var(--shadow-pop)] p-5">
+      <div className="absolute top-6 left-6 z-10 w-[330px] max-h-[calc(100%-3rem)] overflow-y-auto rounded-[3px] border border-line bg-surface shadow-[var(--shadow-pop)] p-4">
         <h1 className="text-[15px] font-semibold text-ink tracking-[-0.01em]">SNA 관계망 분석</h1>
         <p className="text-[11px] text-ink-faint mt-0.5 mb-4 pb-4 border-b border-line">LUMIX Pro 다차원 노드 및 복합 엣지</p>
 
@@ -491,8 +549,8 @@ export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) 
           <div className="flex gap-1.5">
             <input value={searchValue} onChange={(e) => { setSearchValue(e.target.value); setSearchError(false) }} onKeyDown={(e) => e.key === 'Enter' && search()}
               placeholder="아동, 교사, 장소 이름 검색"
-              className="flex-1 h-9 px-3 bg-fill-2 border border-line rounded-lg text-[13px] text-ink placeholder-ink-ghost focus:outline-none focus:border-accent" />
-            <button onClick={search} className="h-9 px-3 rounded-lg bg-ink text-white text-[12px] hover:opacity-90">검색</button>
+              className="flex-1 h-9 px-3 bg-fill-2 border border-line rounded-[3px] text-[13px] text-ink placeholder-ink-ghost focus:outline-none focus:border-accent" />
+            <button onClick={search} className="h-9 px-3 rounded-[3px] bg-ink text-white text-[12px] hover:opacity-90">검색</button>
           </div>
           {searchError && <p className="text-[11px] text-danger mt-1.5">검색 결과가 존재하지 않습니다.</p>}
         </div>
@@ -500,10 +558,10 @@ export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) 
         {/* scope */}
         <div className="mb-4 pb-4 border-b border-line">
           <p className="text-[11px] font-semibold text-ink-faint uppercase tracking-[0.1em] mb-2">조회 범위</p>
-          <div className="flex flex-wrap gap-1.5 p-1 bg-fill rounded-lg">
+          <div className="flex flex-wrap gap-1.5 p-1 bg-fill rounded-[3px]">
             {[{ id: 'ALL', name: '전체 센터' }, ...classes].map((c) => (
               <button key={c.id} onClick={() => handleScope(c.id)}
-                className={`flex-1 min-w-[72px] py-1.5 text-[12px] rounded-md transition-all ${scope === c.id ? 'bg-surface text-ink font-semibold shadow-sm' : 'text-ink-faint hover:text-ink'}`}>
+                className={`flex-1 min-w-[72px] py-1.5 text-[12px] rounded-[3px] transition-all ${scope === c.id ? 'bg-surface text-ink font-semibold shadow-sm' : 'text-ink-faint hover:text-ink'}`}>
                 {c.name}
               </button>
             ))}
@@ -527,15 +585,15 @@ export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) 
         <div className="space-y-1.5">
           {SCENARIOS.map((s) => (
             <button key={s.key} onClick={() => runScenario(s.key)}
-              className={`w-full text-left px-3 py-2.5 text-[13px] font-medium text-ink-soft bg-surface border border-line border-l-[3px] ${s.bar} rounded-md hover:bg-fill hover:text-ink transition-colors`}>
+              className={`w-full text-left px-3 py-2.5 text-[13px] font-medium text-ink-soft bg-surface border border-line border-l-[3px] ${s.bar} rounded-[3px] hover:bg-fill hover:text-ink transition-colors`}>
               {s.label}
             </button>
           ))}
-          <button onClick={resetView} className="w-full mt-2 py-2.5 px-3 rounded-md bg-ink text-white text-[13px] font-medium hover:opacity-90 transition-opacity">
+          <button onClick={resetView} className="w-full mt-2 py-2.5 px-3 rounded-[3px] bg-ink text-white text-[13px] font-medium hover:opacity-90 transition-opacity">
             전체 화면 새로고침
           </button>
           <button onClick={handleRecompute} disabled={recomputing}
-            className="w-full py-2.5 px-3 rounded-md bg-accent text-white text-[13px] font-medium hover:bg-accent-hover disabled:opacity-50 transition-colors">
+            className="w-full py-2.5 px-3 rounded-[3px] bg-accent text-white text-[13px] font-medium hover:bg-accent-hover disabled:opacity-50 transition-colors">
             {recomputing ? '중심성 재계산 중…' : '중심성 지표 재계산'}
           </button>
         </div>
@@ -543,10 +601,10 @@ export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) 
 
       {/* Insight drawer */}
       {report && (
-        <div className="absolute top-6 right-6 bottom-6 z-10 w-[330px] max-w-[calc(100%-3rem)] flex flex-col rounded-2xl border border-line bg-surface/97 backdrop-blur-md shadow-[var(--shadow-pop)] overflow-hidden">
+        <div className="absolute top-6 right-6 bottom-6 z-10 w-[330px] max-w-[calc(100%-3rem)] flex flex-col rounded-[3px] border border-line bg-surface shadow-[var(--shadow-pop)] overflow-hidden">
           <div className="px-6 py-4 border-b border-line flex items-center justify-between">
             <span className="text-[14px] font-semibold text-ink">{report.title}</span>
-            <button onClick={() => setReport(null)} className="text-ink-faint hover:text-ink hover:bg-fill rounded-md w-7 h-7 flex items-center justify-center transition-colors">✕</button>
+            <button onClick={() => setReport(null)} className="text-ink-faint hover:text-ink hover:bg-fill rounded-[3px] w-7 h-7 flex items-center justify-center transition-colors">✕</button>
           </div>
           <div className="flex-1 overflow-y-auto px-6 py-5 text-[13px] text-ink-soft leading-relaxed">{report.body}</div>
         </div>
