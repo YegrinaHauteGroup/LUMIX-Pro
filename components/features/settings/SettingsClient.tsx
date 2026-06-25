@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/Input'
 import { createClient } from '@/utils/supabase/client'
 import type { CenterInfo } from '@/lib/center'
 import type { User } from '@supabase/supabase-js'
-import { Building2, KeyRound, Shield, User as UserIcon } from 'lucide-react'
+import { Building2, KeyRound, MapPin, Shield, User as UserIcon } from 'lucide-react'
 import { useState } from 'react'
 
 interface Props {
@@ -19,10 +19,16 @@ export function SettingsClient({ user, center }: Props) {
 
   // Center name
   const [centerName, setCenterName] = useState(center?.name ?? '')
-  const [centerAddress, setCenterAddress] = useState('')
-  const [centerPhone, setCenterPhone] = useState('')
   const [centerLoading, setCenterLoading] = useState(false)
   const [centerMsg, setCenterMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
+  // Facility location (#4 — drives the location-based dashboard feed)
+  const [address, setAddress] = useState(center?.address ?? '')
+  const [regionName, setRegionName] = useState(center?.region_name ?? '')
+  const [latitude, setLatitude] = useState(center?.latitude != null ? String(center.latitude) : '')
+  const [longitude, setLongitude] = useState(center?.longitude != null ? String(center.longitude) : '')
+  const [locLoading, setLocLoading] = useState(false)
+  const [locMsg, setLocMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
   // Password
   const [newPw, setNewPw] = useState('')
@@ -42,6 +48,29 @@ export function SettingsClient({ user, center }: Props) {
       : { type: 'success', text: '시설 정보가 저장되었습니다.' }
     )
     setTimeout(() => setCenterMsg(null), 3000)
+  }
+
+  const handleLocationSave = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!center?.id) { setLocMsg({ type: 'error', text: '센터 정보를 찾을 수 없습니다.' }); return }
+    const lat = latitude.trim() === '' ? null : Number(latitude)
+    const lon = longitude.trim() === '' ? null : Number(longitude)
+    if ((lat != null && Number.isNaN(lat)) || (lon != null && Number.isNaN(lon))) {
+      setLocMsg({ type: 'error', text: '위도/경도는 숫자로 입력해주세요.' }); return
+    }
+    setLocLoading(true)
+    const { error } = await supabase.from('centers').update({
+      address: address.trim() || null,
+      region_name: regionName.trim() || null,
+      latitude: lat, longitude: lon,
+    }).eq('id', center.id)
+    if (!error) {
+      // refresh the dashboard feed cache for the new location (best-effort)
+      supabase.functions.invoke('dashboard_feed', { body: { center_id: center.id } }).catch(() => {})
+    }
+    setLocLoading(false)
+    setLocMsg(error ? { type: 'error', text: error.message } : { type: 'success', text: '시설 위치가 저장되었습니다. 대시보드 정보가 곧 갱신됩니다.' })
+    setTimeout(() => setLocMsg(null), 4000)
   }
 
   const handlePasswordChange = async (e: React.FormEvent) => {
@@ -100,6 +129,46 @@ export function SettingsClient({ user, center }: Props) {
             )}
             <div className="flex justify-end pt-1">
               <Button type="submit" loading={centerLoading}>저장</Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+
+      {/* Facility location (#4) */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <MapPin size={13} className="text-[#8a93a6]" />
+            <CardTitle>시설 위치</CardTitle>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <p className="text-[11px] text-[#8a93a6] mb-3 leading-relaxed">
+            저장한 위치를 기준으로 대시보드가 날씨·미세먼지·지역 뉴스·보육 정책 정보를 5분마다 자동으로 모아옵니다.
+            지도 서비스에서 시설 좌표(위도·경도)를 확인해 입력하세요.
+          </p>
+          <form onSubmit={handleLocationSave} className="space-y-3">
+            <Input label="주소" placeholder="예: 서울특별시 강남구 테헤란로 152"
+              value={address} onChange={(e) => setAddress(e.target.value)} />
+            <Input label="지역명 (시·군·구)" placeholder="예: 서울특별시 강남구"
+              value={regionName} onChange={(e) => setRegionName(e.target.value)} />
+            <div className="grid grid-cols-2 gap-3">
+              <Input label="위도 (latitude)" placeholder="37.4979"
+                value={latitude} onChange={(e) => setLatitude(e.target.value)} />
+              <Input label="경도 (longitude)" placeholder="127.0276"
+                value={longitude} onChange={(e) => setLongitude(e.target.value)} />
+            </div>
+            {locMsg && (
+              <div className={`px-3 py-3 text-[11px] ${
+                locMsg.type === 'success'
+                  ? 'border border-[#e7f7ed] bg-[#e7f7ed] text-emerald-600'
+                  : 'border border-[#f7caca] bg-[#fdecec] text-red-500'
+              }`}>
+                {locMsg.text}
+              </div>
+            )}
+            <div className="flex justify-end pt-1">
+              <Button type="submit" loading={locLoading}>위치 저장</Button>
             </div>
           </form>
         </CardContent>

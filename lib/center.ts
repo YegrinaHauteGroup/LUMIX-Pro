@@ -43,6 +43,10 @@ export async function getCenterId(): Promise<string | null> {
 export interface CenterInfo {
   id: string
   name: string
+  address: string | null
+  latitude: number | null
+  longitude: number | null
+  region_name: string | null
 }
 
 export async function getCenterInfo(): Promise<CenterInfo | null> {
@@ -52,6 +56,10 @@ export async function getCenterInfo(): Promise<CenterInfo | null> {
   const id = await getCenterId()
   if (!id) return null
 
-  const { data } = await supabase.from('centers').select('id, name').eq('id', id).maybeSingle()
+  const { data } = await supabase
+    .from('centers')
+    .select('id, name, address, latitude, longitude, region_name')
+    .eq('id', id)
+    .maybeSingle()
   return data ?? null
 }

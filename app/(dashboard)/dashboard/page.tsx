@@ -7,6 +7,7 @@ import { cookies } from 'next/headers'
 import { Users, BookOpen, CalendarDays, TrendingUp, ArrowRight } from 'lucide-react'
 import Link from 'next/link'
 import { DashboardCharts } from '@/components/features/dashboard/DashboardCharts'
+import { DashboardFeed } from '@/components/features/dashboard/DashboardFeed'
 import { CHILD_STATUS_COLORS, CHILD_STATUS_LABELS, ACTIVITY_TYPE_LABELS, ACTIVITY_TYPE_COLORS } from '@/lib/utils'
 import type { Child, Activity, Class } from '@/lib/types'
 
@@ -15,11 +16,13 @@ export default async function DashboardPage() {
   const supabase = createClient(cookieStore)
   const centerId = await getCenterId()
 
-  const [childrenRes, activitiesRes, classesRes] = await Promise.all([
+  const [childrenRes, activitiesRes, classesRes, centerRes] = await Promise.all([
     supabase.from('children').select('*').eq('center_id', centerId ?? '').order('created_at', { ascending: false }),
     supabase.from('activities').select('*, classes(name)').eq('center_id', centerId ?? '').order('created_at', { ascending: false }).limit(10),
     supabase.from('classes').select('*, children(id)').eq('center_id', centerId ?? ''),
+    supabase.from('centers').select('latitude, longitude').eq('id', centerId ?? '').maybeSingle(),
   ])
+  const hasLocation = centerRes.data?.latitude != null && centerRes.data?.longitude != null
 
   const children: Child[] = childrenRes.data ?? []
   const activities: Activity[] = activitiesRes.data ?? []
@@ -81,6 +84,9 @@ export default async function DashboardPage() {
             </div>
           ))}
         </div>
+
+        {/* Location-based feed (#4) */}
+        <DashboardFeed centerId={centerId ?? ''} hasLocation={hasLocation} />
 
         {/* Charts row */}
         <div className="grid grid-cols-3 gap-3">
