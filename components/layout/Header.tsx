@@ -139,7 +139,7 @@ export function Header({ subtitle, actions }: HeaderProps) {
         {/* data history */}
         <div className="relative">
           <button onClick={toggleHistory} title="데이터 변경 이력"
-            className="w-8 h-8 flex items-center justify-center rounded-[3px] text-ink-faint hover:text-ink hover:bg-fill border border-line transition-colors">
+            className="w-8 h-8 flex items-center justify-center rounded-[3px] text-ink-soft hover:text-ink hover:bg-fill border border-line transition-colors">
             <History size={14} />
           </button>
           {histOpen && (
