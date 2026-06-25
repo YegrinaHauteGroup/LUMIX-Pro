@@ -13,14 +13,14 @@ export default async function SnaPage() {
   const [snaRes, insightsRes, classesRes] = await Promise.all([
     supabase.rpc('get_sna_graph', { p_center_id: cid }),
     supabase.rpc('get_sna_insights', { p_center_id: cid }),
-    supabase.from('classes').select('id, name').eq('center_id', cid).is('deleted_at', null),
+    supabase.from('classes').select('id, name').eq('center_id', cid).is('deleted_at', null).order('name'),
   ])
 
   const snaData = snaRes.data as { nodes: unknown[]; edges: unknown[] } | null
 
   return (
     <>
-      <Header title="SNA 분석" subtitle="온톨로지 다차원 관계망 · 시나리오 분석" />
+      <Header title="SNA 관계망 분석" subtitle="온톨로지 다차원 노드 · 시나리오 인사이트" />
       <SnaClient
         centerId={cid}
         nodes={(snaData?.nodes as never[]) ?? []}

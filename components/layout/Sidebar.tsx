@@ -5,7 +5,7 @@
 import { cn } from '@/lib/utils'
 import {
   BarChart3, BookOpen, CalendarDays, ClipboardList,
-  Home, Network, Settings, Users, ClipboardCheck,
+  Home, Network, Settings, Users, ClipboardCheck, Sparkles,
 } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -26,6 +26,7 @@ const NAV_GROUPS: { label: string; items: { href: string; icon: typeof Home; lab
     label: '다중 분석체계',
     items: [
       { href: '/sna', icon: Network, label: 'SNA 분석 보드' },
+      { href: '/quests', icon: Sparkles, label: '퀘스트 분석 엔진' },
       { href: '/assessments', icon: ClipboardCheck, label: '가중치 입력' },
       { href: '/reports', icon: BarChart3, label: '보고서 플랫폼' },
     ],
