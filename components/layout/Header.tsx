@@ -94,10 +94,10 @@ export function Header({ subtitle, actions }: HeaderProps) {
     <header className="h-12 bg-surface border-b border-line flex items-center px-4 gap-4 sticky top-0 z-30 shrink-0">
       {/* breadcrumb */}
       <div className="flex items-center gap-1.5 min-w-0">
-        <span className="text-[12px] text-ink-faint truncate">{crumb.group}</span>
+        <span className="text-[12px] text-ink truncate">{crumb.group}</span>
         {crumb.page && <ChevronRight size={13} className="text-ink-ghost shrink-0" />}
         {crumb.page && <span className="text-[13px] font-semibold text-ink tracking-[-0.01em] truncate">{crumb.page}</span>}
-        {subtitle && <span className="hidden lg:inline text-[11px] text-ink-ghost truncate ml-1.5">· {subtitle}</span>}
+        {subtitle && <span className="hidden lg:inline text-[11px] text-ink-soft truncate ml-1.5">· {subtitle}</span>}
       </div>
 
       <div className="flex-1" />
