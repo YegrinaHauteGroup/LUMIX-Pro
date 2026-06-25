@@ -45,8 +45,8 @@ export function Sidebar({ centerName }: { centerName?: string | null }) {
         className={cn('flex items-center h-12 shrink-0 border-b border-line/70 opacity-90', open ? 'px-4 gap-2.5' : 'px-0 justify-center')}>
         <Image src="/logo.svg" alt="LUMIX Pro" width={19} height={19} className="shrink-0" />
         <span className={cn('leading-none flex items-baseline transition-opacity duration-150', open ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden')}>
-          <span className="text-[15px] font-medium text-ink tracking-wide">LUMIX</span>
-          <span className="text-[15px] font-thin text-ink-ghost tracking-normal ml-1">Pro</span>
+          <span className="text-[14px] font-medium text-ink tracking-wide">LUMIX</span>
+          <span className="text-[11px] font-thin text-ink-ghost tracking-normal ml-1">Pro</span>
         </span>
       </button>
 
