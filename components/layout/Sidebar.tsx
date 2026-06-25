@@ -25,7 +25,7 @@ export function Sidebar({ centerName }: { centerName?: string | null }) {
           open ? 'px-2.5 gap-3' : 'px-0 justify-center',
           active ? 'bg-accent-soft text-accent-ink font-medium' : 'text-ink-soft hover:text-ink hover:bg-fill',
         )}>
-        <Icon size={17} className={cn('shrink-0 transition-colors', active ? 'text-accent' : 'text-ink-faint group-hover/link:text-ink-soft')} />
+        <Icon size={17} className={cn('shrink-0 transition-colors', active ? 'text-accent' : 'text-ink-soft group-hover/link:text-ink')} />
         <span className={cn('text-[13px] tracking-tight whitespace-nowrap transition-opacity duration-150', open ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden')}>{item.label}</span>
       </Link>
     )
@@ -42,8 +42,8 @@ export function Sidebar({ centerName }: { centerName?: string | null }) {
     >
       {/* Logo / brand — click to pin open */}
       <button onClick={() => setPinned((p) => !p)} title={pinned ? '사이드바 고정 해제' : '사이드바 고정'}
-        className={cn('flex items-center h-12 shrink-0 border-b border-line/70', open ? 'px-4 gap-2.5' : 'px-0 justify-center')}>
-        <Image src="/logo.svg" alt="LUMIX Pro" width={22} height={22} className="shrink-0" />
+        className={cn('flex items-center h-12 shrink-0 border-b border-line/70 opacity-90', open ? 'px-4 gap-2.5' : 'px-0 justify-center')}>
+        <Image src="/logo.svg" alt="LUMIX Pro" width={19} height={19} className="shrink-0" />
         <span className={cn('leading-none flex items-baseline transition-opacity duration-150', open ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden')}>
           <span className="text-[15px] font-medium text-ink tracking-wide">LUMIX</span>
           <span className="text-[15px] font-thin text-ink-ghost tracking-normal ml-1">Pro</span>
@@ -53,7 +53,7 @@ export function Sidebar({ centerName }: { centerName?: string | null }) {
       {/* Active center (expanded only) */}
       {open && centerName && (
         <div className="px-4 py-3 border-b border-line/60">
-          <p className="text-[10px] font-semibold text-ink-ghost uppercase tracking-widest mb-1.5">센터 정보</p>
+          <p className="text-[10px] font-semibold text-ink-soft uppercase tracking-widest mb-1.5">접속 시설 정보</p>
           <div className="flex items-center gap-2">
             <span className="w-1.5 h-1.5 rounded-full bg-accent shrink-0" />
             <p className="text-[13px] font-medium text-ink truncate">{centerName}</p>
