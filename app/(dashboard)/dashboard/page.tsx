@@ -8,6 +8,7 @@ import { Users, BookOpen, CalendarDays, TrendingUp, ArrowRight } from 'lucide-re
 import Link from 'next/link'
 import { DashboardCharts } from '@/components/features/dashboard/DashboardCharts'
 import { DashboardFeed } from '@/components/features/dashboard/DashboardFeed'
+import { DashboardCalendar } from '@/components/features/dashboard/DashboardCalendar'
 import { CHILD_STATUS_COLORS, CHILD_STATUS_LABELS, ACTIVITY_TYPE_LABELS, ACTIVITY_TYPE_COLORS } from '@/lib/utils'
 import type { Child, Activity, Class } from '@/lib/types'
 
@@ -17,13 +18,15 @@ export default async function DashboardPage() {
   const centerId = await getCenterId()
 
   const since = new Date(Date.now() - 13 * 864e5).toISOString().slice(0, 10)
-  const [childrenRes, activitiesRes, classesRes, centerRes, attRes, insightsRes] = await Promise.all([
+  const [childrenRes, activitiesRes, classesRes, centerRes, attRes, insightsRes, calActRes, careRes] = await Promise.all([
     supabase.from('children').select('*').eq('center_id', centerId ?? '').order('created_at', { ascending: false }),
     supabase.from('activities').select('*, classes(name)').eq('center_id', centerId ?? '').order('created_at', { ascending: false }).limit(10),
     supabase.from('classes').select('*, children(id)').eq('center_id', centerId ?? ''),
     supabase.from('centers').select('latitude, longitude').eq('id', centerId ?? '').maybeSingle(),
     supabase.from('attendances').select('attendance_date, status').eq('center_id', centerId ?? '').gte('attendance_date', since).is('deleted_at', null),
     supabase.rpc('get_sna_insights', { p_center_id: centerId ?? '' }),
+    supabase.from('activities').select('id, title, type, status, activity_date, activity_time').eq('center_id', centerId ?? '').is('deleted_at', null).not('activity_date', 'is', null),
+    supabase.from('care_notes').select('id, child_id, content, noted_on, note_type, children(name)').eq('center_id', centerId ?? '').is('deleted_at', null).order('noted_on', { ascending: false }).limit(120),
   ])
   const hasLocation = centerRes.data?.latitude != null && centerRes.data?.longitude != null
 
@@ -129,6 +132,14 @@ export default async function DashboardPage() {
 
         {/* Location-based feed (#4) */}
         <DashboardFeed centerId={centerId ?? ''} hasLocation={hasLocation} />
+
+        {/* Calendar (#8) */}
+        <DashboardCalendar
+          centerId={centerId ?? ''}
+          initialActivities={(calActRes.data ?? []) as never[]}
+          careNotes={((careRes.data ?? []) as unknown as { id: string; child_id: string; content: string; noted_on: string; note_type: string; children: { name: string } | null }[])
+            .map((c) => ({ id: c.id, child_id: c.child_id, content: c.content, noted_on: c.noted_on, note_type: c.note_type, child_name: c.children?.name ?? '아동' }))}
+        />
 
         {/* Analytics */}
         <DashboardCharts

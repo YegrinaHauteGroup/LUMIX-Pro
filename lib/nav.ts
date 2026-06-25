@@ -1,6 +1,6 @@
 import {
   BarChart3, BookOpen, CalendarDays, ClipboardCheck, ClipboardList,
-  Home, Network, Settings, Sparkles, Users, type LucideIcon,
+  Home, Network, Settings, ShieldAlert, Sparkles, Users, type LucideIcon,
 } from 'lucide-react'
 
 export interface NavItem { href: string; label: string; icon: LucideIcon }
@@ -22,6 +22,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: '/sna', icon: Network, label: 'SNA 분석 보드' },
       { href: '/quests', icon: Sparkles, label: '퀘스트 분석 엔진' },
+      { href: '/threats', icon: ShieldAlert, label: '위협 탐지 시스템' },
       { href: '/assessments', icon: ClipboardCheck, label: '가중치 입력' },
       { href: '/reports', icon: BarChart3, label: '보고서 플랫폼' },
     ],
