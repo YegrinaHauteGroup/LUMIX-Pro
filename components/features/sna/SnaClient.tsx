@@ -473,7 +473,7 @@ export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) 
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-ink-faint">
           <p className="text-sm">표시할 관계망 데이터가 없습니다</p>
           <p className="text-xs text-ink-ghost">평가·관계 입력 후 재계산을 실행하세요</p>
-          <button onClick={handleRecompute} disabled={recomputing} className="mt-2 h-8 px-4 text-[12px] rounded-lg bg-accent text-white hover:bg-accent-hover disabled:opacity-50">
+          <button onClick={handleRecompute} disabled={recomputing} className="mt-2 h-8 px-4 text-[12px] rounded-[3px] bg-accent text-white hover:bg-accent-hover disabled:opacity-50">
             {recomputing ? '재계산 중…' : 'SNA 재계산'}
           </button>
         </div>
@@ -482,7 +482,7 @@ export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) 
       )}
 
       {/* Control panel */}
-      <div className="absolute top-6 left-6 z-10 w-[330px] max-h-[calc(100%-3rem)] overflow-y-auto rounded-2xl border border-line bg-surface/95 backdrop-blur-md shadow-[var(--shadow-pop)] p-5">
+      <div className="absolute top-6 left-6 z-10 w-[330px] max-h-[calc(100%-3rem)] overflow-y-auto rounded-[3px] border border-line bg-surface/95 backdrop-blur-md shadow-[var(--shadow-pop)] p-5">
         <h1 className="text-[15px] font-semibold text-ink tracking-[-0.01em]">SNA 관계망 분석</h1>
         <p className="text-[11px] text-ink-faint mt-0.5 mb-4 pb-4 border-b border-line">LUMIX Pro 다차원 노드 및 복합 엣지</p>
 
@@ -491,8 +491,8 @@ export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) 
           <div className="flex gap-1.5">
             <input value={searchValue} onChange={(e) => { setSearchValue(e.target.value); setSearchError(false) }} onKeyDown={(e) => e.key === 'Enter' && search()}
               placeholder="아동, 교사, 장소 이름 검색"
-              className="flex-1 h-9 px-3 bg-fill-2 border border-line rounded-lg text-[13px] text-ink placeholder-ink-ghost focus:outline-none focus:border-accent" />
-            <button onClick={search} className="h-9 px-3 rounded-lg bg-ink text-white text-[12px] hover:opacity-90">검색</button>
+              className="flex-1 h-9 px-3 bg-fill-2 border border-line rounded-[3px] text-[13px] text-ink placeholder-ink-ghost focus:outline-none focus:border-accent" />
+            <button onClick={search} className="h-9 px-3 rounded-[3px] bg-ink text-white text-[12px] hover:opacity-90">검색</button>
           </div>
           {searchError && <p className="text-[11px] text-danger mt-1.5">검색 결과가 존재하지 않습니다.</p>}
         </div>
@@ -500,10 +500,10 @@ export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) 
         {/* scope */}
         <div className="mb-4 pb-4 border-b border-line">
           <p className="text-[11px] font-semibold text-ink-faint uppercase tracking-[0.1em] mb-2">조회 범위</p>
-          <div className="flex flex-wrap gap-1.5 p-1 bg-fill rounded-lg">
+          <div className="flex flex-wrap gap-1.5 p-1 bg-fill rounded-[3px]">
             {[{ id: 'ALL', name: '전체 센터' }, ...classes].map((c) => (
               <button key={c.id} onClick={() => handleScope(c.id)}
-                className={`flex-1 min-w-[72px] py-1.5 text-[12px] rounded-md transition-all ${scope === c.id ? 'bg-surface text-ink font-semibold shadow-sm' : 'text-ink-faint hover:text-ink'}`}>
+                className={`flex-1 min-w-[72px] py-1.5 text-[12px] rounded-[3px] transition-all ${scope === c.id ? 'bg-surface text-ink font-semibold shadow-sm' : 'text-ink-faint hover:text-ink'}`}>
                 {c.name}
               </button>
             ))}
@@ -527,15 +527,15 @@ export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) 
         <div className="space-y-1.5">
           {SCENARIOS.map((s) => (
             <button key={s.key} onClick={() => runScenario(s.key)}
-              className={`w-full text-left px-3 py-2.5 text-[13px] font-medium text-ink-soft bg-surface border border-line border-l-[3px] ${s.bar} rounded-md hover:bg-fill hover:text-ink transition-colors`}>
+              className={`w-full text-left px-3 py-2.5 text-[13px] font-medium text-ink-soft bg-surface border border-line border-l-[3px] ${s.bar} rounded-[3px] hover:bg-fill hover:text-ink transition-colors`}>
               {s.label}
             </button>
           ))}
-          <button onClick={resetView} className="w-full mt-2 py-2.5 px-3 rounded-md bg-ink text-white text-[13px] font-medium hover:opacity-90 transition-opacity">
+          <button onClick={resetView} className="w-full mt-2 py-2.5 px-3 rounded-[3px] bg-ink text-white text-[13px] font-medium hover:opacity-90 transition-opacity">
             전체 화면 새로고침
           </button>
           <button onClick={handleRecompute} disabled={recomputing}
-            className="w-full py-2.5 px-3 rounded-md bg-accent text-white text-[13px] font-medium hover:bg-accent-hover disabled:opacity-50 transition-colors">
+            className="w-full py-2.5 px-3 rounded-[3px] bg-accent text-white text-[13px] font-medium hover:bg-accent-hover disabled:opacity-50 transition-colors">
             {recomputing ? '중심성 재계산 중…' : '중심성 지표 재계산'}
           </button>
         </div>
@@ -543,10 +543,10 @@ export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) 
 
       {/* Insight drawer */}
       {report && (
-        <div className="absolute top-6 right-6 bottom-6 z-10 w-[330px] max-w-[calc(100%-3rem)] flex flex-col rounded-2xl border border-line bg-surface/97 backdrop-blur-md shadow-[var(--shadow-pop)] overflow-hidden">
+        <div className="absolute top-6 right-6 bottom-6 z-10 w-[330px] max-w-[calc(100%-3rem)] flex flex-col rounded-[3px] border border-line bg-surface/97 backdrop-blur-md shadow-[var(--shadow-pop)] overflow-hidden">
           <div className="px-6 py-4 border-b border-line flex items-center justify-between">
             <span className="text-[14px] font-semibold text-ink">{report.title}</span>
-            <button onClick={() => setReport(null)} className="text-ink-faint hover:text-ink hover:bg-fill rounded-md w-7 h-7 flex items-center justify-center transition-colors">✕</button>
+            <button onClick={() => setReport(null)} className="text-ink-faint hover:text-ink hover:bg-fill rounded-[3px] w-7 h-7 flex items-center justify-center transition-colors">✕</button>
           </div>
           <div className="flex-1 overflow-y-auto px-6 py-5 text-[13px] text-ink-soft leading-relaxed">{report.body}</div>
         </div>

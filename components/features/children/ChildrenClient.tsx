@@ -101,13 +101,13 @@ export function ChildrenClient({ initialChildren, classes, centerId }: Props) {
             placeholder="이름 검색"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-52 bg-[#ffffff] border border-[#e6eaf2] pl-8 pr-3 py-1.5 text-[12px] text-[#0e1726] placeholder-[#aab2c2] focus:outline-none focus:border-[#5a63f2] h-8 rounded-sm"
+            className="w-52 bg-[#ffffff] border border-[#e6eaf2] pl-8 pr-3 py-1.5 text-[12px] text-[#0e1726] placeholder-[#aab2c2] focus:outline-none focus:border-[#5a63f2] h-8 rounded-[2px]"
           />
         </div>
         <select
           value={filterStatus}
           onChange={(e) => setFilterStatus(e.target.value as typeof filterStatus)}
-          className="bg-[#ffffff] border border-[#e6eaf2] px-3 py-1.5 text-[12px] text-[#5a6678] focus:outline-none focus:border-[#5a63f2] h-8 rounded-sm cursor-pointer"
+          className="bg-[#ffffff] border border-[#e6eaf2] px-3 py-1.5 text-[12px] text-[#5a6678] focus:outline-none focus:border-[#5a63f2] h-8 rounded-[2px] cursor-pointer"
         >
           <option value="all">전체 상태</option>
           <option value="active">재원</option>
@@ -117,7 +117,7 @@ export function ChildrenClient({ initialChildren, classes, centerId }: Props) {
         <select
           value={filterClass}
           onChange={(e) => setFilterClass(e.target.value)}
-          className="bg-[#ffffff] border border-[#e6eaf2] px-3 py-1.5 text-[12px] text-[#5a6678] focus:outline-none focus:border-[#5a63f2] h-8 rounded-sm cursor-pointer"
+          className="bg-[#ffffff] border border-[#e6eaf2] px-3 py-1.5 text-[12px] text-[#5a6678] focus:outline-none focus:border-[#5a63f2] h-8 rounded-[2px] cursor-pointer"
         >
           <option value="all">전체 반</option>
           {classes.map((cls) => <option key={cls.id} value={cls.id}>{cls.name}</option>)}
