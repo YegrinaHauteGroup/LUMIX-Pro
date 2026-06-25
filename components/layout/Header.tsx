@@ -110,7 +110,7 @@ export function Header({ subtitle, actions }: HeaderProps) {
           <div className="flex items-center h-8 w-[260px] bg-fill border border-line rounded-[3px] px-2.5 focus-within:border-accent transition-colors">
             <Search size={13} className="text-ink-faint shrink-0" />
             <input value={q} onChange={(e) => setQ(e.target.value)} onFocus={() => q && setSearchOpen(true)}
-              placeholder="객체·이벤트·기록 통합 검색…"
+              placeholder="객체·온톨로지·데이터 통합 검색…"
               className="flex-1 min-w-0 bg-transparent pl-2 text-[12px] text-ink placeholder-ink-ghost focus:outline-none" />
           </div>
           {searchOpen && q.trim() && (
@@ -173,14 +173,14 @@ export function Header({ subtitle, actions }: HeaderProps) {
 
         {/* bug report */}
         <a href="https://www.officialyegrina.com" target="_blank" rel="noreferrer" title="버그 문의"
-          className="w-8 h-8 flex items-center justify-center rounded-[3px] text-ink-faint hover:text-ink hover:bg-fill border border-line transition-colors">
+          className="w-8 h-8 flex items-center justify-center rounded-[3px] text-ink-soft hover:text-ink hover:bg-fill border border-line transition-colors">
           <Bug size={14} />
         </a>
 
         {/* logout */}
         <button onClick={handleLogout}
           className="flex items-center gap-1.5 px-3 h-8 text-[12px] text-ink-soft hover:text-ink bg-surface hover:bg-fill border border-line transition-colors rounded-[3px]">
-          <LogOut size={13} />
+          <LogOut size={12} />
           로그아웃
         </button>
       </div>
