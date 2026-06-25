@@ -16,17 +16,59 @@ export default async function DashboardPage() {
   const supabase = createClient(cookieStore)
   const centerId = await getCenterId()
 
-  const [childrenRes, activitiesRes, classesRes, centerRes] = await Promise.all([
+  const since = new Date(Date.now() - 13 * 864e5).toISOString().slice(0, 10)
+  const [childrenRes, activitiesRes, classesRes, centerRes, attRes, insightsRes] = await Promise.all([
     supabase.from('children').select('*').eq('center_id', centerId ?? '').order('created_at', { ascending: false }),
     supabase.from('activities').select('*, classes(name)').eq('center_id', centerId ?? '').order('created_at', { ascending: false }).limit(10),
     supabase.from('classes').select('*, children(id)').eq('center_id', centerId ?? ''),
     supabase.from('centers').select('latitude, longitude').eq('id', centerId ?? '').maybeSingle(),
+    supabase.from('attendances').select('attendance_date, status').eq('center_id', centerId ?? '').gte('attendance_date', since).is('deleted_at', null),
+    supabase.rpc('get_sna_insights', { p_center_id: centerId ?? '' }),
   ])
   const hasLocation = centerRes.data?.latitude != null && centerRes.data?.longitude != null
 
   const children: Child[] = childrenRes.data ?? []
   const activities: Activity[] = activitiesRes.data ?? []
   const classes: Class[] = classesRes.data ?? []
+
+  // 14-day attendance trend
+  const attRows = (attRes.data ?? []) as { attendance_date: string; status: string }[]
+  const attendanceTrend = Array.from({ length: 14 }).map((_, i) => {
+    const d = new Date(Date.now() - (13 - i) * 864e5).toISOString().slice(0, 10)
+    const day = attRows.filter((r) => r.attendance_date === d)
+    return {
+      date: d.slice(5),
+      출석: day.filter((r) => r.status === 'present').length,
+      지각: day.filter((r) => r.status === 'late').length,
+      결석: day.filter((r) => r.status === 'absent').length,
+    }
+  })
+
+  // age distribution
+  const ageOf = (b: string | null) => {
+    if (!b) return null
+    const t = new Date(); const bd = new Date(b)
+    let a = t.getFullYear() - bd.getFullYear()
+    if (t.getMonth() < bd.getMonth() || (t.getMonth() === bd.getMonth() && t.getDate() < bd.getDate())) a--
+    return a
+  }
+  const ageMap = new Map<number, number>()
+  children.filter((c) => c.status === 'active').forEach((c) => { const a = ageOf(c.birth_date); if (a != null) ageMap.set(a, (ageMap.get(a) ?? 0) + 1) })
+  const ageStats = [...ageMap.entries()].sort((a, b) => a[0] - b[0]).map(([age, value]) => ({ name: `${age}세`, value }))
+
+  // SNA summary
+  const ins = (insightsRes.data ?? {}) as {
+    summary?: { children: number; isolated: number; communities: number; avg_betweenness: number }
+    allergy_children?: unknown[]; conflict_children?: unknown[]; health_alerts?: unknown[]
+  }
+  const snaStats = [
+    { label: '분석 아동', value: ins.summary?.children ?? 0 },
+    { label: '고립 신호', value: ins.summary?.isolated ?? 0 },
+    { label: '갈등 관계', value: ins.conflict_children?.length ?? 0 },
+    { label: '보건 경보', value: ins.health_alerts?.length ?? 0 },
+    { label: '알러지 관리', value: ins.allergy_children?.length ?? 0 },
+    { label: '커뮤니티', value: ins.summary?.communities ?? 0 },
+  ]
 
   const activeChildren = children.filter((c) => c.status === 'active').length
   const totalChildren = children.length
@@ -88,10 +130,15 @@ export default async function DashboardPage() {
         {/* Location-based feed (#4) */}
         <DashboardFeed centerId={centerId ?? ''} hasLocation={hasLocation} />
 
-        {/* Charts row */}
-        <div className="grid grid-cols-3 gap-3">
-          <DashboardCharts genderStats={genderStats} statusStats={statusStats} classStats={classStats} />
-        </div>
+        {/* Analytics */}
+        <DashboardCharts
+          genderStats={genderStats}
+          statusStats={statusStats}
+          classStats={classStats}
+          ageStats={ageStats}
+          attendanceTrend={attendanceTrend}
+          snaStats={snaStats}
+        />
 
         {/* Bottom row */}
         <div className="grid grid-cols-2 gap-3">
