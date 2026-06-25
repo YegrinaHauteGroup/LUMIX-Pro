@@ -31,9 +31,14 @@ type Result = { headline: string; stats: { label: string; value: string | number
 // deno-lint-ignore no-explicit-any
 type SB = any
 
+// Optional quest scope (set per-request from analysis_quests.params).
+let CURRENT_CLASS: string | null = null
+
 async function activeChildren(sb: SB, center: string) {
-  const { data } = await sb.from('children').select('id, name, class_id')
+  let qb = sb.from('children').select('id, name, class_id')
     .eq('center_id', center).eq('status', 'active').is('deleted_at', null)
+  if (CURRENT_CLASS) qb = qb.eq('class_id', CURRENT_CLASS)
+  const { data } = await qb
   return (data ?? []) as { id: string; name: string; class_id: string | null }[]
 }
 async function latestMetrics(sb: SB, center: string) {
@@ -280,6 +285,8 @@ Deno.serve(async (req) => {
     if (qErr || !quest) throw new Error('quest not found')
 
     await sb.from('analysis_quests').update({ status: 'running', error: null }).eq('id', quest_id)
+
+    CURRENT_CLASS = (quest.params && typeof quest.params === 'object' && quest.params.class_id) ? quest.params.class_id : null
 
     const runner = RUNNERS[quest.quest_type]
     if (!runner) throw new Error(`unknown quest_type: ${quest.quest_type}`)

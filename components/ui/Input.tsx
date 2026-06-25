@@ -2,7 +2,7 @@ import { cn } from '@/lib/utils'
 import { forwardRef } from 'react'
 
 const fieldBase =
-  'w-full bg-surface border border-line rounded-lg px-3 py-2 text-[13px] text-ink placeholder-ink-ghost ' +
+  'w-full bg-surface border border-line rounded-[3px] px-3 py-2 text-[13px] text-ink placeholder-ink-ghost ' +
   'transition-all focus:outline-none focus:border-accent focus:shadow-[var(--shadow-glow)]'
 
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {

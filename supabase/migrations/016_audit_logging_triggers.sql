@@ -40,3 +40,6 @@ begin
     execute format('create trigger trg_audit_%1$s after insert or update or delete on public.%1$s for each row execute function public.log_audit()', t);
   end loop;
 end $$;
+
+-- log_audit() is a trigger function; keep it off the REST RPC surface.
+revoke all on function public.log_audit() from public, anon, authenticated;

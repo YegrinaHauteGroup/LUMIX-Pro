@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 @source "../components/**/*.{tsx,ts}";
 @source "../app/**/*.{tsx,ts}";
 
@@ -9,13 +10,16 @@
 + Minjae Kim Where are you?
    ============================================================ */
 @theme {
-  --font-family-sans: "Noto Sans KR", "Apple SD Gothic Neo", "AppleGothic", sans-serif;
+  --font-family-sans: "Inter", "Noto Sans KR", "Apple SD Gothic Neo", "AppleGothic", sans-serif;
 
-  /* Surfaces — Foundry-light: cool neutral gray canvas, crisp white panels */
-  --color-canvas: #f1f3f6;
-  --color-surface: #ffffff;
-  --color-fill: #eceff4;        /* subtle fills / hover */
-  --color-fill-2: #f4f6f9;
+  /* Surfaces — Palantir Blueprint light theme */
+  --color-canvas: #f5f8fa;       /* pt-app-background */
+  --color-surface: #ffffff;      /* pt-panel-background */
+  --color-fill: #ebf1f5;         /* pt-panel-background-hover */
+  --color-fill-2: #f5f8fa;
+
+  /* Corner radius — Blueprint is crisp (3px) */
+  --radius-card: 3px;
 
   /* Data-viz palette (charts / indices) */
   --chart-1: #2563eb;
@@ -28,20 +32,20 @@
   --chart-8: #f43f5e;
 
   /* Lines */
-  --color-line: #e6eaf2;
-  --color-line-strong: #d6dce8;
+  --color-line: #ced9e0;        /* pt-border */
+  --color-line-strong: #b6c2cc;
 
   /* Ink (text) */
-  --color-ink: #0e1726;         /* primary */
-  --color-ink-soft: #475467;    /* secondary */
-  --color-ink-faint: #8a93a6;   /* tertiary / labels */
-  --color-ink-ghost: #aab2c2;   /* placeholder / disabled */
+  --color-ink: #182026;         /* pt-text */
+  --color-ink-soft: #5c7080;    /* pt-text-muted */
+  --color-ink-faint: #738793;   /* tertiary / labels */
+  --color-ink-ghost: #8a9ba8;   /* placeholder / disabled */
 
-  /* Accent — indigo, with a soft pastel fill and neon ring */
-  --color-accent: #5a63f2;
-  --color-accent-hover: #4a53e6;
-  --color-accent-soft: #eceefe;
-  --color-accent-ink: #3b40c4;
+  /* Accent — Blueprint intent-primary blue */
+  --color-accent: #137cbd;
+  --color-accent-hover: #106ba3;
+  --color-accent-soft: #e1edf5;
+  --color-accent-ink: #0c5a8c;
 
   /* Status / pastel category tones */
   --color-danger: #e5484d;
@@ -55,13 +59,13 @@
   --color-violet: #8b5cf6;
   --color-violet-soft: #f1ecfe;
 
-  /* Elevation */
-  --shadow-card: 0 1px 2px rgba(14, 23, 38, 0.04), 0 1px 3px rgba(14, 23, 38, 0.06);
-  --shadow-pop: 0 8px 24px rgba(14, 23, 38, 0.10), 0 2px 6px rgba(14, 23, 38, 0.06);
-  --shadow-glow: 0 0 0 3px rgba(90, 99, 242, 0.18);
+  /* Elevation — Blueprint keeps it minimal, leaning on borders */
+  --shadow-card: 0 0 0 1px rgba(16, 22, 26, 0.02), 0 1px 1px rgba(16, 22, 26, 0.05);
+  --shadow-pop: 0 8px 24px rgba(16, 22, 26, 0.12), 0 2px 6px rgba(16, 22, 26, 0.08);
+  --shadow-glow: 0 0 0 2px rgba(19, 124, 189, 0.25);
 }
 
-* { box-sizing: border-box; padding: 2; margin: 2; }
+* { box-sizing: border-box; }
 
 html, body {
   width: 100%; /* 100vw 대신 100%를 사용하여 스크롤바 너비 간섭 방지 (우측 짤림 해결) */

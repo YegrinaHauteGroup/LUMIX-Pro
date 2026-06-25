@@ -26,7 +26,7 @@ export function Modal({ open, onClose, title, children, size = 'md' }: ModalProp
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-[#0e1726]/35 backdrop-blur-sm" onClick={onClose} />
-      <div className={cn('relative w-full bg-surface border border-line rounded-2xl shadow-[var(--shadow-pop)]', sizes[size])}>
+      <div className={cn('relative w-full bg-surface border border-line rounded-[4px] shadow-[var(--shadow-pop)]', sizes[size])}>
         <div className="flex items-center justify-between px-6 py-5 border-b border-line">
           <h2 className="text-[14px] font-semibold text-ink tracking-[-0.01em]">{title}</h2>
           <button

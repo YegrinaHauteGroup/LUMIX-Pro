@@ -134,7 +134,7 @@ export function ChildDetailClient({ child, centerId, classes, staff, health, lin
   const age = child.birth_date ? `${calculateAge(child.birth_date)}세` : '나이 미등록'
 
   return (
-    <div className="flex-1 p-8 max-w-[1600px] mx-auto w-full space-y-6 overflow-auto">
+    <div className="flex-1 p-5 w-full space-y-5 overflow-auto">
       <div className="flex items-center justify-between">
         <Link href="/children" className="inline-flex items-center gap-1.5 text-sm text-ink-soft hover:text-ink transition-colors">
           <ArrowLeft size={14} /> 아동 목록으로

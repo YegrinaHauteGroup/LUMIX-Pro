@@ -13,7 +13,7 @@ interface HeaderProps {
   actions?: React.ReactNode
 }
 
-interface ChildHit { id: string; name: string; classes: { name: string } | null }
+interface SearchHit { kind: string; id: string; label: string; sublabel: string; href: string }
 interface AuditRow { action: string; target_table: string; occurred_at: string; actor_staff_id: string | null }
 
 export function Header({ subtitle, actions }: HeaderProps) {
@@ -28,20 +28,27 @@ export function Header({ subtitle, actions }: HeaderProps) {
     router.refresh()
   }
 
-  // ----- quick search (children) -----
+  // ----- global omni-search (all objects/events) -----
   const [q, setQ] = useState('')
-  const [hits, setHits] = useState<ChildHit[]>([])
+  const [hits, setHits] = useState<SearchHit[]>([])
+  const [searching, setSearching] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   useEffect(() => {
-    if (q.trim().length < 1) { setHits([]); return }
+    if (q.trim().length < 1) { setHits([]); setSearching(false); return }
+    setSearching(true)
     const t = setTimeout(async () => {
-      const { data } = await supabase.from('children').select('id, name, classes(name)')
-        .ilike('name', `%${q.trim()}%`).is('deleted_at', null).limit(6)
-      setHits((data as unknown as ChildHit[]) ?? [])
+      const { data } = await supabase.rpc('global_search', { p_q: q.trim() })
+      setHits((data as SearchHit[]) ?? [])
+      setSearching(false)
       setSearchOpen(true)
     }, 220)
     return () => clearTimeout(t)
   }, [q, supabase])
+
+  const KIND_COLOR: Record<string, string> = {
+    아동: '#137cbd', 반: '#0f9960', 활동: '#d9822b', 교직원: '#8b5cf6',
+    보호자: '#fb7185', 'SNA 노드': '#06b6d4', 퀘스트: '#eab308', 기록: '#5c7080',
+  }
 
   // ----- data history (audit_logs) -----
   const [histOpen, setHistOpen] = useState(false)
@@ -98,23 +105,33 @@ export function Header({ subtitle, actions }: HeaderProps) {
       <div ref={wrapRef} className="flex items-center gap-1.5">
         {actions}
 
-        {/* search */}
+        {/* global search */}
         <div className="relative">
-          <div className="flex items-center h-8 w-[200px] bg-fill border border-line rounded-lg px-2.5 focus-within:border-accent transition-colors">
+          <div className="flex items-center h-8 w-[260px] bg-fill border border-line rounded-[3px] px-2.5 focus-within:border-accent transition-colors">
             <Search size={13} className="text-ink-faint shrink-0" />
             <input value={q} onChange={(e) => setQ(e.target.value)} onFocus={() => q && setSearchOpen(true)}
-              placeholder="아동 검색"
+              placeholder="객체·이벤트·기록 통합 검색…"
               className="flex-1 min-w-0 bg-transparent pl-2 text-[12px] text-ink placeholder-ink-ghost focus:outline-none" />
           </div>
-          {searchOpen && hits.length > 0 && (
-            <div className="absolute right-0 mt-1.5 w-[240px] bg-surface border border-line rounded-lg shadow-[var(--shadow-pop)] py-1 z-40">
-              {hits.map((h) => (
-                <Link key={h.id} href={`/children/${h.id}`} onClick={() => { setSearchOpen(false); setQ('') }}
-                  className="flex items-center justify-between px-3 py-2 hover:bg-fill transition-colors">
-                  <span className="text-[12.5px] text-ink">{h.name}</span>
-                  <span className="text-[11px] text-ink-faint">{h.classes?.name ?? '미배정'}</span>
-                </Link>
-              ))}
+          {searchOpen && q.trim() && (
+            <div className="absolute right-0 mt-1.5 w-[320px] max-h-[420px] overflow-y-auto bg-surface border border-line rounded-[4px] shadow-[var(--shadow-pop)] py-1 z-40">
+              {searching ? (
+                <p className="text-[12px] text-ink-faint px-3 py-3">검색 중…</p>
+              ) : hits.length === 0 ? (
+                <p className="text-[12px] text-ink-faint px-3 py-3">검색 결과가 없습니다.</p>
+              ) : (
+                hits.map((h) => (
+                  <Link key={`${h.kind}-${h.id}`} href={h.href} onClick={() => { setSearchOpen(false); setQ('') }}
+                    className="flex items-center gap-2.5 px-3 py-2 hover:bg-fill transition-colors">
+                    <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: KIND_COLOR[h.kind] ?? '#8a9ba8' }} />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[12.5px] text-ink truncate">{h.label}</p>
+                      <p className="text-[10.5px] text-ink-faint truncate">{h.sublabel}</p>
+                    </div>
+                    <span className="text-[10px] text-ink-ghost shrink-0">{h.kind}</span>
+                  </Link>
+                ))
+              )}
             </div>
           )}
         </div>
