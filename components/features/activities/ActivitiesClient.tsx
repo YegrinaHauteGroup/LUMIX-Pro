@@ -80,7 +80,7 @@ export function ActivitiesClient({ initialActivities, classes, centerId }: Props
   }
 
   return (
-    <div className="flex-1 p-8 max-w-[1600px] mx-auto w-full space-y-6 overflow-auto">
+    <div className="flex-1 p-5 w-full space-y-5 overflow-auto">
       <div className="flex items-center gap-2">
         <select value={filterType} onChange={(e) => setFilterType(e.target.value as typeof filterType)}
           className="bg-[#ffffff] border border-[#e6eaf2] px-3 text-[12px] text-[#5a6678] focus:outline-none focus:border-[#5a63f2] h-8 rounded-sm cursor-pointer">

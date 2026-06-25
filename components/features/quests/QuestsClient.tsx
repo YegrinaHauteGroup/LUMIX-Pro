@@ -92,7 +92,7 @@ export function QuestsClient({ centerId, initialQuests }: Props) {
   }
 
   return (
-    <div className="flex-1 p-6 grid grid-cols-[360px_1fr] gap-5 max-w-[1600px] mx-auto w-full overflow-auto">
+    <div className="flex-1 p-5 grid grid-cols-[360px_1fr] gap-5 w-full overflow-auto">
       {/* Define / run a quest */}
       <div className="space-y-4">
         <Card>

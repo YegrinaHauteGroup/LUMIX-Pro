@@ -95,7 +95,7 @@ export function AttendanceClient({ children, classes, today, centerId }: Props) 
   const rate = filtered.length ? Math.round(((counts.present + counts.late) / filtered.length) * 100) : 0
 
   return (
-    <div className="flex-1 p-6 max-w-[1400px] mx-auto w-full space-y-4 overflow-auto">
+    <div className="flex-1 p-5 w-full space-y-4 overflow-auto">
       {/* Controls */}
       <div className="flex items-center gap-2">
         <input type="date" value={checkDate} onChange={(e) => setCheckDate(e.target.value)}

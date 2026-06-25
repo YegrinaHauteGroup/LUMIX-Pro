@@ -86,7 +86,7 @@ export function AssessmentsClient(props: Props) {
   }
 
   return (
-    <div className="flex-1 p-8 max-w-[1600px] mx-auto w-full space-y-6 overflow-auto">
+    <div className="flex-1 p-5 w-full space-y-5 overflow-auto">
       {/* Action bar */}
       <div className="flex items-center gap-3 flex-wrap">
         <div className="flex items-center gap-1 p-1 bg-fill rounded-xl border border-line">
