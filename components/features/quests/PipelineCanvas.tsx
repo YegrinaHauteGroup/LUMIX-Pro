@@ -23,11 +23,11 @@ const QUEST_TYPES: { v: string; t: string }[] = [
   { v: 'space_preference', t: '공간 선호' },
 ]
 const NODE_META: Record<NType, { label: string; icon: typeof Database; color: string }> = {
-  source: { label: '데이터 소스', icon: Database, color: '#137cbd' },
-  filter: { label: '범위 필터', icon: Filter, color: '#0f9960' },
-  analysis: { label: '분석 엔진', icon: GitBranch, color: '#8b5cf6' },
-  sim: { label: '시뮬레이션', icon: FlaskConical, color: '#d9822b' },
-  output: { label: '결과 출력', icon: BarChart3, color: '#5c7080' },
+  source: { label: '데이터 소스', icon: Database, color: '#58A6FF' },
+  filter: { label: '범위 필터', icon: Filter, color: '#3FB950' },
+  analysis: { label: '분석 엔진', icon: GitBranch, color: '#bc8cff' },
+  sim: { label: '시뮬레이션', icon: FlaskConical, color: '#D29922' },
+  output: { label: '결과 출력', icon: BarChart3, color: '#8B949E' },
 }
 const NW = 184, NH = 78
 
@@ -56,25 +56,37 @@ export function PipelineCanvas({ centerId, classes, insights, staffCount, entity
   const [selected, setSelected] = useState<string | null>('ana')
   const [connectFrom, setConnectFrom] = useState<string | null>(null)
   const [running, setRunning] = useState(false)
-  const drag = useRef<{ id: string; dx: number; dy: number } | null>(null)
+  const [runMsg, setRunMsg] = useState<{ type: 'error' | 'success'; text: string } | null>(null)
+  const drag = useRef<{ id: string; dx: number; dy: number; pid: number; el: Element | null } | null>(null)
 
   const totalChildren = insights?.summary?.children ?? 0
 
   function onPointerDownNode(e: React.PointerEvent, n: PNode) {
     if (connectFrom !== null) return
-    const rect = canvasRef.current!.getBoundingClientRect()
-    drag.current = { id: n.id, dx: e.clientX - rect.left - n.x, dy: e.clientY - rect.top - n.y }
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const rect = canvas.getBoundingClientRect()
+    // Capture on the node container (currentTarget), never an inner <svg>/<path>:
+    // setPointerCapture on SVG sub-elements throws in Firefox/Safari.
+    const el = e.currentTarget as HTMLElement
+    drag.current = { id: n.id, dx: e.clientX - rect.left - n.x, dy: e.clientY - rect.top - n.y, pid: e.pointerId, el }
     setSelected(n.id)
-    ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
+    try { el.setPointerCapture(e.pointerId) } catch { /* not all targets support capture */ }
   }
   function onPointerMove(e: React.PointerEvent) {
     if (!drag.current) return
-    const rect = canvasRef.current!.getBoundingClientRect()
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const rect = canvas.getBoundingClientRect()
     const x = Math.max(0, Math.min(rect.width - NW, e.clientX - rect.left - drag.current.dx))
     const y = Math.max(0, Math.min(rect.height - NH, e.clientY - rect.top - drag.current.dy))
     setNodes((ns) => ns.map((nn) => nn.id === drag.current!.id ? { ...nn, x, y } : nn))
   }
-  function onPointerUp() { drag.current = null }
+  function onPointerUp() {
+    const d = drag.current
+    if (d?.el) { try { (d.el as HTMLElement).releasePointerCapture?.(d.pid) } catch { /* already released */ } }
+    drag.current = null
+  }
 
   function clickNode(n: PNode) {
     if (connectFrom === null) { setSelected(n.id); return }
@@ -122,8 +134,9 @@ export function PipelineCanvas({ centerId, classes, insights, staffCount, entity
   async function runPipeline() {
     const ana = nodes.find((n) => n.type === 'analysis')
     const flt = nodes.find((n) => n.type === 'filter')
-    if (!ana || !centerId) return
-    setRunning(true)
+    if (!ana) { setRunMsg({ type: 'error', text: '분석 엔진 노드가 필요합니다.' }); return }
+    if (!centerId) { setRunMsg({ type: 'error', text: '센터 정보를 찾을 수 없습니다.' }); return }
+    setRunning(true); setRunMsg(null)
     runSim()
     const scope = flt?.scope ?? 'ALL'
     const qt = ana.questType ?? 'isolation_risk'
@@ -134,14 +147,20 @@ export function PipelineCanvas({ centerId, classes, insights, staffCount, entity
       const { data: inserted, error } = await supabase.from('analysis_quests')
         .insert({ center_id: centerId, title, quest_type: qt, params, status: 'pending', created_by: user?.id ?? null })
         .select('id, title, quest_type, params, status, result, error, created_at, updated_at').single()
-      if (error || !inserted) throw new Error(error?.message ?? '생성 실패')
-      await supabase.functions.invoke('run_quest', { body: { center_id: centerId, quest_id: inserted.id } })
+      if (error || !inserted) throw new Error(error?.message ?? '퀘스트 생성 실패')
+      const { error: fnErr } = await supabase.functions.invoke('run_quest', { body: { center_id: centerId, quest_id: inserted.id } })
+      if (fnErr) throw new Error(fnErr.message)
       const { data: done } = await supabase.from('analysis_quests')
         .select('id, title, quest_type, params, status, result, error, created_at, updated_at').eq('id', inserted.id).single()
-      const q = (done ?? inserted)
+      const q = (done ?? inserted) as { status?: string; error?: string | null; result?: PNode['result'] }
       setNodes((ns) => ns.map((n) => n.type === 'output' ? { ...n, result: q.result ?? null } : n))
-      onResult(q as never)
-    } catch { /* surfaced in history */ } finally { setRunning(false) }
+      onResult((done ?? inserted) as never)
+      setRunMsg(q.status === 'error'
+        ? { type: 'error', text: q.error ?? '분석 중 오류가 발생했습니다.' }
+        : { type: 'success', text: '파이프라인 실행이 완료되었습니다.' })
+    } catch (e) {
+      setRunMsg({ type: 'error', text: (e as Error).message })
+    } finally { setRunning(false) }
   }
 
   const sel = nodes.find((n) => n.id === selected) ?? null
@@ -164,10 +183,13 @@ export function PipelineCanvas({ centerId, classes, insights, staffCount, entity
           })}
         </div>
         <button onClick={() => setConnectFrom(connectFrom === null ? (selected ?? null) : null)}
-          className={`h-7 px-2 inline-flex items-center gap-1 rounded-[3px] border text-[11px] ${connectFrom !== null ? 'bg-accent text-white border-accent' : 'border-line text-ink-soft hover:bg-fill'}`}>
+          className={`h-7 px-2 inline-flex items-center gap-1 rounded-[3px] border text-[11px] ${connectFrom !== null ? 'bg-accent text-[#0A0C10] border-accent' : 'border-line text-ink-soft hover:bg-fill'}`}>
           <Link2 size={12} /> {connectFrom !== null ? '연결할 노드 선택' : '연결 모드'}
         </button>
         <div className="flex-1" />
+        {runMsg && (
+          <span className={`text-[11px] px-2 py-1 rounded-[3px] mr-1 ${runMsg.type === 'success' ? 'text-success bg-success-soft' : 'text-danger bg-danger-soft'}`}>{runMsg.text}</span>
+        )}
         <Button variant="secondary" size="sm" onClick={runSim}><FlaskConical size={12} /> 시뮬레이션</Button>
         <Button size="sm" loading={running} onClick={runPipeline}><Play size={12} /> 파이프라인 실행</Button>
       </div>
@@ -175,20 +197,20 @@ export function PipelineCanvas({ centerId, classes, insights, staffCount, entity
       <div className="flex">
         {/* canvas */}
         <div ref={canvasRef} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerLeave={onPointerUp}
-          className="relative flex-1 h-[340px] overflow-hidden"
-          style={{ backgroundImage: 'radial-gradient(circle, #dde5ea 1px, transparent 1px)', backgroundSize: '18px 18px' }}>
+          className="relative flex-1 h-[340px] overflow-hidden bg-fill-2"
+          style={{ backgroundImage: 'radial-gradient(circle, #21262d 1px, transparent 1px)', backgroundSize: '18px 18px' }}>
           {/* edges */}
           <svg className="absolute inset-0 w-full h-full pointer-events-none">
             <defs>
               <marker id="pa" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
-                <path d="M0,0 L7,3 L0,6 Z" fill="#a7b6c2" />
+                <path d="M0,0 L7,3 L0,6 Z" fill="#586069" />
               </marker>
             </defs>
             {edges.map((e, i) => {
               const a = nodes.find((n) => n.id === e.from), b = nodes.find((n) => n.id === e.to)
               if (!a || !b) return null
               const p1 = center(a), p2 = center(b)
-              return <line key={i} x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} stroke="#a7b6c2" strokeWidth={1.5} markerEnd="url(#pa)" />
+              return <line key={i} x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} stroke="#586069" strokeWidth={1.5} markerEnd="url(#pa)" />
             })}
           </svg>
           {/* nodes */}

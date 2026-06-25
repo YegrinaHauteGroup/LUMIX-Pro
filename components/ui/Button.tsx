@@ -17,10 +17,10 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       'focus-visible:outline-none focus-visible:shadow-[var(--shadow-glow)]'
 
     const variants = {
-      primary: 'bg-accent text-white hover:bg-accent-hover shadow-[0_1px_2px_rgba(14,23,38,0.08)]',
-      secondary: 'bg-surface text-ink-soft border border-line hover:border-line-strong hover:bg-fill',
+      primary: 'bg-accent text-[#0A0C10] font-semibold hover:bg-accent-hover shadow-[0_1px_2px_rgba(0,0,0,0.4)]',
+      secondary: 'bg-fill-2 text-ink-soft border border-line hover:border-line-strong hover:bg-fill hover:text-ink',
       ghost: 'bg-transparent text-ink-faint hover:text-ink hover:bg-fill',
-      danger: 'bg-surface text-danger border border-[color:var(--color-danger-soft)] hover:bg-[color:var(--color-danger-soft)]',
+      danger: 'bg-transparent text-danger border border-[color:var(--color-danger-soft)] hover:bg-[color:var(--color-danger-soft)]',
     }
 
     const sizes = {

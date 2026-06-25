@@ -16,9 +16,9 @@ interface ThreatData {
 interface Props { centerId: string; initial: ThreatData | null }
 
 const SEV = {
-  high: { label: '높음', dot: '#db3737', chip: 'text-[#db3737] bg-[#fbeaea] border border-[#f5cccc]', bar: 'border-l-[#db3737]' },
-  medium: { label: '중간', dot: '#d9822b', chip: 'text-[#bf7326] bg-[#fdf3e7] border border-[#f5dcb8]', bar: 'border-l-[#d9822b]' },
-  low: { label: '낮음', dot: '#0f9960', chip: 'text-[#0d8050] bg-[#e8f5ef] border border-[#bfe0cf]', bar: 'border-l-[#0f9960]' },
+  high: { label: '높음', dot: '#F85149', chip: 'text-danger bg-danger-soft border border-[color:var(--color-danger-soft)]', bar: 'border-l-[#F85149]' },
+  medium: { label: '중간', dot: '#D29922', chip: 'text-warn bg-warn-soft border border-[color:var(--color-warn-soft)]', bar: 'border-l-[#D29922]' },
+  low: { label: '낮음', dot: '#3FB950', chip: 'text-success bg-success-soft border border-[color:var(--color-success-soft)]', bar: 'border-l-[#3FB950]' },
 }
 const CAT_ICON: Record<string, typeof Activity> = {
   health: Activity, conflict: Users, isolation: Users, allergy: AlertTriangle,
@@ -48,9 +48,9 @@ export function ThreatsClient({ centerId, initial }: Props) {
         <div className="grid grid-cols-4 gap-3 flex-1">
           {[
             { label: '총 위협', value: s.total, color: 'text-ink' },
-            { label: '높음', value: s.high, color: 'text-[#db3737]' },
-            { label: '중간', value: s.medium, color: 'text-[#d9822b]' },
-            { label: '낮음', value: s.low, color: 'text-[#0f9960]' },
+            { label: '높음', value: s.high, color: 'text-danger' },
+            { label: '중간', value: s.medium, color: 'text-warn' },
+            { label: '낮음', value: s.low, color: 'text-success' },
           ].map((m) => (
             <div key={m.label} className="bg-surface border border-line rounded-[3px] shadow-[var(--shadow-card)] px-4 py-3">
               <p className="text-[10px] text-ink-faint uppercase tracking-widest">{m.label}</p>
@@ -59,7 +59,7 @@ export function ThreatsClient({ centerId, initial }: Props) {
           ))}
         </div>
         <button onClick={refresh} disabled={loading}
-          className="h-9 px-3 inline-flex items-center gap-1.5 rounded-[3px] bg-accent text-white text-[12px] font-medium hover:bg-accent-hover disabled:opacity-50">
+          className="h-9 px-3 inline-flex items-center gap-1.5 rounded-[3px] bg-accent text-[#0A0C10] text-[12px] font-medium hover:bg-accent-hover disabled:opacity-50">
           <RefreshCw size={13} className={loading ? 'animate-spin' : ''} /> 재탐지
         </button>
       </div>
@@ -70,7 +70,7 @@ export function ThreatsClient({ centerId, initial }: Props) {
         <Card>
           <CardContent>
             <div className="flex flex-col items-center justify-center py-16 text-ink-faint">
-              <ShieldCheck size={36} className="text-[#0f9960] mb-3" />
+              <ShieldCheck size={36} className="text-success mb-3" />
               <p className="text-[13px] text-ink">감지된 위협이 없습니다</p>
               <p className="text-[11px] text-ink-ghost mt-1">관계망·보건·출결 데이터가 정상 범위입니다.</p>
             </div>

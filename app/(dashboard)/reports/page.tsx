@@ -62,10 +62,10 @@ export default async function ReportsPage() {
             { label: '전체 활동', value: summary.totalActivities, sub: '등록된 프로그램' },
             { label: '완료 활동', value: summary.completedActivities, sub: `${summary.totalActivities > 0 ? Math.round(summary.completedActivities / summary.totalActivities * 100) : 0}% 완료율` },
           ].map((s) => (
-            <div key={s.label} className="bg-[#ffffff] border border-[#e6eaf2] px-4 py-4">
-              <p className="text-[10px] text-[#8a93a6] uppercase tracking-widest mb-2">{s.label}</p>
-              <p className="text-2xl font-semibold text-[#0e1726]">{s.value}</p>
-              <p className="text-[10px] text-[#aab2c2] mt-1">{s.sub}</p>
+            <div key={s.label} className="bg-surface border border-line rounded-[3px] shadow-[var(--shadow-card)] px-4 py-4">
+              <p className="text-[10px] text-ink-faint uppercase tracking-widest mb-2">{s.label}</p>
+              <p className="text-2xl font-semibold text-ink font-data">{s.value}</p>
+              <p className="text-[10px] text-ink-ghost mt-1">{s.sub}</p>
             </div>
           ))}
         </div>

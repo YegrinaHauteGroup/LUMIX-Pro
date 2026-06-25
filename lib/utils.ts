@@ -46,9 +46,9 @@ export const CHILD_STATUS_LABELS = {
 }
 
 export const CHILD_STATUS_COLORS = {
-  active: 'text-emerald-700 bg-emerald-50',
-  inactive: 'text-rose-700 bg-rose-50',
-  leave: 'text-amber-700 bg-amber-50',
+  active: 'text-[#3FB950] bg-[rgba(63,185,80,0.15)]',
+  inactive: 'text-[#F85149] bg-[rgba(248,81,73,0.15)]',
+  leave: 'text-[#D29922] bg-[rgba(210,153,34,0.16)]',
 }
 
 export const ACTIVITY_TYPE_LABELS = {
@@ -60,11 +60,11 @@ export const ACTIVITY_TYPE_LABELS = {
 }
 
 export const ACTIVITY_TYPE_COLORS = {
-  education: 'text-indigo-700 bg-indigo-50',
-  therapy: 'text-violet-700 bg-violet-50',
-  recreation: 'text-green-700 bg-green-50',
-  counseling: 'text-orange-700 bg-orange-50',
-  other: 'text-slate-600 bg-slate-100',
+  education: 'text-[#58A6FF] bg-[rgba(88,166,255,0.14)]',
+  therapy: 'text-[#bc8cff] bg-[rgba(188,140,255,0.16)]',
+  recreation: 'text-[#3FB950] bg-[rgba(63,185,80,0.15)]',
+  counseling: 'text-[#D29922] bg-[rgba(210,153,34,0.16)]',
+  other: 'text-ink-soft bg-fill',
 }
 
 export const ACTIVITY_STATUS_LABELS = {
@@ -75,10 +75,10 @@ export const ACTIVITY_STATUS_LABELS = {
 }
 
 export const ACTIVITY_STATUS_COLORS = {
-  planned: 'text-indigo-700 bg-indigo-50',
-  ongoing: 'text-emerald-700 bg-emerald-50',
-  completed: 'text-slate-600 bg-slate-100',
-  cancelled: 'text-rose-700 bg-rose-50',
+  planned: 'text-[#58A6FF] bg-[rgba(88,166,255,0.14)]',
+  ongoing: 'text-[#3FB950] bg-[rgba(63,185,80,0.15)]',
+  completed: 'text-ink-soft bg-fill',
+  cancelled: 'text-[#F85149] bg-[rgba(248,81,73,0.15)]',
 }
 
 export const ATTENDANCE_STATUS_LABELS = {
@@ -89,8 +89,8 @@ export const ATTENDANCE_STATUS_LABELS = {
 }
 
 export const ATTENDANCE_STATUS_COLORS = {
-  present: 'text-emerald-700 bg-emerald-50',
-  absent: 'text-rose-700 bg-rose-50',
-  late: 'text-amber-700 bg-amber-50',
-  leave: 'text-orange-700 bg-orange-50',
+  present: 'text-[#3FB950] bg-[rgba(63,185,80,0.15)]',
+  absent: 'text-[#F85149] bg-[rgba(248,81,73,0.15)]',
+  late: 'text-[#D29922] bg-[rgba(210,153,34,0.16)]',
+  leave: 'text-[#58A6FF] bg-[rgba(88,166,255,0.14)]',
 }

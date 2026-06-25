@@ -28,7 +28,7 @@ export function Drawer({ open, onClose, title, subtitle, children, footer, width
   return (
     <>
       <div
-        className={cn('fixed inset-0 z-40 bg-[#10161a]/20 transition-opacity duration-200', open ? 'opacity-100' : 'opacity-0 pointer-events-none')}
+        className={cn('fixed inset-0 z-40 bg-black/50 transition-opacity duration-200', open ? 'opacity-100' : 'opacity-0 pointer-events-none')}
         onClick={onClose}
       />
       <aside

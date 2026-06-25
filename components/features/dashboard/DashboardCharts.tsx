@@ -6,14 +6,14 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, ComposedChart, Line, Area,
 } from 'recharts'
 
-const GENDER_COLORS = ['#137cbd', '#0ea5e9', '#8b5cf6']
-const STATUS_COLORS = ['#0f9960', '#d9822b', '#db3737']
+const GENDER_COLORS = ['#58A6FF', '#2dd4bf', '#bc8cff']
+const STATUS_COLORS = ['#3FB950', '#D29922', '#F85149']
 const TOOLTIP_STYLE = {
-  contentStyle: { background: '#ffffff', border: '1px solid #ced9e0', borderRadius: 3, fontSize: 11, boxShadow: '0 8px 24px rgba(16,22,26,0.12)' },
-  itemStyle: { color: '#5c7080' }, labelStyle: { color: '#182026', fontWeight: 600 },
+  contentStyle: { background: '#161B22', border: '1px solid #30363D', borderRadius: 3, fontSize: 11, boxShadow: '0 8px 24px rgba(0,0,0,0.5)' },
+  itemStyle: { color: '#C9D1D9' }, labelStyle: { color: '#C9D1D9', fontWeight: 600 },
 }
-const GRID = '#e3e9ee'
-const AXIS = { fontSize: 10, fill: '#8a9ba8' }
+const GRID = '#21262d'
+const AXIS = { fontSize: 10, fill: '#6E7681' }
 
 interface Datum { name: string; value: number }
 interface TrendDatum { date: string; 출석: number; 지각: number; 결석: number }
@@ -51,7 +51,7 @@ function TrendChart({ data, h }: { data: TrendDatum[]; h: number }) {
       <ComposedChart data={data} margin={{ top: 8, right: 6, left: -20, bottom: 0 }}>
         <defs>
           <linearGradient id="gPres" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#137cbd" stopOpacity={0.18} /><stop offset="100%" stopColor="#137cbd" stopOpacity={0} />
+            <stop offset="0%" stopColor="#58A6FF" stopOpacity={0.25} /><stop offset="100%" stopColor="#58A6FF" stopOpacity={0} />
           </linearGradient>
         </defs>
         <CartesianGrid strokeDasharray="3 3" stroke={GRID} vertical={false} />
@@ -59,9 +59,9 @@ function TrendChart({ data, h }: { data: TrendDatum[]; h: number }) {
         <YAxis tick={AXIS} axisLine={false} tickLine={false} allowDecimals={false} width={26} />
         <Tooltip {...TOOLTIP_STYLE} />
         <Legend wrapperStyle={{ fontSize: 11 }} iconType="circle" iconSize={7} />
-        <Area type="monotone" dataKey="출석" stroke="#137cbd" strokeWidth={2} fill="url(#gPres)" />
-        <Bar dataKey="결석" barSize={7} fill="#db3737" radius={[2, 2, 0, 0]} />
-        <Line type="monotone" dataKey="지각" stroke="#d9822b" strokeWidth={1.5} dot={false} />
+        <Area type="monotone" dataKey="출석" stroke="#58A6FF" strokeWidth={2} fill="url(#gPres)" />
+        <Bar dataKey="결석" barSize={7} fill="#F85149" radius={[2, 2, 0, 0]} />
+        <Line type="monotone" dataKey="지각" stroke="#D29922" strokeWidth={1.5} dot={false} />
       </ComposedChart>
     </ResponsiveContainer>
   )
@@ -76,9 +76,9 @@ function CompositionChart({ data, h }: { data: TrendDatum[]; h: number }) {
         <YAxis tick={AXIS} axisLine={false} tickLine={false} width={26} tickFormatter={(v) => `${Math.round(v * 100)}%`} />
         <Tooltip {...TOOLTIP_STYLE} />
         <Legend wrapperStyle={{ fontSize: 11 }} iconType="circle" iconSize={7} />
-        <Bar dataKey="출석" stackId="a" fill="#0f9960" />
-        <Bar dataKey="지각" stackId="a" fill="#d9822b" />
-        <Bar dataKey="결석" stackId="a" fill="#db3737" />
+        <Bar dataKey="출석" stackId="a" fill="#3FB950" />
+        <Bar dataKey="지각" stackId="a" fill="#D29922" />
+        <Bar dataKey="결석" stackId="a" fill="#F85149" />
       </BarChart>
     </ResponsiveContainer>
   )
@@ -119,7 +119,7 @@ function VBar({ data, color, h = 160 }: { data: Datum[]; color: string; h?: numb
         <CartesianGrid strokeDasharray="3 3" stroke={GRID} vertical={false} />
         <XAxis dataKey="name" tick={AXIS} axisLine={false} tickLine={false} />
         <YAxis tick={AXIS} axisLine={false} tickLine={false} allowDecimals={false} width={26} />
-        <Tooltip {...TOOLTIP_STYLE} cursor={{ fill: 'rgba(19,124,189,0.06)' }} />
+        <Tooltip {...TOOLTIP_STYLE} cursor={{ fill: 'rgba(88,166,255,0.1)' }} />
         <Bar dataKey="value" name="아동 수" fill={color} radius={[2, 2, 0, 0]} maxBarSize={40} />
       </BarChart>
     </ResponsiveContainer>
@@ -132,33 +132,39 @@ function SnaBars({ data, h = 160 }: { data: { label: string; value: number }[]; 
       <BarChart data={data} layout="vertical" margin={{ top: 0, right: 12, left: 0, bottom: 0 }}>
         <CartesianGrid strokeDasharray="3 3" stroke={GRID} horizontal={false} />
         <XAxis type="number" tick={AXIS} axisLine={false} tickLine={false} allowDecimals={false} />
-        <YAxis type="category" dataKey="label" tick={{ fontSize: 10, fill: '#5c7080' }} axisLine={false} tickLine={false} width={66} />
-        <Tooltip {...TOOLTIP_STYLE} cursor={{ fill: 'rgba(19,124,189,0.06)' }} />
-        <Bar dataKey="value" fill="#137cbd" radius={[0, 2, 2, 0]} barSize={12} />
+        <YAxis type="category" dataKey="label" tick={{ fontSize: 10, fill: '#8B949E' }} axisLine={false} tickLine={false} width={66} />
+        <Tooltip {...TOOLTIP_STYLE} cursor={{ fill: 'rgba(88,166,255,0.1)' }} />
+        <Bar dataKey="value" fill="#58A6FF" radius={[0, 2, 2, 0]} barSize={12} />
       </BarChart>
     </ResponsiveContainer>
+  )
+}
+
+/** Stand-alone wide panel: the 14-day attendance trend (kept full-width on the dashboard). */
+export function AttendanceTrendPanel({ attendanceTrend }: { attendanceTrend: TrendDatum[] }) {
+  const trendRows = attendanceTrend.map((d) => [d.date, d.출석, d.지각, d.결석])
+  return (
+    <PanelCard title="최근 14일 출결 추이" subtitle="출석·지각·결석 복합 추이"
+      detailTitle="출결 추이 상세" detail={
+        <div className="space-y-4">
+          <TrendChart data={attendanceTrend} h={320} />
+          <DataTable cols={['날짜', '출석', '지각', '결석']} rows={trendRows} />
+        </div>
+      }>
+      <TrendChart data={attendanceTrend} h={208} />
+    </PanelCard>
   )
 }
 
 export function DashboardCharts({ genderStats, statusStats, classStats, ageStats, attendanceTrend, snaStats }: ChartProps) {
   const trendRows = attendanceTrend.map((d) => [d.date, d.출석, d.지각, d.결석])
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-      <PanelCard title="최근 14일 출결 추이" subtitle="출석·지각·결석 복합 추이"
-        detailTitle="출결 추이 상세" detail={
-          <div className="space-y-4">
-            <TrendChart data={attendanceTrend} h={320} />
-            <DataTable cols={['날짜', '출석', '지각', '결석']} rows={trendRows} />
-          </div>
-        }>
-        <TrendChart data={attendanceTrend} h={190} />
-      </PanelCard>
-
+    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
       <PanelCard title="출결 구성 비율" subtitle="일별 100% 정규화 구성"
         detailTitle="출결 구성 상세" detail={
           <div className="space-y-4"><CompositionChart data={attendanceTrend} h={320} /><DataTable cols={['날짜', '출석', '지각', '결석']} rows={trendRows} /></div>
         }>
-        <CompositionChart data={attendanceTrend} h={190} />
+        <CompositionChart data={attendanceTrend} h={170} />
       </PanelCard>
 
       <PanelCard title="관계망 분석 요약" subtitle="SNA 위험·구조 지표"
@@ -168,22 +174,27 @@ export function DashboardCharts({ genderStats, statusStats, classStats, ageStats
             <DataTable cols={['지표', '값']} rows={snaStats.map((s) => [s.label, s.value])} />
           </div>
         }>
-        <SnaBars data={snaStats} h={190} />
+        <SnaBars data={snaStats} h={170} />
       </PanelCard>
 
       <PanelCard title="연령 분포" subtitle="재원 아동 연령 구성"
-        detailTitle="연령 분포 상세" detail={<div className="space-y-4"><VBar data={ageStats} color="#14b8a6" h={300} /><DataTable cols={['연령', '인원']} rows={ageStats.map((s) => [s.name, s.value])} /></div>}>
-        <VBar data={ageStats} color="#14b8a6" h={190} />
+        detailTitle="연령 분포 상세" detail={<div className="space-y-4"><VBar data={ageStats} color="#2dd4bf" h={300} /><DataTable cols={['연령', '인원']} rows={ageStats.map((s) => [s.name, s.value])} /></div>}>
+        <VBar data={ageStats} color="#2dd4bf" h={170} />
       </PanelCard>
 
       <PanelCard title="성별 현황"
         detailTitle="성별 현황 상세" detail={<div className="space-y-4"><Donut data={genderStats} colors={GENDER_COLORS} h={260} /><DataTable cols={['성별', '인원']} rows={genderStats.map((s) => [s.name, s.value])} /></div>}>
-        <Donut data={genderStats} colors={GENDER_COLORS} />
+        <Donut data={genderStats} colors={GENDER_COLORS} h={150} />
+      </PanelCard>
+
+      <PanelCard title="재원 상태"
+        detailTitle="재원 상태 상세" detail={<div className="space-y-4"><Donut data={statusStats} colors={STATUS_COLORS} h={260} /><DataTable cols={['상태', '인원']} rows={statusStats.map((s) => [s.name, s.value])} /></div>}>
+        <Donut data={statusStats} colors={STATUS_COLORS} h={150} />
       </PanelCard>
 
       <PanelCard title="반별 아동 수"
-        detailTitle="반별 아동 수 상세" detail={<div className="space-y-4"><VBar data={classStats} color="#137cbd" h={300} /><DataTable cols={['반', '인원']} rows={classStats.map((s) => [s.name, s.value])} /></div>}>
-        <VBar data={classStats} color="#137cbd" h={190} />
+        detailTitle="반별 아동 수 상세" detail={<div className="space-y-4"><VBar data={classStats} color="#58A6FF" h={300} /><DataTable cols={['반', '인원']} rows={classStats.map((s) => [s.name, s.value])} /></div>}>
+        <VBar data={classStats} color="#58A6FF" h={170} />
       </PanelCard>
     </div>
   )
