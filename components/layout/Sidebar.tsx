@@ -25,7 +25,7 @@ export function Sidebar({ centerName }: { centerName?: string | null }) {
           open ? 'px-2.5 gap-3' : 'px-0 justify-center',
           active ? 'bg-accent-soft text-accent-ink font-medium' : 'text-ink-soft hover:text-ink hover:bg-fill',
         )}>
-        <Icon size={17} className={cn('shrink-0 transition-colors', active ? 'text-accent' : 'text-ink group-hover/link:text-ink')} />
+        <Icon size={17} className={cn('shrink-0 transition-colors', active ? 'text-accent' : 'text-ink-soft group-hover/link:text-ink')} />
         <span className={cn('text-[13px] tracking-tight whitespace-nowrap transition-opacity duration-150', open ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden')}>{item.label}</span>
       </Link>
     )
