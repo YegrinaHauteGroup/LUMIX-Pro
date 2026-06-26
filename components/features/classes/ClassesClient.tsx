@@ -108,8 +108,8 @@ export function ClassesClient({ initialClasses, staff, allChildren, centerId }: 
   const unassigned = children.filter((c) => c.class_id !== editing?.id && c.status === 'active')
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
+    <div className="flex flex-col min-h-0 flex-1 gap-3">
+      <div className="flex items-center justify-between shrink-0">
         <span className="text-[11px] text-ink-faint uppercase tracking-widest font-data">총 {classes.length}개 반 · {children.length}명 아동</span>
         <Button onClick={() => setModalOpen(true)} size="sm"><Plus size={12} /> 반 추가</Button>
       </div>
@@ -121,7 +121,7 @@ export function ClassesClient({ initialClasses, staff, allChildren, centerId }: 
           <Button onClick={() => setModalOpen(true)} size="sm"><Plus size={12} /> 반 만들기</Button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 2xl:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 2xl:grid-cols-2 gap-3 overflow-y-auto min-h-0 flex-1 pr-0.5 content-start">
           {classes.map((cls) => {
             const active = cls.children.filter((c) => c.status === 'active').length
             return (

@@ -1,5 +1,5 @@
 import {
-  BarChart3, CalendarDays, ClipboardCheck, ClipboardList,
+  CalendarDays, ClipboardCheck, ClipboardList,
   Home, Network, Settings, ShieldAlert, Sparkles, Users, type LucideIcon,
 } from 'lucide-react'
 
@@ -23,7 +23,6 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/quests', icon: Sparkles, label: '퀘스트 분석 엔진' },
       { href: '/threats', icon: ShieldAlert, label: '위협 탐지 시스템' },
       { href: '/assessments', icon: ClipboardCheck, label: '가중치 입력' },
-      { href: '/reports', icon: BarChart3, label: '보고서 플랫폼' },
     ],
   },
 ]

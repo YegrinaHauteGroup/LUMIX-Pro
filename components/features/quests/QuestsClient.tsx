@@ -132,7 +132,7 @@ export function QuestsClient({ centerId, initialQuests, insights, classes, staff
   ]
 
   return (
-    <div className="flex-1 p-5 w-full space-y-4 overflow-auto">
+    <div className="flex-1 min-h-0 p-5 w-full space-y-4 overflow-auto">
       {/* Interactive pipeline canvas */}
       <PipelineCanvas
         centerId={centerId} classes={classes} insights={insights}

@@ -18,7 +18,7 @@ export default async function DashboardPage() {
   const centerId = await getCenterId()
 
   const since = new Date(Date.now() - 13 * 864e5).toISOString().slice(0, 10)
-  const [childrenRes, activitiesRes, classesRes, centerRes, attRes, insightsRes, calActRes, careRes] = await Promise.all([
+  const [childrenRes, activitiesRes, classesRes, centerRes, attRes, insightsRes, calActRes, careRes, actAllRes] = await Promise.all([
     supabase.from('children').select('*').eq('center_id', centerId ?? '').order('created_at', { ascending: false }),
     supabase.from('activities').select('*, classes(name)').eq('center_id', centerId ?? '').order('created_at', { ascending: false }).limit(10),
     supabase.from('classes').select('*, children(id)').eq('center_id', centerId ?? ''),
@@ -27,6 +27,7 @@ export default async function DashboardPage() {
     supabase.rpc('get_sna_insights', { p_center_id: centerId ?? '' }),
     supabase.from('activities').select('id, title, type, status, activity_date, activity_time').eq('center_id', centerId ?? '').is('deleted_at', null).not('activity_date', 'is', null),
     supabase.from('care_notes').select('id, child_id, content, noted_on, note_type, children(name)').eq('center_id', centerId ?? '').is('deleted_at', null).order('noted_on', { ascending: false }).limit(120),
+    supabase.from('activities').select('type').eq('center_id', centerId ?? '').is('deleted_at', null),
   ])
   const hasLocation = centerRes.data?.latitude != null && centerRes.data?.longitude != null
 
@@ -108,121 +109,141 @@ export default async function DashboardPage() {
     value: (cls.children as { id: string }[] | undefined)?.length ?? 0,
   }))
 
+  // ── merged report metrics ─────────────────────────────────
+  // monthly registration (last 6 months) from children.created_at
+  const monthlyData = Array.from({ length: 6 }).map((_, i) => {
+    const d = new Date(); d.setMonth(d.getMonth() - (5 - i))
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    const count = children.filter((c) => (c.created_at ?? '').slice(0, 7) === key).length
+    return { month: `${d.getMonth() + 1}월`, 등록: count }
+  })
+  // activity-type distribution
+  const actTypeRows = (actAllRes.data ?? []) as { type: Activity['type'] }[]
+  const ACT_LABEL: Record<string, string> = { education: '교육', therapy: '치료', recreation: '레크리에이션', counseling: '상담', other: '기타' }
+  const actTypeMap = new Map<string, number>()
+  actTypeRows.forEach((a) => actTypeMap.set(a.type, (actTypeMap.get(a.type) ?? 0) + 1))
+  const activityTypeData = [...actTypeMap.entries()].map(([k, v]) => ({ name: ACT_LABEL[k] ?? k, value: v }))
+
   return (
     <>
-      <Header title="대시보드" subtitle="시설 현황 한눈에 보기" />
-      <div className="flex-1 p-4 space-y-3">
-        {/* Stats grid — compact KPI strip */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          {stats.map((stat) => (
-            <div key={stat.label} className="bg-surface border border-line rounded-[3px] shadow-[var(--shadow-card)] px-4 py-3">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-[10px] text-ink-faint uppercase tracking-[0.12em] mb-1.5">{stat.label}</p>
-                  <p className="text-2xl font-semibold text-ink tracking-[-0.02em] font-data">{stat.value}</p>
-                  <p className="text-[10px] text-ink-ghost mt-1">{stat.sub}</p>
-                </div>
-                <div className="w-8 h-8 rounded-[3px] bg-accent-soft flex items-center justify-center shrink-0">
-                  <stat.icon size={15} className="text-accent" />
-                </div>
-              </div>
+      <Header title="대시보드" subtitle="시설 현황 · 운영 분석 통합" />
+      <div className="flex-1 min-h-0 p-3 overflow-hidden">
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-2.5 h-full min-h-0">
+          {/* LEFT — primary analytics column (internal scroll) */}
+          <div className="xl:col-span-2 flex flex-col gap-2.5 min-h-0">
+            <div className="shrink-0">
+              <AttendanceTrendPanel attendanceTrend={attendanceTrend} />
             </div>
-          ))}
-        </div>
-
-        {/* Two-column working layout: main analytics column + right rail.
-            Each column flows independently so there are no uneven row gaps. */}
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-3 items-start">
-          {/* LEFT — primary analytics */}
-          <div className="xl:col-span-2 space-y-3 min-w-0">
-            <AttendanceTrendPanel attendanceTrend={attendanceTrend} />
-            <DashboardCalendar
-              centerId={centerId ?? ''}
-              initialActivities={(calActRes.data ?? []) as never[]}
-              careNotes={((careRes.data ?? []) as unknown as { id: string; child_id: string; content: string; noted_on: string; note_type: string; children: { name: string } | null }[])
-                .map((c) => ({ id: c.id, child_id: c.child_id, content: c.content, noted_on: c.noted_on, note_type: c.note_type, child_name: c.children?.name ?? '아동' }))}
-            />
-            <DashboardCharts
-              genderStats={genderStats}
-              statusStats={statusStats}
-              classStats={classStats}
-              ageStats={ageStats}
-              attendanceTrend={attendanceTrend}
-              snaStats={snaStats}
-            />
+            <div className="flex-1 min-h-0 overflow-y-auto pr-0.5 space-y-2.5">
+              <DashboardCalendar
+                centerId={centerId ?? ''}
+                initialActivities={(calActRes.data ?? []) as never[]}
+                careNotes={((careRes.data ?? []) as unknown as { id: string; child_id: string; content: string; noted_on: string; note_type: string; children: { name: string } | null }[])
+                  .map((c) => ({ id: c.id, child_id: c.child_id, content: c.content, noted_on: c.noted_on, note_type: c.note_type, child_name: c.children?.name ?? '아동' }))}
+              />
+              <DashboardCharts
+                genderStats={genderStats}
+                statusStats={statusStats}
+                classStats={classStats}
+                ageStats={ageStats}
+                attendanceTrend={attendanceTrend}
+                snaStats={snaStats}
+                monthlyData={monthlyData}
+                activityTypeData={activityTypeData}
+              />
+            </div>
           </div>
 
-          {/* RIGHT — region info (top) + compact lists */}
-          <div className="space-y-3 min-w-0">
-            <DashboardFeed centerId={centerId ?? ''} hasLocation={hasLocation} />
-
-            {/* Recent children */}
-            <Card>
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <CardTitle>최근 등록 아동</CardTitle>
-                  <Link href="/children" className="text-[10px] text-ink-faint hover:text-accent flex items-center gap-1 transition-colors uppercase tracking-widest">
-                    전체보기 <ArrowRight size={10} />
-                  </Link>
-                </div>
-              </CardHeader>
-              <CardContent>
-                {recentChildren.length === 0 ? (
-                  <p className="text-[12px] text-ink-ghost py-4 text-center">등록된 아동이 없습니다</p>
-                ) : (
-                  <div className="space-y-0.5">
-                    {recentChildren.map((child) => (
-                      <Link key={child.id} href={`/children/${child.id}`}
-                        className="flex items-center gap-3 px-2.5 py-2 rounded-[3px] hover:bg-fill transition-colors">
-                        <div className="w-6 h-6 bg-fill-2 border border-line flex items-center justify-center shrink-0 rounded-[2px]">
-                          <span className="text-[9px] text-ink-soft">{child.name[0]}</span>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[12px] text-ink font-medium truncate">{child.name}</p>
-                          <p className="text-[10px] text-ink-faint">
-                            {child.gender === 'male' ? '남' : child.gender === 'female' ? '여' : '기타'}
-                          </p>
-                        </div>
-                        <Badge className={CHILD_STATUS_COLORS[child.status]}>{CHILD_STATUS_LABELS[child.status]}</Badge>
-                      </Link>
-                    ))}
+          {/* RIGHT — square KPI tiles + region info + compact lists (internal scroll) */}
+          <div className="flex flex-col gap-2.5 min-h-0">
+            {/* KPI 2×2 square tiles */}
+            <div className="grid grid-cols-2 gap-2.5 shrink-0">
+              {stats.map((stat) => (
+                <div key={stat.label} className="aspect-square bg-surface border border-line rounded-[3px] shadow-[var(--shadow-card)] p-3 flex flex-col justify-between">
+                  <div className="flex items-start justify-between">
+                    <p className="text-[9px] text-ink-faint uppercase tracking-[0.1em] leading-tight">{stat.label}</p>
+                    <stat.icon size={13} className="text-accent shrink-0" />
                   </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Upcoming activities */}
-            <Card>
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <CardTitle>예정된 활동</CardTitle>
-                  <Link href="/activities" className="text-[10px] text-ink-faint hover:text-accent flex items-center gap-1 transition-colors uppercase tracking-widest">
-                    전체보기 <ArrowRight size={10} />
-                  </Link>
-                </div>
-              </CardHeader>
-              <CardContent>
-                {upcomingActivities.length === 0 ? (
-                  <p className="text-[12px] text-ink-ghost py-4 text-center">예정된 활동이 없습니다</p>
-                ) : (
-                  <div className="space-y-0.5">
-                    {upcomingActivities.map((activity) => (
-                      <Link key={activity.id} href="/activities"
-                        className="flex items-center gap-3 px-2.5 py-2 rounded-[3px] hover:bg-fill transition-colors">
-                        <div className={`w-1 h-8 rounded-full ${ACTIVITY_TYPE_COLORS[activity.type]?.split(' ')[0]?.replace('text-', 'bg-') ?? 'bg-ink-ghost'}`} />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[12px] text-ink font-medium truncate">{activity.title}</p>
-                          <p className="text-[10px] text-ink-faint font-data">
-                            {activity.activity_date ?? '날짜 미정'}{activity.activity_time ? ` · ${activity.activity_time}` : ''}
-                          </p>
-                        </div>
-                        <Badge className={ACTIVITY_TYPE_COLORS[activity.type]}>{ACTIVITY_TYPE_LABELS[activity.type]}</Badge>
-                      </Link>
-                    ))}
+                  <div>
+                    <p className="text-[26px] font-semibold text-ink tracking-[-0.02em] leading-none font-data">{stat.value}</p>
+                    <p className="text-[9px] text-ink-ghost mt-1.5">{stat.sub}</p>
                   </div>
-                )}
-              </CardContent>
-            </Card>
+                </div>
+              ))}
+            </div>
+
+            {/* Scrolling info stack */}
+            <div className="flex-1 min-h-0 overflow-y-auto pr-0.5 space-y-2.5">
+              <DashboardFeed centerId={centerId ?? ''} hasLocation={hasLocation} />
+
+              {/* Recent children */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <CardTitle>최근 등록 아동</CardTitle>
+                    <Link href="/children" className="text-[10px] text-ink-faint hover:text-accent flex items-center gap-1 transition-colors uppercase tracking-widest">
+                      전체보기 <ArrowRight size={10} />
+                    </Link>
+                  </div>
+                </CardHeader>
+                <CardContent className="py-2">
+                  {recentChildren.length === 0 ? (
+                    <p className="text-[12px] text-ink-ghost py-4 text-center">등록된 아동이 없습니다</p>
+                  ) : (
+                    <div className="space-y-0.5">
+                      {recentChildren.map((child) => (
+                        <Link key={child.id} href={`/children/${child.id}`}
+                          className="flex items-center gap-3 px-2.5 py-1.5 rounded-[3px] hover:bg-fill transition-colors">
+                          <div className="w-6 h-6 bg-fill-2 border border-line flex items-center justify-center shrink-0 rounded-[2px]">
+                            <span className="text-[9px] text-ink-soft">{child.name[0]}</span>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[12px] text-ink font-medium truncate">{child.name}</p>
+                            <p className="text-[10px] text-ink-faint">
+                              {child.gender === 'male' ? '남' : child.gender === 'female' ? '여' : '기타'}
+                            </p>
+                          </div>
+                          <Badge className={CHILD_STATUS_COLORS[child.status]}>{CHILD_STATUS_LABELS[child.status]}</Badge>
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Upcoming activities */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <CardTitle>예정된 활동</CardTitle>
+                    <Link href="/activities" className="text-[10px] text-ink-faint hover:text-accent flex items-center gap-1 transition-colors uppercase tracking-widest">
+                      전체보기 <ArrowRight size={10} />
+                    </Link>
+                  </div>
+                </CardHeader>
+                <CardContent className="py-2">
+                  {upcomingActivities.length === 0 ? (
+                    <p className="text-[12px] text-ink-ghost py-4 text-center">예정된 활동이 없습니다</p>
+                  ) : (
+                    <div className="space-y-0.5">
+                      {upcomingActivities.map((activity) => (
+                        <Link key={activity.id} href="/activities"
+                          className="flex items-center gap-3 px-2.5 py-1.5 rounded-[3px] hover:bg-fill transition-colors">
+                          <div className={`w-1 h-8 rounded-full ${ACTIVITY_TYPE_COLORS[activity.type]?.split(' ')[0]?.replace('text-', 'bg-') ?? 'bg-ink-ghost'}`} />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[12px] text-ink font-medium truncate">{activity.title}</p>
+                            <p className="text-[10px] text-ink-faint font-data">
+                              {activity.activity_date ?? '날짜 미정'}{activity.activity_time ? ` · ${activity.activity_time}` : ''}
+                            </p>
+                          </div>
+                          <Badge className={ACTIVITY_TYPE_COLORS[activity.type]}>{ACTIVITY_TYPE_LABELS[activity.type]}</Badge>
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           </div>
         </div>
       </div>

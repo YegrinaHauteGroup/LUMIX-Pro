@@ -102,9 +102,9 @@ export function ChildrenClient({ initialChildren, classes, centerId }: Props) {
   const editing = editId && editId !== 'new' ? children.find((c) => c.id === editId) ?? null : null
 
   return (
-    <div className="space-y-3">
+    <div className="flex flex-col min-h-0 flex-1 gap-3">
       {/* Toolbar */}
-      <div className="flex items-center gap-2 flex-wrap">
+      <div className="flex items-center gap-2 flex-wrap shrink-0">
         <div className="relative">
           <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-faint" />
           <input
@@ -139,13 +139,13 @@ export function ChildrenClient({ initialChildren, classes, centerId }: Props) {
       </div>
 
       {/* Table */}
-      <Card>
-        <div className="overflow-x-auto">
+      <Card className="flex-1 min-h-0 flex flex-col overflow-hidden">
+        <div className="overflow-auto min-h-0 flex-1">
           <table className="w-full">
-            <thead>
+            <thead className="sticky top-0 z-10">
               <tr className="border-b border-line bg-fill-2">
                 {['이름', '성별', '나이', '반', '상태', ''].map((h) => (
-                  <th key={h} className="text-left text-[10px] text-ink-faint font-medium uppercase tracking-widest px-3.5 py-2.5">
+                  <th key={h} className="text-left text-[10px] text-ink-faint font-semibold uppercase tracking-widest px-3.5 py-2.5 bg-fill-2">
                     {h}
                   </th>
                 ))}
@@ -252,6 +252,40 @@ export function ChildrenClient({ initialChildren, classes, centerId }: Props) {
           <Textarea label="메모" rows={3} placeholder="특이사항" value={form.notes}
             onChange={(e) => setForm({ ...form, notes: e.target.value })} />
           {error && <div className="border border-[color:var(--color-danger-soft)] bg-danger-soft px-3 py-2 text-[11px] text-danger rounded-[3px]">{error}</div>}
+
+          {/* Read-only ontology detail — surfaced in the right drawer */}
+          {editing && (() => {
+            const items = [
+              ['학교', editing.school_name], ['학년', editing.grade_level],
+              ['학습 수준', editing.learning_level], ['등록 유형', editing.enrollment_type === 'beneficiary' ? '수혜' : editing.enrollment_type === 'general' ? '일반' : null],
+              ['국적', editing.nationality], ['모국어', editing.native_language],
+              ['혈액형', editing.blood_type], ['키', editing.height_cm ? `${editing.height_cm}cm` : null],
+              ['몸무게', editing.weight_kg ? `${editing.weight_kg}kg` : null], ['비상연락', editing.emergency_contact_phone],
+            ].filter(([, v]) => v) as [string, string][]
+            if (items.length === 0 && !editing.characteristics && !editing.dietary_notes) return null
+            return (
+              <div className="pt-3 mt-1 border-t border-line space-y-2">
+                <p className="text-[10px] font-semibold text-ink-faint uppercase tracking-wider">상세 정보 · 읽기 전용</p>
+                {items.length > 0 && (
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {items.map(([k, v]) => (
+                      <div key={k} className="bg-fill-2 border border-line rounded-[2px] px-2 py-1.5 min-w-0">
+                        <p className="text-[9px] text-ink-faint uppercase tracking-wide">{k}</p>
+                        <p className="text-[11px] text-ink font-data truncate">{v}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {editing.characteristics && (
+                  <div><p className="text-[9px] text-ink-faint uppercase tracking-wide mb-0.5">특성</p><p className="text-[11px] text-ink-soft leading-snug">{editing.characteristics}</p></div>
+                )}
+                {editing.dietary_notes && (
+                  <div><p className="text-[9px] text-ink-faint uppercase tracking-wide mb-0.5">식이 정보</p><p className="text-[11px] text-ink-soft leading-snug">{editing.dietary_notes}</p></div>
+                )}
+              </div>
+            )
+          })()}
+
           {editing && (
             <Link href={`/children/${editing.id}`} className="inline-flex items-center gap-1.5 text-[12px] text-accent hover:text-accent-hover">
               <ExternalLink size={12} /> 전체 프로필·관계망 상세 보기

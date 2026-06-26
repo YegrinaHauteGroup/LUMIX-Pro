@@ -107,7 +107,7 @@ export function ActivitiesClient({ initialActivities, classes, allChildren, part
   const addable = allChildren.filter((c) => !managingPartIds.has(c.id))
 
   return (
-    <div className="flex-1 p-5 w-full space-y-5 overflow-auto">
+    <div className="flex-1 min-h-0 p-5 w-full space-y-5 overflow-auto">
       <div className="flex items-center gap-2">
         <select value={filterType} onChange={(e) => setFilterType(e.target.value as typeof filterType)}
           className="bg-surface border border-line px-3 text-[12px] text-ink-soft focus:outline-none focus:border-accent h-8 rounded-[3px] cursor-pointer">

@@ -3,7 +3,7 @@
 import { PanelCard } from '@/components/ui/PanelCard'
 import {
   Cell, Pie, PieChart, ResponsiveContainer, Tooltip, Legend,
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, ComposedChart, Line, Area, ReferenceLine,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, ComposedChart, Line, Area, ReferenceLine, AreaChart,
 } from 'recharts'
 
 const GENDER_COLORS = ['#137cbd', '#0ea5e9', '#8b5cf6']
@@ -17,9 +17,31 @@ const AXIS = { fontSize: 10, fill: '#8a9ba8' }
 
 interface Datum { name: string; value: number }
 interface TrendDatum { date: string; 출석: number; 지각: number; 결석: number }
+interface MonthlyDatum { month: string; 등록: number }
 interface ChartProps {
   genderStats: Datum[]; statusStats: Datum[]; classStats: Datum[]; ageStats: Datum[]
   attendanceTrend: TrendDatum[]; snaStats: { label: string; value: number }[]
+  monthlyData?: MonthlyDatum[]; activityTypeData?: Datum[]
+}
+
+function MonthlyArea({ data, h }: { data: MonthlyDatum[]; h: number }) {
+  if (data.length === 0) return <Empty h={h} />
+  return (
+    <ResponsiveContainer width="100%" height={h}>
+      <AreaChart data={data} margin={{ top: 6, right: 6, left: -22, bottom: 0 }}>
+        <defs>
+          <linearGradient id="gReg" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#2563eb" stopOpacity={0.3} /><stop offset="100%" stopColor="#2563eb" stopOpacity={0} />
+          </linearGradient>
+        </defs>
+        <CartesianGrid strokeDasharray="3 3" stroke={GRID} vertical={false} />
+        <XAxis dataKey="month" tick={AXIS} axisLine={false} tickLine={false} />
+        <YAxis tick={AXIS} axisLine={false} tickLine={false} allowDecimals={false} width={26} />
+        <Tooltip {...TOOLTIP_STYLE} cursor={{ stroke: '#ced9e0' }} />
+        <Area type="monotone" dataKey="등록" stroke="#2563eb" strokeWidth={2} fill="url(#gReg)" dot={{ r: 2 }} activeDot={{ r: 4 }} />
+      </AreaChart>
+    </ResponsiveContainer>
+  )
 }
 
 function Empty({ h = 150 }: { h?: number }) {
@@ -161,10 +183,28 @@ export function AttendanceTrendPanel({ attendanceTrend }: { attendanceTrend: Tre
   )
 }
 
-export function DashboardCharts({ genderStats, statusStats, classStats, ageStats, attendanceTrend, snaStats }: ChartProps) {
+export function DashboardCharts({ genderStats, statusStats, classStats, ageStats, attendanceTrend, snaStats, monthlyData, activityTypeData }: ChartProps) {
   const trendRows = attendanceTrend.map((d) => [d.date, d.출석, d.지각, d.결석])
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      {monthlyData && (
+        <PanelCard title="월별 아동 등록 추이" subtitle="최근 6개월 신규 등록"
+          detailTitle="월별 등록 추이 상세" detail={
+            <div className="space-y-4"><MonthlyArea data={monthlyData} h={300} /><DataTable cols={['월', '등록']} rows={monthlyData.map((d) => [d.month, d.등록])} /></div>
+          }>
+          <MonthlyArea data={monthlyData} h={150} />
+        </PanelCard>
+      )}
+
+      {activityTypeData && (
+        <PanelCard title="활동 유형 분포" subtitle="프로그램 유형별 구성"
+          detailTitle="활동 유형 분포 상세" detail={
+            <div className="space-y-4"><Donut data={activityTypeData} colors={['#137cbd', '#8b5cf6', '#0f9960', '#d9822b', '#5c7080']} h={260} /><DataTable cols={['유형', '건수']} rows={activityTypeData.map((d) => [d.name, d.value])} /></div>
+          }>
+          <Donut data={activityTypeData} colors={['#137cbd', '#8b5cf6', '#0f9960', '#d9822b', '#5c7080']} h={150} />
+        </PanelCard>
+      )}
+
       <PanelCard title="출결 구성 비율" subtitle="일별 100% 정규화 구성"
         detailTitle="출결 구성 상세" detail={
           <div className="space-y-4"><CompositionChart data={attendanceTrend} h={320} /><DataTable cols={['날짜', '출석', '지각', '결석']} rows={trendRows} /></div>

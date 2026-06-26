@@ -42,7 +42,7 @@ export function ThreatsClient({ centerId, initial }: Props) {
   const s = data?.summary ?? { total: 0, high: 0, medium: 0, low: 0 }
 
   return (
-    <div className="flex-1 p-5 w-full space-y-4 overflow-auto">
+    <div className="flex-1 min-h-0 p-5 w-full space-y-4 overflow-auto">
       {/* Summary bar */}
       <div className="flex items-center gap-3">
         <div className="grid grid-cols-4 gap-3 flex-1">
