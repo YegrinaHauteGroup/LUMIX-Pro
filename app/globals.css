@@ -4,69 +4,68 @@
 
 /* ============================================================
    LUMIX Pro — Design system
-   Palantir AIP / Foundry — Command-center dark theme
-2026.06.25 By Haewon.J
+2026.06.24 22:59 By Haewon.J
 
 + Minjae Kim Where are you?
    ============================================================ */
 @theme {
-  --font-family-sans: var(--font-inter), "Noto Sans KR", "Apple SD Gothic Neo", "AppleGothic", sans-serif;
-  --font-sans: var(--font-inter), "Noto Sans KR", "Apple SD Gothic Neo", "AppleGothic", sans-serif;
-  /* Data / tables / timestamps — tabular monospace */
+  --font-family-sans: var(--font-inter), "Inter", "Noto Sans KR", "Apple SD Gothic Neo", "AppleGothic", sans-serif;
+  --font-sans: var(--font-inter), "Inter", "Noto Sans KR", "Apple SD Gothic Neo", "AppleGothic", sans-serif;
+  /* Data / tables / timestamps — tabular monospace (DBMS feel) */
   --font-mono: var(--font-geist-mono), "SFMono-Regular", "JetBrains Mono", ui-monospace, monospace;
   --font-family-mono: var(--font-geist-mono), "SFMono-Regular", "JetBrains Mono", ui-monospace, monospace;
 
-  /* Surfaces — Palantir AIP/Foundry dark command-center */
-  --color-canvas: #0A0C10;       /* deep charcoal app background */
-  --color-surface: #161B22;      /* cards / panels */
-  --color-fill: #21262d;         /* panel hover / subtle fill */
-  --color-fill-2: #0F141A;       /* inset / table header / sunken */
+  /* Surfaces — Palantir Blueprint light theme */
+  --color-canvas: #f5f8fa;       /* pt-app-background */
+  --color-surface: #ffffff;      /* pt-panel-background */
+  --color-fill: #ebf1f5;         /* pt-panel-background-hover */
+  --color-fill-2: #f5f8fa;
 
-  /* Corner radius — sharp / minimal */
+  /* Corner radius — Blueprint is crisp (3px) */
   --radius-card: 3px;
 
-  /* Data-viz palette (charts / indices) — semantic-leaning, dark-tuned */
-  --chart-1: #58A6FF;
-  --chart-2: #3FB950;
-  --chart-3: #2dd4bf;
-  --chart-4: #D29922;
-  --chart-5: #bc8cff;
-  --chart-6: #f778ba;
-  --chart-7: #56d364;
-  --chart-8: #F85149;
+  /* Data-viz palette (charts / indices) */
+  --chart-1: #2563eb;
+  --chart-2: #0ea5e9;
+  --chart-3: #14b8a6;
+  --chart-4: #f59e0b;
+  --chart-5: #8b5cf6;
+  --chart-6: #ec4899;
+  --chart-7: #10b981;
+  --chart-8: #f43f5e;
 
   /* Lines */
-  --color-line: #30363D;        /* borders */
-  --color-line-strong: #444c56;
+  --color-line: #ced9e0;        /* pt-border */
+  --color-line-strong: #b6c2cc;
 
   /* Ink (text) */
-  --color-ink: #C9D1D9;         /* primary text */
-  --color-ink-soft: #8B949E;    /* muted text */
-  --color-ink-faint: #6E7681;   /* tertiary / labels */
-  --color-ink-ghost: #545D68;   /* placeholder / disabled */
+  --color-ink: #182026;         /* pt-text */
+  --color-ink-soft: #5c7080;    /* pt-text-muted */
+  --color-ink-faint: #738793;   /* tertiary / labels */
+  --color-ink-ghost: #8a9ba8;   /* placeholder / disabled */
 
-  /* Accent — Foundry info-blue */
-  --color-accent: #58A6FF;
-  --color-accent-hover: #4493E0;
-  --color-accent-soft: rgba(88, 166, 255, 0.14);
-  --color-accent-ink: #79C0FF;
+  /* Accent — Blueprint intent-primary blue */
+  --color-accent: #137cbd;
+  --color-accent-hover: #106ba3;
+  --color-accent-soft: #e1edf5;
+  --color-accent-ink: #0c5a8c;
 
-  /* Status / semantic tones */
-  --color-danger: #F85149;
-  --color-danger-soft: rgba(248, 81, 73, 0.15);
-  --color-success: #3FB950;
-  --color-success-soft: rgba(63, 185, 80, 0.15);
-  --color-warn: #D29922;
-  --color-warn-soft: rgba(210, 153, 34, 0.16);
-  --color-info: #58A6FF;
-  --color-info-soft: rgba(88, 166, 255, 0.14);
-  --color-violet: #bc8cff;
-  --color-violet-soft: rgba(188, 140, 255, 0.16);
+  /* Status / pastel category tones */
+  --color-danger: #e5484d;
+  --color-danger-soft: #fdecec;
+  --color-success: #16a34a;
+  --color-success-soft: #e7f7ed;
+  --color-warn: #d97706;
+  --color-warn-soft: #fdf3e2;
+  --color-info: #0ea5e9;
+  --color-info-soft: #e6f4fe;
+  --color-violet: #8b5cf6;
+  --color-violet-soft: #f1ecfe;
 
-  /* Elevation — dark: lean on borders + soft shadow */
-  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4);
-  --shadow-pop: 0 8px 28px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.4);
-  --shadow-glow: 0 0 0 2px rgba(88, 166, 255, 0.4);
+  /* Elevation — Blueprint keeps it minimal, leaning on borders */
+  --shadow-card: 0 0 0 1px rgba(16, 22, 26, 0.02), 0 1px 1px rgba(16, 22, 26, 0.05);
+  --shadow-pop: 0 8px 24px rgba(16, 22, 26, 0.12), 0 2px 6px rgba(16, 22, 26, 0.08);
+  --shadow-glow: 0 0 0 2px rgba(19, 124, 189, 0.25);
 }
 
 * { box-sizing: border-box; }
@@ -86,20 +85,19 @@ html, body {
 
 a { color: inherit; text-decoration: none; }
 
-/* Tabular-numeric data helper — Foundry-style aligned figures */
+/* Tabular-numeric data helpers — Foundry/DBMS-style aligned figures */
 .tnum { font-feature-settings: "tnum" 1; font-variant-numeric: tabular-nums; }
 .font-data { font-family: var(--font-family-mono); font-variant-numeric: tabular-nums; letter-spacing: 0; }
 
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #2d333b; border-radius: 999px; border: 3px solid transparent; background-clip: padding-box; }
-::-webkit-scrollbar-thumb:hover { background: #3b424b; background-clip: padding-box; border: 3px solid transparent; }
+::-webkit-scrollbar-thumb { background: #d7dde8; border-radius: 999px; border: 3px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-thumb:hover { background: #c2cad8; background-clip: padding-box; border: 3px solid transparent; }
 
 input, textarea, select {
   background: transparent;
   outline: none;
   font-family: inherit;
-  color: inherit;
 }
 
 /* Native selects: consistent chevron + reliable vertical centering
@@ -109,7 +107,7 @@ select {
   -moz-appearance: none;
   appearance: none;
   line-height: 1.1;
-  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238B949E' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%235c7080' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 0.55rem center;
   padding-right: 1.85rem !important;
@@ -117,8 +115,6 @@ select {
 select::-ms-expand { display: none; }
 /* Inline/borderless selects (e.g. status pickers) keep the chevron tucked in */
 select.select-bare { padding-right: 1.25rem !important; background-position: right 0.15rem center; }
-/* Dark dropdown option list */
-option { background: #161B22; color: #C9D1D9; }
 
 /* Native focus glow for keyboard users on form controls */
 .focus-glow:focus-visible { box-shadow: var(--shadow-glow); border-color: var(--color-accent); }
@@ -127,8 +123,7 @@ option { background: #161B22; color: #C9D1D9; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-/* Recharts — dark command-center theme */
-.recharts-cartesian-axis-tick-value { fill: #6E7681 !important; }
-.recharts-legend-item-text { color: #8B949E !important; }
+/* Recharts — light theme */
+.recharts-cartesian-axis-tick-value { fill: #8a93a6 !important; }
+.recharts-legend-item-text { color: #667085 !important; }
 .recharts-tooltip-wrapper { font-size: 12px !important; }
-.recharts-default-tooltip { background: #161B22 !important; border: 1px solid #30363D !important; border-radius: 3px !important; }

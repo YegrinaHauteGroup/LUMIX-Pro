@@ -130,25 +130,32 @@ export default async function DashboardPage() {
           ))}
         </div>
 
-        {/* Primary monitoring: 14-day trend (wide) + region info card (top-right) */}
+        {/* Two-column working layout: main analytics column + right rail.
+            Each column flows independently so there are no uneven row gaps. */}
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-3 items-start">
-          <div className="xl:col-span-2">
+          {/* LEFT — primary analytics */}
+          <div className="xl:col-span-2 space-y-3 min-w-0">
             <AttendanceTrendPanel attendanceTrend={attendanceTrend} />
-          </div>
-          <DashboardFeed centerId={centerId ?? ''} hasLocation={hasLocation} />
-        </div>
-
-        {/* Calendar (wide) + densely packed lists on the right */}
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-3 items-start">
-          <div className="xl:col-span-2">
             <DashboardCalendar
               centerId={centerId ?? ''}
               initialActivities={(calActRes.data ?? []) as never[]}
               careNotes={((careRes.data ?? []) as unknown as { id: string; child_id: string; content: string; noted_on: string; note_type: string; children: { name: string } | null }[])
                 .map((c) => ({ id: c.id, child_id: c.child_id, content: c.content, noted_on: c.noted_on, note_type: c.note_type, child_name: c.children?.name ?? '아동' }))}
             />
+            <DashboardCharts
+              genderStats={genderStats}
+              statusStats={statusStats}
+              classStats={classStats}
+              ageStats={ageStats}
+              attendanceTrend={attendanceTrend}
+              snaStats={snaStats}
+            />
           </div>
-          <div className="space-y-3">
+
+          {/* RIGHT — region info (top) + compact lists */}
+          <div className="space-y-3 min-w-0">
+            <DashboardFeed centerId={centerId ?? ''} hasLocation={hasLocation} />
+
             {/* Recent children */}
             <Card>
               <CardHeader className="pb-2">
@@ -218,16 +225,6 @@ export default async function DashboardPage() {
             </Card>
           </div>
         </div>
-
-        {/* Dense analytics grid (everything else, half/third width) */}
-        <DashboardCharts
-          genderStats={genderStats}
-          statusStats={statusStats}
-          classStats={classStats}
-          ageStats={ageStats}
-          attendanceTrend={attendanceTrend}
-          snaStats={snaStats}
-        />
       </div>
     </>
   )

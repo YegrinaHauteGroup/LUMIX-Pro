@@ -16,7 +16,7 @@ interface CareNote { id: string; child_id: string; content: string; noted_on: st
 interface Props { centerId: string; initialActivities: ActEvent[]; careNotes: CareNote[] }
 
 const TYPE_DOT: Record<string, string> = {
-  education: '#58A6FF', therapy: '#bc8cff', recreation: '#3FB950', counseling: '#D29922', other: '#8B949E',
+  education: '#137cbd', therapy: '#8b5cf6', recreation: '#0f9960', counseling: '#d9822b', other: '#5c7080',
 }
 const WD = ['일', '월', '화', '수', '목', '금', '토']
 const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -95,7 +95,7 @@ export function DashboardCalendar({ centerId, initialActivities, careNotes }: Pr
       <CardContent className="p-0">
         <div className="grid grid-cols-7 border-b border-line">
           {WD.map((w, i) => (
-            <div key={w} className={`text-center text-[10.5px] font-medium py-1.5 ${i === 0 ? 'text-danger' : i === 6 ? 'text-accent' : 'text-ink-faint'}`}>{w}</div>
+            <div key={w} className={`text-center text-[10.5px] font-medium py-1.5 ${i === 0 ? 'text-[#db3737]' : i === 6 ? 'text-[#137cbd]' : 'text-ink-faint'}`}>{w}</div>
           ))}
         </div>
         <div className="grid grid-cols-7">
@@ -109,7 +109,7 @@ export function DashboardCalendar({ centerId, initialActivities, careNotes }: Pr
             return (
               <button key={i} onClick={() => openDay(date)}
                 className="h-[88px] border-b border-r border-line p-1.5 text-left hover:bg-fill transition-colors flex flex-col gap-1 overflow-hidden">
-                <span className={`text-[11px] font-medium font-data ${isToday ? 'bg-accent text-[#0A0C10] w-5 h-5 rounded-full flex items-center justify-center' : dow === 0 ? 'text-danger' : dow === 6 ? 'text-accent' : 'text-ink-soft'}`}>{dayN}</span>
+                <span className={`text-[11px] font-medium ${isToday ? 'bg-accent text-white w-5 h-5 rounded-full flex items-center justify-center' : dow === 0 ? 'text-[#db3737]' : dow === 6 ? 'text-[#137cbd]' : 'text-ink-soft'}`}>{dayN}</span>
                 <div className="flex flex-col gap-0.5 min-h-0">
                   {dActs.slice(0, 2).map((a) => (
                     <span key={a.id} className="flex items-center gap-1 text-[10px] text-ink-soft truncate">

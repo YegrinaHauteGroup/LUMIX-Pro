@@ -78,7 +78,7 @@ export function DashboardFeed({ centerId, hasLocation }: { centerId: string; has
           <div>
             <div className="flex items-end gap-4">
               <div>
-                <p className="text-[28px] font-semibold text-ink leading-none font-data">{Math.round(w.current.temp)}°</p>
+                <p className="text-[28px] font-semibold text-ink leading-none">{Math.round(w.current.temp)}°</p>
                 <p className="text-[11px] text-ink-faint mt-1">체감 {Math.round(w.current.feels_like)}° · {w.current.summary}</p>
               </div>
               <div className="flex gap-3 text-[11px] text-ink-soft pb-1">
@@ -96,24 +96,24 @@ export function DashboardFeed({ centerId, hasLocation }: { centerId: string; has
                       day: new Date(d.date).toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric', weekday: 'short' }),
                       최고: Math.round(d.tmax), 최저: Math.round(d.tmin), 강수확률: d.precip ?? 0,
                     }))} margin={{ top: 6, right: 4, left: -24, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#21262d" vertical={false} />
-                      <XAxis dataKey="day" tick={{ fontSize: 10, fill: '#6E7681' }} axisLine={false} tickLine={false} />
-                      <YAxis yAxisId="t" tick={{ fontSize: 10, fill: '#6E7681' }} axisLine={false} tickLine={false} width={28} unit="°" />
-                      <YAxis yAxisId="p" orientation="right" tick={{ fontSize: 10, fill: '#6E7681' }} axisLine={false} tickLine={false} width={28} unit="%" domain={[0, 100]} />
-                      <Tooltip contentStyle={{ background: '#161B22', border: '1px solid #30363D', borderRadius: 3, fontSize: 11 }} itemStyle={{ color: '#C9D1D9' }} labelStyle={{ color: '#C9D1D9' }} />
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e3e9ee" vertical={false} />
+                      <XAxis dataKey="day" tick={{ fontSize: 10, fill: '#8a9ba8' }} axisLine={false} tickLine={false} />
+                      <YAxis yAxisId="t" tick={{ fontSize: 10, fill: '#8a9ba8' }} axisLine={false} tickLine={false} width={28} unit="°" />
+                      <YAxis yAxisId="p" orientation="right" tick={{ fontSize: 10, fill: '#8a9ba8' }} axisLine={false} tickLine={false} width={28} unit="%" domain={[0, 100]} />
+                      <Tooltip contentStyle={{ background: '#fff', border: '1px solid #ced9e0', borderRadius: 3, fontSize: 11 }} />
                       <Legend wrapperStyle={{ fontSize: 10 }} iconType="circle" iconSize={7} />
-                      <Bar yAxisId="p" dataKey="강수확률" barSize={16} fill="#58A6FF" radius={[2, 2, 0, 0]} opacity={0.45} />
-                      <Line yAxisId="t" type="monotone" dataKey="최고" stroke="#F85149" strokeWidth={2} dot={{ r: 2 }} />
-                      <Line yAxisId="t" type="monotone" dataKey="최저" stroke="#58A6FF" strokeWidth={2} dot={{ r: 2 }} />
+                      <Bar yAxisId="p" dataKey="강수확률" barSize={16} fill="#0ea5e9" radius={[2, 2, 0, 0]} opacity={0.45} />
+                      <Line yAxisId="t" type="monotone" dataKey="최고" stroke="#db3737" strokeWidth={2} dot={{ r: 2 }} />
+                      <Line yAxisId="t" type="monotone" dataKey="최저" stroke="#137cbd" strokeWidth={2} dot={{ r: 2 }} />
                     </ComposedChart>
                   </ResponsiveContainer>
                 </div>
                 {w.air && (
                   <div className="grid grid-cols-3 gap-2 mt-2">
                     {[
-                      { label: '습도', value: `${w.current.humidity}%`, w: w.current.humidity, c: '#58A6FF' },
-                      { label: '바람', value: `${Math.round(w.current.wind)}m/s`, w: Math.min(100, w.current.wind * 8), c: '#2dd4bf' },
-                      { label: 'PM2.5', value: `${Math.round(w.air.pm25)} ${w.air.grade}`, w: Math.min(100, w.air.pm25), c: w.air.pm25 > 75 ? '#F85149' : w.air.pm25 > 35 ? '#D29922' : '#3FB950' },
+                      { label: '습도', value: `${w.current.humidity}%`, w: w.current.humidity, c: '#137cbd' },
+                      { label: '바람', value: `${Math.round(w.current.wind)}m/s`, w: Math.min(100, w.current.wind * 8), c: '#14b8a6' },
+                      { label: 'PM2.5', value: `${Math.round(w.air.pm25)} ${w.air.grade}`, w: Math.min(100, w.air.pm25), c: w.air.pm25 > 75 ? '#db3737' : w.air.pm25 > 35 ? '#d9822b' : '#0f9960' },
                     ].map((m) => (
                       <div key={m.label} className="px-2.5 py-2 bg-fill-2 border border-line rounded-[3px]">
                         <p className="text-[10px] text-ink-faint">{m.label}</p>

@@ -23,11 +23,11 @@ const QUEST_TYPES: { v: string; t: string }[] = [
   { v: 'space_preference', t: '공간 선호' },
 ]
 const NODE_META: Record<NType, { label: string; icon: typeof Database; color: string }> = {
-  source: { label: '데이터 소스', icon: Database, color: '#58A6FF' },
-  filter: { label: '범위 필터', icon: Filter, color: '#3FB950' },
-  analysis: { label: '분석 엔진', icon: GitBranch, color: '#bc8cff' },
-  sim: { label: '시뮬레이션', icon: FlaskConical, color: '#D29922' },
-  output: { label: '결과 출력', icon: BarChart3, color: '#8B949E' },
+  source: { label: '데이터 소스', icon: Database, color: '#137cbd' },
+  filter: { label: '범위 필터', icon: Filter, color: '#0f9960' },
+  analysis: { label: '분석 엔진', icon: GitBranch, color: '#8b5cf6' },
+  sim: { label: '시뮬레이션', icon: FlaskConical, color: '#d9822b' },
+  output: { label: '결과 출력', icon: BarChart3, color: '#5c7080' },
 }
 const NW = 184, NH = 78
 
@@ -183,7 +183,7 @@ export function PipelineCanvas({ centerId, classes, insights, staffCount, entity
           })}
         </div>
         <button onClick={() => setConnectFrom(connectFrom === null ? (selected ?? null) : null)}
-          className={`h-7 px-2 inline-flex items-center gap-1 rounded-[3px] border text-[11px] ${connectFrom !== null ? 'bg-accent text-[#0A0C10] border-accent' : 'border-line text-ink-soft hover:bg-fill'}`}>
+          className={`h-7 px-2 inline-flex items-center gap-1 rounded-[3px] border text-[11px] ${connectFrom !== null ? 'bg-accent text-white border-accent' : 'border-line text-ink-soft hover:bg-fill'}`}>
           <Link2 size={12} /> {connectFrom !== null ? '연결할 노드 선택' : '연결 모드'}
         </button>
         <div className="flex-1" />
@@ -198,19 +198,19 @@ export function PipelineCanvas({ centerId, classes, insights, staffCount, entity
         {/* canvas */}
         <div ref={canvasRef} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerLeave={onPointerUp}
           className="relative flex-1 h-[340px] overflow-hidden bg-fill-2"
-          style={{ backgroundImage: 'radial-gradient(circle, #21262d 1px, transparent 1px)', backgroundSize: '18px 18px' }}>
+          style={{ backgroundImage: 'radial-gradient(circle, #d4dde4 1px, transparent 1px)', backgroundSize: '18px 18px' }}>
           {/* edges */}
           <svg className="absolute inset-0 w-full h-full pointer-events-none">
             <defs>
               <marker id="pa" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
-                <path d="M0,0 L7,3 L0,6 Z" fill="#586069" />
+                <path d="M0,0 L7,3 L0,6 Z" fill="#a7b6c2" />
               </marker>
             </defs>
             {edges.map((e, i) => {
               const a = nodes.find((n) => n.id === e.from), b = nodes.find((n) => n.id === e.to)
               if (!a || !b) return null
               const p1 = center(a), p2 = center(b)
-              return <line key={i} x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} stroke="#586069" strokeWidth={1.5} markerEnd="url(#pa)" />
+              return <line key={i} x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} stroke="#a7b6c2" strokeWidth={1.5} markerEnd="url(#pa)" />
             })}
           </svg>
           {/* nodes */}

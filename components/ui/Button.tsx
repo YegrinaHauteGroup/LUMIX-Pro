@@ -12,15 +12,15 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant = 'primary', size = 'md', loading, children, disabled, ...props }, ref) => {
     const base =
-      'inline-flex items-center justify-center font-medium transition-all duration-150 rounded-[3px] cursor-pointer ' +
-      'disabled:opacity-40 disabled:cursor-not-allowed gap-1.5 tracking-[-0.01em] ' +
+      'inline-flex items-center justify-center font-medium transition-colors duration-75 ease-out rounded-[3px] cursor-pointer select-none ' +
+      'active:translate-y-px disabled:opacity-40 disabled:cursor-not-allowed gap-1.5 tracking-[-0.01em] ' +
       'focus-visible:outline-none focus-visible:shadow-[var(--shadow-glow)]'
 
     const variants = {
-      primary: 'bg-accent text-[#0A0C10] font-semibold hover:bg-accent-hover shadow-[0_1px_2px_rgba(0,0,0,0.4)]',
-      secondary: 'bg-fill-2 text-ink-soft border border-line hover:border-line-strong hover:bg-fill hover:text-ink',
-      ghost: 'bg-transparent text-ink-faint hover:text-ink hover:bg-fill',
-      danger: 'bg-transparent text-danger border border-[color:var(--color-danger-soft)] hover:bg-[color:var(--color-danger-soft)]',
+      primary: 'bg-accent text-white hover:bg-accent-hover active:bg-accent-ink shadow-[0_1px_2px_rgba(14,23,38,0.08)]',
+      secondary: 'bg-surface text-ink-soft border border-line hover:border-line-strong hover:bg-fill active:bg-fill-2',
+      ghost: 'bg-transparent text-ink-faint hover:text-ink hover:bg-fill active:bg-fill-2',
+      danger: 'bg-surface text-danger border border-[color:var(--color-danger-soft)] hover:bg-[color:var(--color-danger-soft)]',
     }
 
     const sizes = {

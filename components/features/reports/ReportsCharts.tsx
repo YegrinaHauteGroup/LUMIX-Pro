@@ -6,11 +6,11 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts'
 
-const PIE_COLORS = ['#58A6FF', '#2dd4bf', '#3FB950', '#D29922', '#bc8cff']
+const PIE_COLORS = ['#5a63f2', '#0ea5e9', '#16a34a', '#d97706', '#8b5cf6']
 const TOOLTIP_STYLE = {
-  contentStyle: { background: '#161B22', border: '1px solid #30363D', borderRadius: 3, fontSize: 11, boxShadow: '0 8px 24px rgba(0,0,0,0.5)' },
-  itemStyle: { color: '#C9D1D9' },
-  labelStyle: { color: '#C9D1D9' },
+  contentStyle: { background: '#ffffff', border: '1px solid #e6eaf2', borderRadius: 10, fontSize: 11, boxShadow: '0 8px 24px rgba(14,23,38,0.10)' },
+  itemStyle: { color: '#475467' },
+  labelStyle: { color: '#0e1726' },
 }
 
 interface Props {
@@ -29,15 +29,15 @@ export function ReportsCharts({ monthlyData, activityTypeData, classSizeData }: 
             <AreaChart data={monthlyData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
               <defs>
                 <linearGradient id="regGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#58A6FF" stopOpacity={0.35} />
-                  <stop offset="95%" stopColor="#58A6FF" stopOpacity={0} />
+                  <stop offset="5%" stopColor="#5a63f2" stopOpacity={0.35} />
+                  <stop offset="95%" stopColor="#5a63f2" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#21262d" vertical={false} />
-              <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#6E7681' }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 11, fill: '#6E7681' }} axisLine={false} tickLine={false} allowDecimals={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="#e9edf4" vertical={false} />
+              <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#7a8499' }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 11, fill: '#7a8499' }} axisLine={false} tickLine={false} allowDecimals={false} />
               <Tooltip {...TOOLTIP_STYLE} />
-              <Area type="monotone" dataKey="등록" stroke="#58A6FF" strokeWidth={2} fill="url(#regGrad)" />
+              <Area type="monotone" dataKey="등록" stroke="#5a63f2" strokeWidth={2} fill="url(#regGrad)" />
             </AreaChart>
           </ResponsiveContainer>
         </CardContent>
@@ -47,7 +47,7 @@ export function ReportsCharts({ monthlyData, activityTypeData, classSizeData }: 
         <CardHeader><CardTitle>활동 유형 분포</CardTitle></CardHeader>
         <CardContent>
           {activityTypeData.length === 0 ? (
-            <div className="flex items-center justify-center h-48 text-[12px] text-ink-ghost">데이터 없음</div>
+            <div className="flex items-center justify-center h-48 text-[12px] text-[#aab2c2]">데이터 없음</div>
           ) : (
             <div className="flex items-center gap-4">
               <ResponsiveContainer width="50%" height={160}>
@@ -62,8 +62,8 @@ export function ReportsCharts({ monthlyData, activityTypeData, classSizeData }: 
                 {activityTypeData.map((d, i) => (
                   <div key={d.name} className="flex items-center gap-2">
                     <div className="w-2 h-2" style={{ background: PIE_COLORS[i] }} />
-                    <span className="text-[11px] text-[#6E7681]">{d.name}</span>
-                    <span className="text-[11px] font-medium text-ink ml-auto pl-2">{d.value}</span>
+                    <span className="text-[11px] text-[#7a8499]">{d.name}</span>
+                    <span className="text-[11px] font-medium text-[#1c2740] ml-auto pl-2">{d.value}</span>
                   </div>
                 ))}
               </div>
@@ -76,15 +76,15 @@ export function ReportsCharts({ monthlyData, activityTypeData, classSizeData }: 
         <CardHeader><CardTitle>반별 아동 수</CardTitle></CardHeader>
         <CardContent>
           {classSizeData.length === 0 ? (
-            <div className="flex items-center justify-center h-48 text-[12px] text-ink-ghost">데이터 없음</div>
+            <div className="flex items-center justify-center h-48 text-[12px] text-[#aab2c2]">데이터 없음</div>
           ) : (
             <ResponsiveContainer width="100%" height={160}>
               <BarChart data={classSizeData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#21262d" vertical={false} />
-                <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#6E7681' }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 10, fill: '#6E7681' }} axisLine={false} tickLine={false} allowDecimals={false} />
-                <Tooltip {...TOOLTIP_STYLE} cursor={{ fill: 'rgba(88,166,255,0.1)' }} />
-                <Bar dataKey="아동수" fill="#58A6FF" radius={[4, 4, 0, 0]} />
+                <CartesianGrid strokeDasharray="3 3" stroke="#e9edf4" vertical={false} />
+                <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#7a8499' }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 10, fill: '#7a8499' }} axisLine={false} tickLine={false} allowDecimals={false} />
+                <Tooltip {...TOOLTIP_STYLE} cursor={{ fill: 'rgba(90,99,242,0.06)' }} />
+                <Bar dataKey="아동수" fill="#5a63f2" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           )}

@@ -11,10 +11,10 @@ import { useEffect, useState } from 'react'
 type AttStatus = 'present' | 'absent' | 'late' | 'early_leave'
 const STATUS_LABELS: Record<AttStatus, string> = { present: '출석', absent: '결석', late: '지각', early_leave: '조퇴' }
 const STATUS_COLORS: Record<AttStatus, string> = {
-  present: 'text-success bg-success-soft border border-[color:var(--color-success-soft)]',
-  absent: 'text-danger bg-danger-soft border border-[color:var(--color-danger-soft)]',
-  late: 'text-warn bg-warn-soft border border-[color:var(--color-warn-soft)]',
-  early_leave: 'text-[#58A6FF] bg-[rgba(88,166,255,0.14)] border border-[rgba(88,166,255,0.2)]',
+  present: 'text-emerald-700 bg-emerald-50 border border-emerald-200',
+  absent: 'text-rose-700 bg-rose-50 border border-rose-200',
+  late: 'text-amber-700 bg-amber-50 border border-amber-200',
+  early_leave: 'text-orange-700 bg-orange-50 border border-orange-200',
 }
 const STATUS_ICONS: Record<AttStatus, React.ReactNode> = {
   present: <CheckCircle2 size={12} className="text-emerald-500" />,

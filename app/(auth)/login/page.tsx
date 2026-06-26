@@ -68,7 +68,7 @@ export default function LoginPage() {
       <div
         className="absolute inset-0 opacity-[0.5] pointer-events-none"
         style={{
-          backgroundImage: `linear-gradient(#ffffff0a 1px, transparent 1px), linear-gradient(90deg, #ffffff0a 1px, transparent 1px)`,
+          backgroundImage: `linear-gradient(#0e172608 1px, transparent 1px), linear-gradient(90deg, #0e172608 1px, transparent 1px)`,
           backgroundSize: '48px 48px',
           maskImage: 'radial-gradient(ellipse at center, black 35%, transparent 75%)',
         }}
@@ -76,7 +76,7 @@ export default function LoginPage() {
 
       <div className="relative w-full max-w-[380px]">
         <div className="flex flex-col items-center mb-7 gap-3">
-          <div className="w-12 h-12 rounded-[4px] bg-surface border border-line shadow-[var(--shadow-card)] flex items-center justify-center">
+          <div className="w-12 h-12 rounded-2xl bg-surface border border-line shadow-[var(--shadow-card)] flex items-center justify-center">
             <Image src="/logo.svg" alt="LUMIX Pro" width={28} height={28} />
           </div>
           <div className="text-center">
@@ -85,15 +85,15 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <div className="bg-surface border border-line rounded-[4px] shadow-[var(--shadow-pop)] p-7">
+        <div className="bg-surface border border-line rounded-2xl shadow-[var(--shadow-pop)] p-7">
           {/* mode tabs */}
-          <div className="flex p-1 bg-fill rounded-[3px] border border-line mb-5">
+          <div className="flex p-1 bg-fill rounded-xl border border-line mb-5">
             {(['login', 'signup'] as Mode[]).map((m) => (
               <button
                 key={m}
                 onClick={() => { setMode(m); setError(''); setInfo('') }}
                 className={
-                  'flex-1 h-8 rounded-[3px] text-[12.5px] font-medium transition-colors ' +
+                  'flex-1 h-8 rounded-lg text-[12.5px] font-medium transition-colors ' +
                   (mode === m ? 'bg-surface text-ink shadow-[var(--shadow-card)]' : 'text-ink-soft hover:text-ink')
                 }
               >
@@ -117,12 +117,12 @@ export default function LoginPage() {
               onChange={(e) => setPassword(e.target.value)} required icon={<Lock size={13} />} />
 
             {error && (
-              <div className="border border-[color:var(--color-danger-soft)] bg-[color:var(--color-danger-soft)] rounded-[3px] px-3 py-2">
+              <div className="border border-[color:var(--color-danger-soft)] bg-[color:var(--color-danger-soft)] rounded-lg px-3 py-2">
                 <p className="text-[11px] text-danger">{error}</p>
               </div>
             )}
             {info && (
-              <div className="border border-[color:var(--color-success-soft)] bg-[color:var(--color-success-soft)] rounded-[3px] px-3 py-2">
+              <div className="border border-[color:var(--color-success-soft)] bg-[color:var(--color-success-soft)] rounded-lg px-3 py-2">
                 <p className="text-[11px] text-[color:var(--color-success)]">{info}</p>
               </div>
             )}

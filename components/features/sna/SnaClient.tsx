@@ -208,7 +208,7 @@ export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) 
             id: e.id, from: e.source_id, to: e.target_id, label: e.label ?? '',
             color: { color: s.color, opacity: 0.85 }, width: s.width, dashes: s.dashes,
             arrows: e.is_directed ? { to: { enabled: true, scaleFactor: 0.5 } } : undefined,
-            font: { size: 10, color: '#9aa4b2', strokeWidth: 3, strokeColor: '#0A0C10', align: 'middle' },
+            font: { size: 10, color: '#64748b', strokeWidth: 3, strokeColor: '#ffffff', align: 'middle' },
             smooth: { enabled: true, type: 'continuous', roundness: 0.4 },
           }
         }),
@@ -250,7 +250,7 @@ export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) 
       const on = !focusEdges
         ? true
         : focusEdges.has(e.id) || (!!focusNodes && focusNodes.has(e.source_id) && focusNodes.has(e.target_id))
-      return { id: e.id, color: { color: s.color, opacity: on ? 0.9 : 0.04 }, font: { color: on ? '#9aa4b2' : 'rgba(154,164,178,0.05)' } }
+      return { id: e.id, color: { color: s.color, opacity: on ? 0.9 : 0.04 }, font: { color: on ? '#64748b' : 'rgba(100,116,139,0.05)' } }
     }))
     if (netRef.current && focusNodes && focusNodes.size > 0) {
       netRef.current.fit({ nodes: [...focusNodes], animation: { duration: 700, easingFunction: 'easeInOutCubic' } })
@@ -344,7 +344,7 @@ export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) 
       })
       const cls = n.class_name ?? '미배정'
       const statusText = n.group === 'child_sick' ? '보건 확진' : n.group === 'child_highrisk' ? '감염 고위험' : n.group === 'child_isolated' ? '고립/관찰요망' : '일반/활발'
-      const statusTone = n.group === 'child_sick' ? 'text-danger bg-danger-soft border-[color:var(--color-danger-soft)]' : n.group === 'child_highrisk' ? 'text-warn bg-warn-soft border-[color:var(--color-warn-soft)]' : n.group === 'child_isolated' ? 'text-ink-soft bg-fill border-line' : 'text-success bg-success-soft border-[color:var(--color-success-soft)]'
+      const statusTone = n.group === 'child_sick' ? 'text-[#db3737] bg-[#fbeaea] border-[#f5cccc]' : n.group === 'child_highrisk' ? 'text-[#bf7326] bg-[#fdf3e7] border-[#f5dcb8]' : n.group === 'child_isolated' ? 'text-ink-soft bg-fill border-line' : 'text-[#0d8050] bg-[#e8f5ef] border-[#bfe0cf]'
       const actions = childActions(n.group, n.has_allergy, edges.some((e) => e.has_conflict && (e.source_id === id || e.target_id === id)), n.betweenness > maxBetw * 0.5)
       setReport({
         title: n.name,
@@ -357,10 +357,10 @@ export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) 
 
             <div className="space-y-2.5 border border-line rounded-[3px] p-3 bg-fill-2">
               <p className="text-[10px] font-semibold text-ink-faint uppercase tracking-wider">중심성 지표</p>
-              <MetricBar label="연결 (Degree)" value={String(n.connection_count)} pct={(n.connection_count / maxConn) * 100} color="#58A6FF" />
-              <MetricBar label="매개 (Betweenness)" value={n.betweenness.toFixed(1)} pct={(n.betweenness / maxBetw) * 100} color="#bc8cff" />
-              <MetricBar label="영향력 (Eigenvector)" value={n.eigenvector.toFixed(2)} pct={(n.eigenvector / maxEig) * 100} color="#3FB950" />
-              <MetricBar label="근접 (Closeness)" value={n.closeness.toFixed(2)} pct={n.closeness * 100} color="#D29922" />
+              <MetricBar label="연결 (Degree)" value={String(n.connection_count)} pct={(n.connection_count / maxConn) * 100} color="#137cbd" />
+              <MetricBar label="매개 (Betweenness)" value={n.betweenness.toFixed(1)} pct={(n.betweenness / maxBetw) * 100} color="#8b5cf6" />
+              <MetricBar label="영향력 (Eigenvector)" value={n.eigenvector.toFixed(2)} pct={(n.eigenvector / maxEig) * 100} color="#0f9960" />
+              <MetricBar label="근접 (Closeness)" value={n.closeness.toFixed(2)} pct={n.closeness * 100} color="#d9822b" />
             </div>
 
             <div className="space-y-1.5">
@@ -373,11 +373,11 @@ export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) 
             </div>
 
             <div>
-              {list('보호자', guardians, 'text-[#fb7185]')}
-              {list('교우·돌봄 관계', friends, 'text-accent')}
+              {list('보호자', guardians, 'text-[#9f1239]')}
+              {list('교우·돌봄 관계', friends, 'text-[#137cbd]')}
               {list('주 활동공간', spaces, 'text-ink-soft')}
-              {list('성취 및 긍정 요소', achieve, 'text-success')}
-              {list('위험 요소 및 특이사항', issues, 'text-danger')}
+              {list('성취 및 긍정 요소', achieve, 'text-[#0d8050]')}
+              {list('위험 요소 및 특이사항', issues, 'text-[#db3737]')}
             </div>
 
             <div className="flex flex-wrap gap-2 pt-1 border-t border-line">
@@ -391,7 +391,7 @@ export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) 
     } else {
       const conns = conn.map((e) => { const t = other(e); return t ? `${t.name} · ${e.label ?? RELATION_LABEL[e.relation_type] ?? ''}` : null }).filter(Boolean) as string[]
       const kindLabel: Record<string, string> = { staff: '교직원', guardian: '보호자', space: '물리 공간', skill: '발달 스킬', food: '식재료/알러지', achievement: '성취 영역', ecosystem: '생태계 콘텐츠' }
-      setReport({ title: n.name, body: <div>{<p className="text-[12px] text-ink-faint mb-3">{kindLabel[n.kind] ?? '노드'} · 연결 {conn.length}</p>}{list('연관 항목 현황', conns, 'text-ink-soft')}</div> })
+      setReport({ title: n.name, body: <div>{<p className="text-[12px] text-ink-faint mb-3">{kindLabel[n.kind] ?? '노드'} · 연결 {conn.length}</p>}{list('연관 항목 현황', conns, 'text-slate-700')}</div> })
     }
   }
 
@@ -477,7 +477,7 @@ export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) 
         body: (
           <div>
             {list('멘토 후보 (영향력)', (insights?.most_influential ?? []).slice(0, 4).map((m) => `${m.name} · ${m.eigenvector.toFixed(2)}`), 'text-amber-600')}
-            {list('우선 지원 (고립)', (insights?.isolated ?? []).map((m) => `${m.name}${m.class_name ? ` · ${m.class_name}` : ''}`), 'text-ink-soft')}
+            {list('우선 지원 (고립)', (insights?.isolated ?? []).map((m) => `${m.name}${m.class_name ? ` · ${m.class_name}` : ''}`), 'text-slate-700')}
             <p className="text-[12px] text-ink-soft mt-1">고립·저참여 아동에게 영향력이 높은 또래를 멘토로 배정하면 네트워크 응집도가 높아집니다. 정밀 매칭은 퀘스트 분석에서 실행하세요.</p>
           </div>
         ),
@@ -531,7 +531,7 @@ export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) 
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-ink-faint">
           <p className="text-sm">표시할 관계망 데이터가 없습니다</p>
           <p className="text-xs text-ink-ghost">평가·관계 입력 후 재계산을 실행하세요</p>
-          <button onClick={handleRecompute} disabled={recomputing} className="mt-2 h-8 px-4 text-[12px] rounded-[3px] bg-accent text-[#0A0C10] hover:bg-accent-hover disabled:opacity-50">
+          <button onClick={handleRecompute} disabled={recomputing} className="mt-2 h-8 px-4 text-[12px] rounded-[3px] bg-accent text-white hover:bg-accent-hover disabled:opacity-50">
             {recomputing ? '재계산 중…' : 'SNA 재계산'}
           </button>
         </div>
@@ -593,7 +593,7 @@ export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) 
             전체 화면 새로고침
           </button>
           <button onClick={handleRecompute} disabled={recomputing}
-            className="w-full py-2.5 px-3 rounded-[3px] bg-accent text-[#0A0C10] text-[13px] font-medium hover:bg-accent-hover disabled:opacity-50 transition-colors">
+            className="w-full py-2.5 px-3 rounded-[3px] bg-accent text-white text-[13px] font-medium hover:bg-accent-hover disabled:opacity-50 transition-colors">
             {recomputing ? '중심성 재계산 중…' : '중심성 지표 재계산'}
           </button>
         </div>

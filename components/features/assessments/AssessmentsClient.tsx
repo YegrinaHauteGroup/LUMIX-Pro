@@ -185,7 +185,7 @@ function RecentTable<T extends { id: string }>({
 }
 
 function ScoreChip({ score }: { score: number }) {
-  const cls = score > 0 ? 'text-success bg-success-soft' : score < 0 ? 'text-danger bg-danger-soft' : 'text-ink-soft bg-fill'
+  const cls = score > 0 ? 'text-emerald-700 bg-emerald-50' : score < 0 ? 'text-rose-700 bg-rose-50' : 'text-slate-600 bg-slate-100'
   return <Badge className={cls}>{score > 0 ? `+${score}` : score}</Badge>
 }
 
@@ -451,7 +451,7 @@ function RulesTab({ rules }: { rules: Rule[] }) {
                   <td className="px-4 py-2.5 text-[12px] text-ink">{KIND_LABELS[r.target_kind] ?? r.target_kind}</td>
                   <td className="px-4 py-2.5 text-[12px] text-ink-soft">{DIM_LABELS[r.dimension as Dim] ?? r.dimension}</td>
                   <td className="px-4 py-2.5 text-[12px] text-ink-soft tabular-nums">{r.score_min} ~ {r.score_max}</td>
-                  <td className="px-4 py-2.5"><Badge className="text-[#58A6FF] bg-[rgba(88,166,255,0.14)]">{RELATION_LABELS[r.relation_type] ?? r.relation_type}</Badge></td>
+                  <td className="px-4 py-2.5"><Badge className="text-indigo-700 bg-indigo-50">{RELATION_LABELS[r.relation_type] ?? r.relation_type}</Badge></td>
                   <td className="px-4 py-2.5 text-[12px] text-ink-soft tabular-nums">{Number(r.weight).toFixed(1)}</td>
                   <td className="px-4 py-2.5 text-[11px] text-ink-faint">{r.is_directed ? '방향성' : '양방향'}</td>
                 </tr>
