@@ -21,6 +21,8 @@ const QUEST_TYPES: { v: string; t: string }[] = [
   { v: 'conflict_watch', t: '갈등 모니터링' }, { v: 'attendance_summary', t: '출결 이상' },
   { v: 'allergy_diet', t: '알레르기·식단' }, { v: 'achievement_gap', t: '성취 보충' },
   { v: 'space_preference', t: '공간 선호' },
+  { v: 'health_contagion', t: '전염성 확산 (WHO IMCI)' }, { v: 'allergy_safety', t: '알레르겐 안전 (Codex/WHO)' },
+  { v: 'developmental_support', t: '발달 지원 (WHO ICF-CY)' },
 ]
 const NODE_META: Record<NType, { label: string; icon: typeof Database; color: string }> = {
   source: { label: '데이터 소스', icon: Database, color: '#137cbd' },

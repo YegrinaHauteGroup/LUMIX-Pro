@@ -38,6 +38,23 @@ export interface HealthProfile {
   allergies: string | null
   medications: string | null
   conditions: string | null
+  blood_type?: string | null
+  allergen_codes?: string[] | null
+  chronic_condition_codes?: string[] | null
+  last_screened_on?: string | null
+}
+
+export interface HealthEvent {
+  id: string
+  event_date: string
+  kind: 'symptom' | 'diagnosis' | 'screening' | 'incident' | 'vaccination'
+  domain: string | null
+  code: string | null
+  label: string | null
+  severity: 'mild' | 'moderate' | 'severe'
+  status: 'active' | 'resolved'
+  contagious: boolean
+  note: string | null
 }
 
 export interface ChildGuardian {

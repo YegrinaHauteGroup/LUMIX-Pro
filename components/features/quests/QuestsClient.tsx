@@ -34,6 +34,9 @@ const CATALOG: { type: string; title: string; desc: string }[] = [
   { type: 'allergy_diet', title: '알레르기·식단 관리', desc: '알레르기 정보와 식재료 엣지를 교차해 식단 충돌을 점검합니다.' },
   { type: 'achievement_gap', title: '학습 성취 보충 분석', desc: '성취 영역 엣지에서 보충 지도가 필요한 신호를 모읍니다.' },
   { type: 'space_preference', title: '공간 선호·기피 분석', desc: '공간별 선호/기피 분포로 환경 재설계 포인트를 찾습니다.' },
+  { type: 'health_contagion', title: '전염성 질환 확산 분석 · WHO IMCI', desc: 'WHO IMCI 증상 기록과 SNA 근접·반 구조를 결합해 7일 잠복 기준 노출 위험 아동을 도출합니다.' },
+  { type: 'allergy_safety', title: '알레르겐 안전 점검 · Codex/WHO', desc: 'Codex/WHO 주요 알레르겐 코드와 급식 식재료 연결을 교차해 식단·투약 충돌을 점검합니다.' },
+  { type: 'developmental_support', title: '발달 지원 선별 · WHO ICF-CY', desc: 'WHO ICF-CY 발달 영역 선별 기록에서 지원이 필요한 아동을 선별합니다.' },
 ]
 const SENS: Record<string, { label: string; factor: number }> = {
   low: { label: '보수적', factor: 0.7 }, normal: { label: '표준', factor: 1 }, high: { label: '민감', factor: 1.3 },
@@ -88,6 +91,12 @@ export function QuestsClient({ centerId, initialQuests, insights, classes, staff
         estimate = ins.entities?.space ?? 0; label = '분석 공간'; note = '공간 노드 선호/기피 분포'; break
       case 'attendance_summary':
         estimate = Math.round(pool * 0.15 * SENS[sensitivity].factor); label = '예상 관리 대상'; note = '최근 30일 결석률 기반 추정'; break
+      case 'health_contagion':
+        estimate = Math.round(pool * 0.1 * f); label = '예상 노출 위험'; note = 'WHO IMCI 증상 + SNA 근접 (실행 시 건강 이벤트로 정밀 산출)'; break
+      case 'allergy_safety':
+        estimate = Math.round((ins.allergy_children?.length ?? 0) * scopeFactor); label = '관리 대상'; note = 'Codex/WHO 알레르겐 코드 기반'; break
+      case 'developmental_support':
+        estimate = Math.round(pool * 0.12 * SENS[sensitivity].factor); label = '지원 권고'; note = 'WHO ICF-CY 발달 선별 기록'; break
     }
     setSim({ pool, estimate, label, note })
   }

@@ -16,7 +16,7 @@ export default async function ChildDetailPage({ params }: Props) {
   const centerId = await getCenterId()
   const cid = centerId ?? ''
 
-  const [childRes, classesRes, staffRes, healthRes, linksRes, guardiansRes, activitiesRes] = await Promise.all([
+  const [childRes, classesRes, staffRes, healthRes, linksRes, guardiansRes, activitiesRes, eventsRes] = await Promise.all([
     supabase.from('children').select('*, classes(id, name)').eq('id', id).single(),
     supabase.from('classes').select('id, name').eq('center_id', cid).is('deleted_at', null),
     supabase.from('staff_profiles').select('id, name').eq('center_id', cid).is('deleted_at', null),
@@ -24,6 +24,7 @@ export default async function ChildDetailPage({ params }: Props) {
     supabase.from('child_guardians').select('*, guardian_profiles(id, guardian_name, guardian_phone)').eq('child_id', id).is('deleted_at', null),
     supabase.from('guardian_profiles').select('id, guardian_name, guardian_phone').eq('center_id', cid).is('deleted_at', null).order('guardian_name'),
     supabase.from('activities').select('*, classes(name)').order('created_at', { ascending: false }).limit(20),
+    supabase.from('health_events').select('id, event_date, kind, domain, code, label, severity, status, contagious, note').eq('child_id', id).is('deleted_at', null).order('event_date', { ascending: false }).limit(50),
   ])
 
   if (!childRes.data) notFound()
@@ -40,6 +41,7 @@ export default async function ChildDetailPage({ params }: Props) {
         links={linksRes.data ?? []}
         guardians={guardiansRes.data ?? []}
         recentActivities={activitiesRes.data ?? []}
+        healthEvents={eventsRes.data ?? []}
       />
     </>
   )
