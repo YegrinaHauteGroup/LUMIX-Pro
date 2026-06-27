@@ -1,15 +1,24 @@
 import { Sidebar } from '@/components/layout/Sidebar'
+import { WorkspaceProvider } from '@/lib/workspace'
+import { WorkspacePanel } from '@/components/workspace/WorkspacePanel'
 import { getCenterInfo } from '@/lib/center'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const center = await getCenterInfo()
 
   return (
-    <div className="flex h-screen overflow-hidden bg-canvas">
-      <Sidebar centerName={center?.name ?? null} />
-      <div className="flex-1 flex flex-col h-screen min-w-0 overflow-hidden" style={{ marginLeft: '56px' }}>
-        {children}
+    <WorkspaceProvider>
+      <div className="flex h-screen overflow-hidden bg-canvas">
+        <Sidebar centerName={center?.name ?? null} />
+        <div className="flex-1 flex h-screen min-w-0" style={{ marginLeft: '56px' }}>
+          {/* main column — header stays confined here, never covered by the workspace */}
+          <div className="flex-1 flex flex-col h-screen min-w-0 overflow-hidden">
+            {children}
+          </div>
+          {/* persistent workspace — survives page navigation (lives in the layout) */}
+          <WorkspacePanel />
+        </div>
       </div>
-    </div>
+    </WorkspaceProvider>
   )
 }

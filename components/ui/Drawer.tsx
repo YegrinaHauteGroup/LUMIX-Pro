@@ -28,13 +28,14 @@ export function Drawer({ open, onClose, title, subtitle, children, footer, width
   return (
     <>
       <div
-        className={cn('fixed inset-0 z-40 bg-[#10161a]/20 transition-opacity duration-200', open ? 'opacity-100' : 'opacity-0 pointer-events-none')}
+        style={{ right: 'var(--workspace-w, 0px)' }}
+        className={cn('fixed inset-y-0 left-0 z-40 bg-[#10161a]/20 transition-opacity duration-200', open ? 'opacity-100' : 'opacity-0 pointer-events-none')}
         onClick={onClose}
       />
       <aside
-        style={{ width }}
+        style={{ width, right: 'var(--workspace-w, 0px)' }}
         className={cn(
-          'fixed top-0 right-0 h-screen z-50 bg-surface border-l border-line shadow-[var(--shadow-pop)] flex flex-col transition-transform duration-200 ease-out',
+          'fixed top-0 h-screen z-50 bg-surface border-l border-line shadow-[var(--shadow-pop)] flex flex-col transition-transform duration-200 ease-out',
           open ? 'translate-x-0' : 'translate-x-full',
         )}
       >

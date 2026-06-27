@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { Bug, ChevronRight, History, LogOut, Search } from 'lucide-react'
 import { ACTION_LABELS, TABLE_LABELS, auditTablesFor, resolveBreadcrumb } from '@/lib/nav'
+import { clearWorkspaceStorage } from '@/lib/workspace'
 
 interface HeaderProps {
   title?: string
@@ -23,6 +24,7 @@ export function Header({ subtitle, actions }: HeaderProps) {
   const crumb = useMemo(() => resolveBreadcrumb(pathname), [pathname])
 
   const handleLogout = async () => {
+    clearWorkspaceStorage()
     await supabase.auth.signOut()
     router.push('/login')
     router.refresh()
