@@ -1,6 +1,7 @@
 'use client'
 
 import { createClient } from '@/utils/supabase/client'
+import { withTimeout } from '@/lib/utils'
 import { Button } from '@/components/ui/Button'
 import { Database, Filter, FlaskConical, GitBranch, Play, Plus, Trash2, BarChart3, Link2, Move } from 'lucide-react'
 import { useMemo, useRef, useState } from 'react'
@@ -22,7 +23,7 @@ const QUEST_TYPES: { v: string; t: string }[] = [
   { v: 'allergy_diet', t: '알레르기·식단' }, { v: 'achievement_gap', t: '성취 보충' },
   { v: 'space_preference', t: '공간 선호' },
   { v: 'health_contagion', t: '전염성 확산 (WHO IMCI)' }, { v: 'allergy_safety', t: '알레르겐 안전 (Codex/WHO)' },
-  { v: 'developmental_support', t: '발달 지원 (WHO ICF-CY)' },
+  { v: 'developmental_support', t: '발달 지원 (WHO ICF-CY)' }, { v: 'hub_collapse', t: '허브 붕괴 시뮬레이션' },
 ]
 const NODE_META: Record<NType, { label: string; icon: typeof Database; color: string }> = {
   source: { label: '데이터 소스', icon: Database, color: '#137cbd' },
@@ -134,6 +135,7 @@ export function PipelineCanvas({ centerId, classes, insights, staffCount, entity
   }
 
   async function runPipeline() {
+    if (running) return // re-entrancy guard
     const ana = nodes.find((n) => n.type === 'analysis')
     const flt = nodes.find((n) => n.type === 'filter')
     if (!ana) { setRunMsg({ type: 'error', text: '분석 엔진 노드가 필요합니다.' }); return }
@@ -145,15 +147,16 @@ export function PipelineCanvas({ centerId, classes, insights, staffCount, entity
     const params = { class_id: scope === 'ALL' ? null : scope, scope_name: scope === 'ALL' ? '전체 센터' : classes.find((c) => c.id === scope)?.name ?? '', sensitivity: 'normal', via: 'pipeline' }
     const title = `[파이프라인] ${QUEST_TYPES.find((q) => q.v === qt)?.t ?? qt} · ${params.scope_name}`
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      const { data: inserted, error } = await supabase.from('analysis_quests')
+      const { data: { user } } = await withTimeout(supabase.auth.getUser(), 15000)
+      const { data: inserted, error } = await withTimeout(supabase.from('analysis_quests')
         .insert({ center_id: centerId, title, quest_type: qt, params, status: 'pending', created_by: user?.id ?? null })
-        .select('id, title, quest_type, params, status, result, error, created_at, updated_at').single()
+        .select('id, title, quest_type, params, status, result, error, created_at, updated_at').single(), 15000)
       if (error || !inserted) throw new Error(error?.message ?? '퀘스트 생성 실패')
-      const { error: fnErr } = await supabase.functions.invoke('run_quest', { body: { center_id: centerId, quest_id: inserted.id } })
+      // analysis can take time; cap so the UI never hangs in a "running" state.
+      const { error: fnErr } = await withTimeout(supabase.functions.invoke('run_quest', { body: { center_id: centerId, quest_id: inserted.id } }), 45000)
       if (fnErr) throw new Error(fnErr.message)
-      const { data: done } = await supabase.from('analysis_quests')
-        .select('id, title, quest_type, params, status, result, error, created_at, updated_at').eq('id', inserted.id).single()
+      const { data: done } = await withTimeout(supabase.from('analysis_quests')
+        .select('id, title, quest_type, params, status, result, error, created_at, updated_at').eq('id', inserted.id).single(), 15000)
       const q = (done ?? inserted) as { status?: string; error?: string | null; result?: PNode['result'] }
       setNodes((ns) => ns.map((n) => n.type === 'output' ? { ...n, result: q.result ?? null } : n))
       onResult((done ?? inserted) as never)

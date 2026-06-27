@@ -1,9 +1,9 @@
 'use client'
 
 import { createClient } from '@/utils/supabase/client'
+import { withTimeout } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
-import { useRouter } from 'next/navigation'
 import { Database, Filter, FlaskConical, Play, BarChart3, ChevronRight, Trash2 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { PipelineCanvas } from './PipelineCanvas'
@@ -37,6 +37,7 @@ const CATALOG: { type: string; title: string; desc: string }[] = [
   { type: 'health_contagion', title: '전염성 질환 확산 분석 · WHO IMCI', desc: 'WHO IMCI 증상 기록과 SNA 근접·반 구조를 결합해 7일 잠복 기준 노출 위험 아동을 도출합니다.' },
   { type: 'allergy_safety', title: '알레르겐 안전 점검 · Codex/WHO', desc: 'Codex/WHO 주요 알레르겐 코드와 급식 식재료 연결을 교차해 식단·투약 충돌을 점검합니다.' },
   { type: 'developmental_support', title: '발달 지원 선별 · WHO ICF-CY', desc: 'WHO ICF-CY 발달 영역 선별 기록에서 지원이 필요한 아동을 선별합니다.' },
+  { type: 'hub_collapse', title: '허브 붕괴 시뮬레이션 · 결속 퀘스트', desc: '매개 중심성 최상위 중재자 아동 부재 시 관계망 분열을 시뮬레이션해 고립 위험 아동을 추출하고 사회성 결속(Bridge Building) 퀘스트를 자동 발행합니다.' },
 ]
 const SENS: Record<string, { label: string; factor: number }> = {
   low: { label: '보수적', factor: 0.7 }, normal: { label: '표준', factor: 1 }, high: { label: '민감', factor: 1.3 },
@@ -55,7 +56,6 @@ const TAG_STYLE = (tag?: string) => {
 
 export function QuestsClient({ centerId, initialQuests, insights, classes, staffCount, entityCount }: Props) {
   const supabase = useMemo(() => createClient(), [])
-  const router = useRouter()
   const [quests, setQuests] = useState<Quest[]>(initialQuests)
   const [type, setType] = useState(CATALOG[0].type)
   const [scope, setScope] = useState('ALL')
@@ -97,33 +97,37 @@ export function QuestsClient({ centerId, initialQuests, insights, classes, staff
         estimate = Math.round((ins.allergy_children?.length ?? 0) * scopeFactor); label = '관리 대상'; note = 'Codex/WHO 알레르겐 코드 기반'; break
       case 'developmental_support':
         estimate = Math.round(pool * 0.12 * SENS[sensitivity].factor); label = '지원 권고'; note = 'WHO ICF-CY 발달 선별 기록'; break
+      case 'hub_collapse':
+        estimate = Math.round((ins.summary?.isolated ?? 0) + pool * 0.05); label = '예상 고립 위험'; note = '허브 부재 시 매개 중심성 기반 네트워크 분열 시뮬레이션'; break
     }
     setSim({ pool, estimate, label, note })
   }
 
   async function execute() {
-    if (!centerId) return
+    if (!centerId || running) return
     setRunning(true); setMsg(null)
     const finalTitle = title.trim() || `${selected.title} · ${scopeName}`
     const params = { class_id: scope === 'ALL' ? null : scope, scope_name: scopeName, sensitivity }
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      const { data: inserted, error: insErr } = await supabase.from('analysis_quests')
+      const { data: { user } } = await withTimeout(supabase.auth.getUser(), 15000)
+      const { data: inserted, error: insErr } = await withTimeout(supabase.from('analysis_quests')
         .insert({ center_id: centerId, title: finalTitle, quest_type: type, params, status: 'pending', created_by: user?.id ?? null })
-        .select('id, title, quest_type, params, status, result, error, created_at, updated_at').single()
+        .select('id, title, quest_type, params, status, result, error, created_at, updated_at').single(), 15000)
       if (insErr || !inserted) throw new Error(insErr?.message ?? '퀘스트 생성 실패')
       setQuests((q) => [inserted as Quest, ...q])
-      const { error: fnErr } = await supabase.functions.invoke('run_quest', { body: { center_id: centerId, quest_id: inserted.id } })
+      const { error: fnErr } = await withTimeout(supabase.functions.invoke('run_quest', { body: { center_id: centerId, quest_id: inserted.id } }), 45000)
       if (fnErr) throw new Error(fnErr.message)
-      const { data: refreshed } = await supabase.from('analysis_quests')
-        .select('id, title, quest_type, params, status, result, error, created_at, updated_at').eq('id', inserted.id).single()
+      const { data: refreshed } = await withTimeout(supabase.from('analysis_quests')
+        .select('id, title, quest_type, params, status, result, error, created_at, updated_at').eq('id', inserted.id).single(), 15000)
       if (refreshed) setQuests((q) => q.map((x) => x.id === refreshed.id ? (refreshed as Quest) : x))
       setMsg({ type: 'success', text: '파이프라인 실행이 완료되어 결과가 저장되었습니다.' })
       setTitle('')
     } catch (e) {
       setMsg({ type: 'error', text: (e as Error).message })
     } finally {
-      setRunning(false); router.refresh()
+      // No router.refresh(): results are applied optimistically; refreshing here
+      // re-runs the heavy SNA insights query and stalls the UI after each run.
+      setRunning(false)
     }
   }
 

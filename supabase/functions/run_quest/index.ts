@@ -77,6 +77,17 @@ async function refLabels(sb: SB, domain: string) {
   for (const r of data ?? []) m.set(r.code, { label: r.label, meta: r.meta ?? {} })
   return m
 }
+// Relationship valence (mirrors recompute_sna_metrics): conflict negative, cooperation/care positive.
+function valence(rt: string, label: string | null): number {
+  const l = label ?? ''
+  if (rt === 'conflict' || /갈등|분쟁|기피|거부|편식|다툼/.test(l)) return -2
+  if (rt === 'caregiving' || /돌봄|보살핌/.test(l)) return 1.6
+  if (rt === 'help_seeking' || /협동|양보|도움|위로|배려|나눔/.test(l)) return 1.5
+  if (/단짝|친밀|모방/.test(l)) return 1.3
+  if (rt === 'play' || /놀이/.test(l)) return 1
+  if (rt === 'communication' || rt === 'proximity' || /선호|소통|근접/.test(l)) return 0.8
+  return 1
+}
 
 async function questIsolation(sb: SB, center: string): Promise<Result> {
   const children = await activeChildren(sb, center)
@@ -366,6 +377,92 @@ async function questDevelopmental(sb: SB, center: string): Promise<Result> {
   }
 }
 
+// Hub-node collapse simulation: remove the top betweenness "mediator", measure
+// how the positive-tie graph fragments, extract children at isolation risk, and
+// auto-issue ontology-Action-based Bridge-Building quests.
+async function questHubCollapse(sb: SB, center: string): Promise<Result> {
+  const children = await activeChildren(sb, center)
+  const byId = new Map(children.map((c) => [c.id, c]))
+  const metrics = await latestMetrics(sb, center)
+  const ints = await interactions(sb, center)
+
+  // net signed strength per undirected child-child pair → positive adjacency
+  const net = new Map<string, number>()
+  for (const e of ints) {
+    if (e.source_kind !== 'child' || e.target_kind !== 'child') continue
+    if (!byId.has(e.source_id) || !byId.has(e.target_id)) continue
+    const [a, b] = [e.source_id, e.target_id].sort()
+    net.set(`${a}|${b}`, (net.get(`${a}|${b}`) ?? 0) + Number(e.weight) * valence(e.relation_type, e.label))
+  }
+  const adj = new Map<string, Set<string>>()
+  const link = (a: string, b: string) => { if (!adj.has(a)) adj.set(a, new Set()); adj.get(a)!.add(b) }
+  for (const [k, v] of net) { if (v > 0) { const [a, b] = k.split('|'); link(a, b); link(b, a) } }
+
+  // pick the mediator hub: highest betweenness among connected children
+  let hub: { id: string; name: string } | null = null, hubB = -1
+  for (const c of children) {
+    const b = metrics.get(c.id)?.betweenness ?? 0
+    if ((adj.get(c.id)?.size ?? 0) >= 2 && b > hubB) { hubB = b; hub = c }
+  }
+  if (!hub) return { headline: '중재자 허브를 식별할 데이터가 부족합니다. 또래 관계를 더 입력하세요.', stats: [{ label: '분석 아동', value: children.length }], rows: [] }
+  const hubId = hub.id
+
+  const components = (excluded: string | null) => {
+    const comp = new Map<string, number>(); let cid = 0
+    for (const c of children) {
+      if (c.id === excluded || comp.has(c.id)) continue
+      const q = [c.id]; comp.set(c.id, cid)
+      while (q.length) {
+        const x = q.shift()!
+        for (const y of adj.get(x) ?? []) { if (y === excluded || comp.has(y)) continue; comp.set(y, cid); q.push(y) }
+      }
+      cid++
+    }
+    return comp
+  }
+  const baseCount = new Set(components(null).values()).size
+  const cutComp = components(hubId)
+  const cutCount = new Set(cutComp.values()).size
+  const sizeOf = new Map<number, number>()
+  for (const v of cutComp.values()) sizeOf.set(v, (sizeOf.get(v) ?? 0) + 1)
+
+  const neighbors = [...(adj.get(hubId) ?? [])]
+  const atRisk = neighbors.map((m) => {
+    const origDeg = adj.get(m)?.size ?? 0
+    const remDeg = origDeg - 1
+    const myComp = cutComp.get(m)
+    const mySize = myComp != null ? (sizeOf.get(myComp) ?? 1) : 1
+    let risk: number
+    if (remDeg <= 0) risk = 92
+    else if (mySize <= 2) risk = 72
+    else risk = Math.min(60, Math.round(100 * (1 - remDeg / Math.max(origDeg, 1))))
+    return { id: m, risk }
+  }).filter((r) => r.risk >= 30).sort((a, b) => b.risk - a.risk)
+
+  const rows: Row[] = atRisk.map((r) => ({
+    primary: byId.get(r.id)!.name,
+    secondary: `${hub!.name} 부재 시 고립 위험도 ${r.risk}%`,
+    tag: r.risk >= 70 ? '높음' : '주의',
+  }))
+
+  // Bridge-Building quests (ontology Action): pair each at-risk child with a
+  // well-connected child in a different remaining cluster.
+  const connectors = children.filter((c) => c.id !== hubId)
+    .map((c) => ({ c, deg: adj.get(c.id)?.size ?? 0 })).sort((a, b) => b.deg - a.deg)
+  for (const r of atRisk.slice(0, 5)) {
+    const m = byId.get(r.id)!
+    const cand = connectors.find((x) => x.c.id !== r.id && x.deg >= 2 && cutComp.get(x.c.id) !== cutComp.get(r.id) && !(adj.get(r.id)?.has(x.c.id)))
+      ?? connectors.find((x) => x.c.id !== r.id && x.deg >= 2 && !(adj.get(r.id)?.has(x.c.id)) && x.c.id !== hubId)
+    if (cand) rows.push({ primary: `${m.name} ⇄ ${cand.c.name}`, secondary: '같은 블록놀이 조 편성 — 사회성 결속 퀘스트(Bridge Building)', tag: '결속퀘스트' })
+  }
+
+  return {
+    headline: `중재자 허브 '${hub.name}' 부재 시 관계망이 ${baseCount}→${cutCount}개로 분열, ${atRisk.length}명이 고립 위험에 노출됩니다.`,
+    stats: [{ label: '중재자 허브', value: hub.name }, { label: '컴포넌트', value: `${baseCount}→${cutCount}` }, { label: '고립 위험', value: atRisk.length }],
+    rows,
+  }
+}
+
 const RUNNERS: Record<string, (sb: SB, c: string) => Promise<Result>> = {
   isolation_risk: questIsolation,
   tutor_matching: questTutor,
@@ -377,6 +474,7 @@ const RUNNERS: Record<string, (sb: SB, c: string) => Promise<Result>> = {
   health_contagion: questContagion,
   allergy_safety: questAllergySafety,
   developmental_support: questDevelopmental,
+  hub_collapse: questHubCollapse,
 }
 
 Deno.serve(async (req) => {

@@ -25,7 +25,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.47.1'
 
 type Body = { center_id?: string; rebuild?: boolean; project_shared?: boolean }
-type Edge = { u: string; v: string; w: number; directed: boolean }
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -33,8 +32,27 @@ const CORS = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
-function weightToDistance(w: number): number {
-  return 1 / Math.max(w, 1e-6)
+// ── Edge valence → relationship strength ──────────────────────────────────
+// Maps interaction sentiment + domain onto a signed multiplier so that the
+// *quality* of a relationship (not just its frequency) drives the geometry:
+//   positive (cooperation / yielding / care)  →  strong, "close"
+//   conflict / avoidance                       →  negative, "far" (≈∞)
+function valence(relationType: string, label: string | null): number {
+  const l = label ?? ''
+  if (relationType === 'conflict' || /갈등|분쟁|기피|거부|편식|다툼/.test(l)) return -2
+  if (relationType === 'caregiving' || /돌봄|보살핌/.test(l)) return 1.6
+  if (relationType === 'help_seeking' || /협동|양보|도움|위로|배려|나눔/.test(l)) return 1.5
+  if (/단짝|친밀|모방/.test(l)) return 1.3
+  if (relationType === 'play' || /놀이/.test(l)) return 1
+  if (relationType === 'communication' || relationType === 'proximity' || /선호|소통|근접/.test(l)) return 0.8
+  return 1
+}
+const FAR = 1e4 // pseudo-∞ distance applied to conflict-dominant ties
+// Convert a (dynamically normalised) signed net strength into a graph distance.
+function netToDistance(net: number, maxAbs: number): number {
+  const m = maxAbs > 0 ? maxAbs : 1
+  if (net > 0) return m / net                 // strongest positive ≈ 1, weak ties far
+  return FAR * (1 + Math.abs(net) / m)        // conflict ties pushed toward ∞
 }
 
 function mustEnv(name: string): string {
@@ -90,7 +108,11 @@ class Graph {
   }
 }
 
-function weightedBetweenness(n: number, adj: Array<Map<number, number>>): number[] {
+// Weighted Brandes betweenness over a DISTANCE adjacency (Dijkstra SSSP).
+// Edge values are pre-computed geodesic distances (positive ties short,
+// conflict ties ≈∞), so mediators bridging positive clusters score high while
+// "social butterflies" with many shallow/negative ties do not.
+function weightedBetweenness(n: number, adjDist: Array<Map<number, number>>): number[] {
   const Cb = new Array<number>(n).fill(0)
   for (let s = 0; s < n; s++) {
     const stack: number[] = []
@@ -104,8 +126,8 @@ function weightedBetweenness(n: number, adj: Array<Map<number, number>>): number
       for (let i = 0; i < n; i++) if (!done[i] && dist[i] < best) { best = dist[i]; v = i }
       if (v === -1) break
       done[v] = true; stack.push(v)
-      for (const [to, w] of adj[v]) {
-        const nd = dist[v] + weightToDistance(w), eps = 1e-12
+      for (const [to, d] of adjDist[v]) {
+        const nd = dist[v] + d, eps = 1e-9
         if (nd < dist[to] - eps) { dist[to] = nd; sigma[to] = sigma[v]; pred[to] = [v] }
         else if (Math.abs(nd - dist[to]) <= eps) { sigma[to] += sigma[v]; pred[to].push(v) }
       }
@@ -121,7 +143,7 @@ function weightedBetweenness(n: number, adj: Array<Map<number, number>>): number
   return Cb
 }
 
-function weightedCloseness(n: number, adj: Array<Map<number, number>>): number[] {
+function weightedCloseness(n: number, adjDist: Array<Map<number, number>>): number[] {
   const Cc = new Array<number>(n).fill(0)
   for (let s = 0; s < n; s++) {
     const dist = new Array<number>(n).fill(Infinity)
@@ -132,13 +154,13 @@ function weightedCloseness(n: number, adj: Array<Map<number, number>>): number[]
       for (let i = 0; i < n; i++) if (!done[i] && dist[i] < best) { best = dist[i]; v = i }
       if (v === -1) break
       done[v] = true
-      for (const [to, w] of adj[v]) {
-        const nd = dist[v] + weightToDistance(w)
+      for (const [to, d] of adjDist[v]) {
+        const nd = dist[v] + d
         if (nd < dist[to]) dist[to] = nd
       }
     }
     let sum = 0, reach = 0
-    for (let i = 0; i < n; i++) if (i !== s && dist[i] < Infinity) { sum += dist[i]; reach++ }
+    for (let i = 0; i < n; i++) if (i !== s && dist[i] < FAR) { sum += dist[i]; reach++ }
     if (reach > 0 && sum > 0 && n > 1) Cc[s] = (reach / (n - 1)) * (reach / sum)
   }
   return Cc
@@ -235,20 +257,21 @@ Deno.serve(async (req) => {
 
     const { data: ints, error: iErr } = await sb
       .from('interactions')
-      .select('source_kind, source_id, target_kind, target_id, weight, is_directed')
+      .select('source_kind, source_id, target_kind, target_id, weight, is_directed, relation_type, label')
       .eq('center_id', center_id).is('deleted_at', null).gt('weight', 0)
     if (iErr) throw iErr
 
     const g = new Graph()
     for (const id of childIds) g.node(`child:${id}`)
 
-    const childChild: Edge[] = []
+    const childChild: Array<{ u: string; v: string; sw: number; directed: boolean }> = []
     const childCaregiver: Array<{ child: string; care: string; w: number }> = []
     for (const r of ints ?? []) {
       const sKind = r.source_kind, tKind = r.target_kind
       const w = Number(r.weight), directed = !!r.is_directed
       if (sKind === 'child' && tKind === 'child' && childSet.has(r.source_id) && childSet.has(r.target_id)) {
-        childChild.push({ u: r.source_id, v: r.target_id, w, directed })
+        // signed strength = frequency × relationship valence (quality/context)
+        childChild.push({ u: r.source_id, v: r.target_id, sw: w * valence(r.relation_type, r.label), directed })
       } else if (sKind === 'child' && (tKind === 'staff' || tKind === 'guardian')) {
         childCaregiver.push({ child: r.source_id, care: `${tKind}:${r.target_id}`, w })
       } else if (tKind === 'child' && (sKind === 'staff' || sKind === 'guardian')) {
@@ -256,8 +279,9 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Accumulate net signed strength per pair (conflict + cooperation can cancel).
     for (const e of childChild) {
-      g.addUndirected(`child:${e.u}`, `child:${e.v}`, e.w)
+      g.addUndirected(`child:${e.u}`, `child:${e.v}`, e.sw)
       g.recordDirected(`child:${e.u}`, `child:${e.v}`, e.directed)
     }
 
@@ -283,11 +307,25 @@ Deno.serve(async (req) => {
     const n = g.keys.length
     if (n > 1500) return json({ ok: false, error: `Graph too large: ${n}` }, 400)
 
-    const betw = weightedBetweenness(n, g.adj)
-    const close = weightedCloseness(n, g.adj)
-    const eig = eigenvector(n, g.adj)
-    const clu = clustering(n, g.adj)
-    const comm = labelPropagation(n, g.adj)
+    // Dynamic normalisation: scale all net strengths by the strongest tie, then
+    // derive a DISTANCE adjacency (for geodesic metrics) and a POSITIVE-only
+    // INFLUENCE adjacency (for eigenvector / community / degree).
+    let maxAbs = 0
+    for (let i = 0; i < n; i++) for (const [, net] of g.adj[i]) { const a = Math.abs(net); if (a > maxAbs) maxAbs = a }
+    const adjDist: Array<Map<number, number>> = Array.from({ length: n }, () => new Map())
+    const adjPos: Array<Map<number, number>> = Array.from({ length: n }, () => new Map())
+    for (let i = 0; i < n; i++) {
+      for (const [j, net] of g.adj[i]) {
+        adjDist[i].set(j, netToDistance(net, maxAbs))
+        if (net > 0) adjPos[i].set(j, net)
+      }
+    }
+
+    const betw = weightedBetweenness(n, adjDist)
+    const close = weightedCloseness(n, adjDist)
+    const eig = eigenvector(n, adjPos)
+    const clu = clustering(n, adjPos)
+    const comm = labelPropagation(n, adjPos)
     const now = new Date().toISOString()
 
     const rows: any[] = []
@@ -296,9 +334,11 @@ Deno.serve(async (req) => {
       if (!key.startsWith('child:')) continue
       const childId = key.slice('child:'.length)
       if (!childSet.has(childId)) continue
-      const deg = g.adj[i].size
+      // degree / isolation are based on POSITIVE social ties: a child whose only
+      // links are conflicts is socially isolated (and a supervision risk).
+      const deg = adjPos[i].size
       let wdeg = 0
-      for (const [, w] of g.adj[i]) wdeg += w
+      for (const [, w] of adjPos[i]) wdeg += w
       rows.push({
         center_id, child_id: childId, period_start: period, period_end: period,
         degree: deg, weighted_degree: wdeg, degree_centrality: n > 1 ? deg / (n - 1) : 0,

@@ -156,17 +156,16 @@ export default async function DashboardPage() {
 
           {/* RIGHT — square KPI tiles + region info + compact lists (internal scroll) */}
           <div className="flex flex-col gap-2.5 min-h-0">
-            {/* KPI 2×2 square tiles */}
-            <div className="grid grid-cols-2 gap-2.5 shrink-0">
+            {/* KPI mini-tiles — compact (≈¼ of the previous square footprint) */}
+            <div className="grid grid-cols-2 gap-2 shrink-0">
               {stats.map((stat) => (
-                <div key={stat.label} className="aspect-square bg-surface border border-line rounded-[3px] shadow-[var(--shadow-card)] p-3 flex flex-col justify-between">
-                  <div className="flex items-start justify-between">
-                    <p className="text-[9px] text-ink-faint uppercase tracking-[0.1em] leading-tight">{stat.label}</p>
-                    <stat.icon size={13} className="text-accent shrink-0" />
+                <div key={stat.label} className="bg-surface border border-line rounded-[3px] shadow-[var(--shadow-card)] px-2.5 py-2 flex items-center gap-2" title={stat.sub}>
+                  <div className="w-6 h-6 rounded-[3px] bg-accent-soft flex items-center justify-center shrink-0">
+                    <stat.icon size={12} className="text-accent" />
                   </div>
-                  <div>
-                    <p className="text-[26px] font-semibold text-ink tracking-[-0.02em] leading-none font-data">{stat.value}</p>
-                    <p className="text-[9px] text-ink-ghost mt-1.5">{stat.sub}</p>
+                  <div className="min-w-0">
+                    <p className="text-[17px] font-semibold text-ink leading-none font-data">{stat.value}</p>
+                    <p className="text-[9px] text-ink-faint truncate mt-0.5">{stat.label}</p>
                   </div>
                 </div>
               ))}

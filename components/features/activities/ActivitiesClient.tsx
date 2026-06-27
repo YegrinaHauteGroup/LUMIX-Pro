@@ -107,8 +107,8 @@ export function ActivitiesClient({ initialActivities, classes, allChildren, part
   const addable = allChildren.filter((c) => !managingPartIds.has(c.id))
 
   return (
-    <div className="flex-1 min-h-0 p-5 w-full space-y-5 overflow-auto">
-      <div className="flex items-center gap-2">
+    <div className="flex-1 min-h-0 p-5 w-full flex flex-col gap-4 overflow-hidden">
+      <div className="flex items-center gap-2 shrink-0">
         <select value={filterType} onChange={(e) => setFilterType(e.target.value as typeof filterType)}
           className="bg-surface border border-line px-3 text-[12px] text-ink-soft focus:outline-none focus:border-accent h-8 rounded-[3px] cursor-pointer">
           <option value="all">전체 유형</option>
@@ -124,13 +124,13 @@ export function ActivitiesClient({ initialActivities, classes, allChildren, part
         <Button onClick={() => setModalOpen(true)} size="sm"><Plus size={12} /> 활동 추가</Button>
       </div>
 
-      <Card>
-        <div className="overflow-x-auto">
+      <Card className="flex-1 min-h-0 flex flex-col overflow-hidden">
+        <div className="overflow-auto min-h-0 flex-1">
           <table className="w-full">
-            <thead>
-              <tr className="border-b border-line">
+            <thead className="sticky top-0 z-10">
+              <tr className="border-b border-line bg-fill-2">
                 {['제목', '날짜', '시간', '반', '유형', '참여', '상태', ''].map((h) => (
-                  <th key={h} className="text-left text-[10px] text-ink-faint font-medium uppercase tracking-widest px-4 py-3">{h}</th>
+                  <th key={h} className="text-left text-[10px] text-ink-faint font-semibold uppercase tracking-widest px-4 py-3 bg-fill-2">{h}</th>
                 ))}
               </tr>
             </thead>

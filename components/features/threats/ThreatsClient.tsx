@@ -42,9 +42,9 @@ export function ThreatsClient({ centerId, initial }: Props) {
   const s = data?.summary ?? { total: 0, high: 0, medium: 0, low: 0 }
 
   return (
-    <div className="flex-1 min-h-0 p-5 w-full space-y-4 overflow-auto">
+    <div className="flex-1 min-h-0 p-5 w-full flex flex-col gap-4 overflow-hidden">
       {/* Summary bar */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 shrink-0">
         <div className="grid grid-cols-4 gap-3 flex-1">
           {[
             { label: '총 위협', value: s.total, color: 'text-ink' },
@@ -63,9 +63,10 @@ export function ThreatsClient({ centerId, initial }: Props) {
           <RefreshCw size={13} className={loading ? 'animate-spin' : ''} /> 재탐지
         </button>
       </div>
-      <p className="text-[11px] text-ink-ghost">최종 탐지 {refreshedAt.toLocaleTimeString('ko-KR')} · SNA·보건·출결·위치 데이터 종합</p>
+      <p className="text-[11px] text-ink-ghost shrink-0">최종 탐지 {refreshedAt.toLocaleTimeString('ko-KR')} · SNA·보건·출결·위치 데이터 종합</p>
 
-      {/* Threat list */}
+      {/* Threat list (scrolls inside the panel) */}
+      <div className="flex-1 min-h-0 overflow-y-auto pr-0.5">
       {!data || data.threats.length === 0 ? (
         <Card>
           <CardContent>
@@ -108,6 +109,7 @@ export function ThreatsClient({ centerId, initial }: Props) {
           })}
         </div>
       )}
+      </div>
     </div>
   )
 }

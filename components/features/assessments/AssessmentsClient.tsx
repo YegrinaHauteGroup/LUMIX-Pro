@@ -86,9 +86,9 @@ export function AssessmentsClient(props: Props) {
   }
 
   return (
-    <div className="flex-1 min-h-0 p-5 w-full space-y-5 overflow-auto">
+    <div className="flex-1 min-h-0 p-5 w-full flex flex-col gap-5 overflow-hidden">
       {/* Action bar */}
-      <div className="flex items-center gap-3 flex-wrap">
+      <div className="flex items-center gap-3 flex-wrap shrink-0">
         <div className="flex items-center gap-1 p-1 bg-fill rounded-[3px] border border-line">
           {TABS.map((t) => (
             <button
@@ -111,7 +111,7 @@ export function AssessmentsClient(props: Props) {
 
       {msg && (
         <div className={
-          'flex items-center gap-2 rounded-[3px] px-3.5 py-2.5 text-[12px] border ' +
+          'flex items-center gap-2 rounded-[3px] px-3.5 py-2.5 text-[12px] border shrink-0 ' +
           (msg.kind === 'ok'
             ? 'bg-[color:var(--color-success-soft)] border-[color:var(--color-success-soft)] text-[color:var(--color-success)]'
             : 'bg-[color:var(--color-danger-soft)] border-[color:var(--color-danger-soft)] text-[color:var(--color-danger)]')
@@ -120,11 +120,13 @@ export function AssessmentsClient(props: Props) {
         </div>
       )}
 
-      {tab === 'peer' && <PeerTab {...props} supabase={supabase} childName={childName} setMsg={setMsg} />}
-      {tab === 'staff' && <StaffTab {...props} supabase={supabase} childName={childName} staffName={staffName} setMsg={setMsg} />}
-      {tab === 'guardian' && <GuardianTab {...props} supabase={supabase} childName={childName} setMsg={setMsg} />}
-      {tab === 'manage' && <ManageGuardians {...props} supabase={supabase} setMsg={setMsg} />}
-      {tab === 'rules' && <RulesTab rules={props.rules} />}
+      <div className="flex-1 min-h-0 overflow-y-auto pr-0.5 space-y-5">
+        {tab === 'peer' && <PeerTab {...props} supabase={supabase} childName={childName} setMsg={setMsg} />}
+        {tab === 'staff' && <StaffTab {...props} supabase={supabase} childName={childName} staffName={staffName} setMsg={setMsg} />}
+        {tab === 'guardian' && <GuardianTab {...props} supabase={supabase} childName={childName} setMsg={setMsg} />}
+        {tab === 'manage' && <ManageGuardians {...props} supabase={supabase} setMsg={setMsg} />}
+        {tab === 'rules' && <RulesTab rules={props.rules} />}
+      </div>
     </div>
   )
 }

@@ -95,9 +95,9 @@ export function AttendanceClient({ children, classes, today, centerId }: Props) 
   const rate = filtered.length ? Math.round(((counts.present + counts.late) / filtered.length) * 100) : 0
 
   return (
-    <div className="flex-1 min-h-0 p-5 w-full space-y-4 overflow-auto">
+    <div className="flex-1 min-h-0 p-5 w-full flex flex-col gap-4 overflow-hidden">
       {/* Controls */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 shrink-0">
         <input type="date" value={checkDate} onChange={(e) => setCheckDate(e.target.value)}
           className="bg-surface border border-line px-3 text-[12px] text-ink focus:outline-none focus:border-accent h-8 rounded-[3px]" />
         <select value={filterClass} onChange={(e) => setFilterClass(e.target.value)}
@@ -111,10 +111,10 @@ export function AttendanceClient({ children, classes, today, centerId }: Props) 
         </Button>
       </div>
 
-      {err && <div className="px-3 py-2.5 text-[12px] rounded-[3px] text-danger bg-danger-soft border border-[color:var(--color-danger-soft)]">{err}</div>}
+      {err && <div className="px-3 py-2.5 text-[12px] rounded-[3px] text-danger bg-danger-soft border border-[color:var(--color-danger-soft)] shrink-0">{err}</div>}
 
       {/* Summary */}
-      <div className="grid grid-cols-5 gap-3">
+      <div className="grid grid-cols-5 gap-3 shrink-0">
         {[
           { label: '출석', value: counts.present, color: 'text-emerald-600' },
           { label: '지각', value: counts.late, color: 'text-amber-600' },
@@ -130,14 +130,14 @@ export function AttendanceClient({ children, classes, today, centerId }: Props) 
       </div>
 
       {/* List */}
-      <Card>
-        <CardHeader>
+      <Card className="flex-1 min-h-0 flex flex-col overflow-hidden">
+        <CardHeader className="shrink-0">
           <div className="flex items-center justify-between">
             <CardTitle>{checkDate} 출석 현황</CardTitle>
             <span className="text-[10px] text-ink-faint">{marked} / {filtered.length}명 기록</span>
           </div>
         </CardHeader>
-        <CardContent className="p-0">
+        <CardContent className="p-0 flex-1 min-h-0 overflow-auto">
           {loadingData ? (
             <p className="text-center text-[12px] text-ink-ghost py-10">불러오는 중...</p>
           ) : filtered.length === 0 ? (

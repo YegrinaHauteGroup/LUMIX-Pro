@@ -19,7 +19,7 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     label: '다중 분석체계',
     items: [
-      { href: '/sna', icon: Network, label: 'SNA 분석 보드' },
+      { href: '/sna', icon: Network, label: '객체 그래프 · Vertex' },
       { href: '/quests', icon: Sparkles, label: '퀘스트 분석 엔진' },
       { href: '/threats', icon: ShieldAlert, label: '위협 탐지 시스템' },
       { href: '/assessments', icon: ClipboardCheck, label: '가중치 입력' },
