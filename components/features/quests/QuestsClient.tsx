@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button'
 import { Database, Filter, FlaskConical, Play, BarChart3, ChevronRight, Trash2 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { PipelineCanvas } from './PipelineCanvas'
+import { AddToWorkspaceButton } from '@/components/workspace/AddToWorkspaceButton'
 
 interface QuestRow { primary: string; secondary?: string; tag?: string }
 interface QuestResult { headline: string; stats: { label: string; value: string | number }[]; rows: QuestRow[] }
@@ -249,8 +250,16 @@ export function QuestsClient({ centerId, initialQuests, insights, classes, staff
                   <span className="text-[13px] font-semibold text-ink truncate">{q.title}</span>
                   <span className={`text-[10px] px-1.5 py-0.5 rounded-[2px] ${STATUS_STYLE[q.status]}`}>{STATUS_LABEL[q.status]}</span>
                 </div>
-                <div className="flex items-center gap-3 shrink-0">
+                <div className="flex items-center gap-2 shrink-0">
                   <span className="text-[11px] text-ink-ghost">{new Date(q.created_at).toLocaleString('ko-KR')}</span>
+                  {q.result && (
+                    <AddToWorkspaceButton source="퀘스트 분석" title={q.title} subtitle={q.result.headline}
+                      fields={[
+                        ...q.result.stats.map((s) => ({ label: String(s.label), value: String(s.value) })),
+                        ...q.result.rows.slice(0, 5).map((r) => ({ label: r.primary, value: r.secondary ?? r.tag ?? '' })),
+                      ]}
+                      href="/quests" accent="#137cbd" />
+                  )}
                   <button onClick={() => removeQuest(q.id)} className="text-ink-ghost hover:text-danger"><Trash2 size={13} /></button>
                 </div>
               </CardHeader>

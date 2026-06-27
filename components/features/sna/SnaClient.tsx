@@ -3,6 +3,7 @@
 import { createClient } from '@/utils/supabase/client'
 import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { AddToWorkspaceButton } from '@/components/workspace/AddToWorkspaceButton'
 
 // ----- data shapes (from get_sna_graph / get_sna_insights) ------------------
 type Kind = 'child' | 'staff' | 'guardian' | 'space' | 'skill' | 'food' | 'achievement' | 'ecosystem'
@@ -605,9 +606,12 @@ export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) 
       {/* Insight drawer */}
       {report && (
         <div className="absolute top-6 right-6 bottom-6 z-10 w-[330px] max-w-[calc(100%-3rem)] flex flex-col rounded-[3px] border border-line bg-surface shadow-[var(--shadow-pop)] overflow-hidden">
-          <div className="px-6 py-4 border-b border-line flex items-center justify-between">
-            <span className="text-[14px] font-semibold text-ink">{report.title}</span>
-            <button onClick={() => setReport(null)} className="text-ink-faint hover:text-ink hover:bg-fill rounded-[3px] w-7 h-7 flex items-center justify-center transition-colors">✕</button>
+          <div className="px-6 py-4 border-b border-line flex items-center justify-between gap-2">
+            <span className="text-[14px] font-semibold text-ink truncate">{report.title}</span>
+            <div className="flex items-center gap-1 shrink-0">
+              <AddToWorkspaceButton source="SNA · 객체 그래프" title={report.title} subtitle="Vertex 시뮬레이션 인사이트" href="/sna" accent="#8b5cf6" />
+              <button onClick={() => setReport(null)} className="text-ink-faint hover:text-ink hover:bg-fill rounded-[3px] w-7 h-7 flex items-center justify-center transition-colors">✕</button>
+            </div>
           </div>
           <div className="flex-1 overflow-y-auto px-6 py-5 text-[13px] text-ink-soft leading-relaxed">{report.body}</div>
         </div>

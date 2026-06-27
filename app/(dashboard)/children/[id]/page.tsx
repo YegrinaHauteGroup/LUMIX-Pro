@@ -4,6 +4,7 @@ import { createClient } from '@/utils/supabase/server'
 import { cookies } from 'next/headers'
 import { notFound } from 'next/navigation'
 import { ChildDetailClient } from '@/components/features/children/ChildDetailClient'
+import { AddToWorkspaceButton } from '@/components/workspace/AddToWorkspaceButton'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -31,7 +32,16 @@ export default async function ChildDetailPage({ params }: Props) {
 
   return (
     <>
-      <Header title={childRes.data.name} subtitle="아동 온톨로지 프로필" />
+      <Header title={childRes.data.name} subtitle="아동 온톨로지 프로필"
+        actions={
+          <AddToWorkspaceButton variant="chip" source="아동" title={childRes.data.name} subtitle="아동 온톨로지 프로필"
+            fields={[
+              ...(childRes.data.birth_date ? [{ label: '생년월일', value: String(childRes.data.birth_date) }] : []),
+              ...(childRes.data.gender ? [{ label: '성별', value: childRes.data.gender === 'male' ? '남' : childRes.data.gender === 'female' ? '여' : '기타' }] : []),
+            ]}
+            href={`/children/${childRes.data.id}`} accent="#0f9960" />
+        }
+      />
       <ChildDetailClient
         child={childRes.data}
         centerId={cid}
