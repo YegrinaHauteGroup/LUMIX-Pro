@@ -145,33 +145,33 @@ export function QuestsClient({ centerId, initialQuests, insights, classes, staff
   ]
 
   return (
-    <div className="flex-1 min-h-0 p-5 w-full space-y-4 overflow-auto">
-      {/* Interactive pipeline canvas */}
-      <PipelineCanvas
-        centerId={centerId} classes={classes} insights={insights}
-        staffCount={staffCount} entityCount={entityCount}
-        onResult={(q) => setQuests((prev) => [q as unknown as Quest, ...prev.filter((x) => x.id !== q.id)])}
-      />
+    <div className="flex-1 min-h-0 p-4 w-full flex gap-4 overflow-hidden">
+      {/* LEFT — interactive pipeline canvas + configuration */}
+      <div className="flex-1 min-w-0 flex flex-col gap-3 min-h-0 overflow-y-auto pr-1">
+        <PipelineCanvas
+          centerId={centerId} classes={classes} insights={insights}
+          staffCount={staffCount} entityCount={entityCount}
+          onResult={(q) => setQuests((prev) => [q as unknown as Quest, ...prev.filter((x) => x.id !== q.id)])}
+        />
 
-      {/* Pipeline summary strip */}
-      <div className="flex items-stretch gap-0 overflow-x-auto pb-1">
-        {STAGES.map((s, i) => (
-          <div key={s.title} className="flex items-center shrink-0">
-            <div className="w-[210px] bg-surface border border-line rounded-[3px] shadow-[var(--shadow-card)] px-3.5 py-3">
-              <div className="flex items-center gap-2 mb-1.5">
-                <s.icon size={14} className="text-accent" />
-                <span className="text-[11px] font-semibold text-ink uppercase tracking-wider">{s.title}</span>
+        {/* Pipeline summary strip */}
+        <div className="flex items-stretch gap-0 overflow-x-auto pb-1 shrink-0">
+          {STAGES.map((s, i) => (
+            <div key={s.title} className="flex items-center shrink-0">
+              <div className="w-[200px] bg-surface border border-line rounded-[3px] shadow-[var(--shadow-card)] px-3.5 py-2.5">
+                <div className="flex items-center gap-2 mb-1">
+                  <s.icon size={14} className="text-accent" />
+                  <span className="text-[11px] font-semibold text-ink uppercase tracking-wider">{s.title}</span>
+                </div>
+                <p className="text-[11px] text-ink-soft leading-snug">{s.body}</p>
               </div>
-              <p className="text-[11px] text-ink-soft leading-snug">{s.body}</p>
+              {i < STAGES.length - 1 && <ChevronRight size={16} className="text-ink-ghost mx-1 shrink-0" />}
             </div>
-            {i < STAGES.length - 1 && <ChevronRight size={16} className="text-ink-ghost mx-1 shrink-0" />}
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
 
-      <div className="grid grid-cols-[380px_1fr] gap-4">
-        {/* Config */}
-        <div className="space-y-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+          {/* Config */}
           <Card>
             <CardHeader><CardTitle>퀘스트 구성</CardTitle></CardHeader>
             <CardContent className="space-y-3">
@@ -231,9 +231,15 @@ export function QuestsClient({ centerId, initialQuests, insights, classes, staff
             </Card>
           )}
         </div>
+      </div>
 
-        {/* Results history */}
-        <div className="space-y-4 min-w-0">
+      {/* RIGHT — analysis reports (section scrolls internally, page does not) */}
+      <div className="w-[400px] xl:w-[440px] shrink-0 flex flex-col min-h-0">
+        <div className="flex items-center justify-between mb-2.5 shrink-0">
+          <h2 className="text-[12px] font-semibold text-ink uppercase tracking-[0.1em]">분석 보고서</h2>
+          <span className="text-[11px] text-ink-faint font-data tabular-nums">{quests.length}건</span>
+        </div>
+        <div className="flex-1 min-h-0 overflow-y-auto space-y-3 pr-0.5">
           {quests.length === 0 ? (
             <Card><CardContent><p className="text-[13px] text-ink-faint py-8 text-center">아직 실행된 퀘스트가 없습니다. 좌측에서 구성 후 시뮬레이션·실행하세요.</p></CardContent></Card>
           ) : quests.map((q) => (

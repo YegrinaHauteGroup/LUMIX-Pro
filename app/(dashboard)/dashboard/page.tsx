@@ -8,7 +8,8 @@ import { Users, BookOpen, CalendarDays, TrendingUp, ArrowRight } from 'lucide-re
 import Link from 'next/link'
 import { DashboardCharts, AttendanceTrendPanel } from '@/components/features/dashboard/DashboardCharts'
 import { DashboardFeed } from '@/components/features/dashboard/DashboardFeed'
-import { DashboardCalendar } from '@/components/features/dashboard/DashboardCalendar'
+import { DashboardWeekStrip } from '@/components/features/dashboard/DashboardWeekStrip'
+import { OperationalMap } from '@/components/features/dashboard/OperationalMap'
 import { CHILD_STATUS_COLORS, CHILD_STATUS_LABELS, ACTIVITY_TYPE_LABELS, ACTIVITY_TYPE_COLORS } from '@/lib/utils'
 import type { Child, Activity, Class } from '@/lib/types'
 
@@ -18,18 +19,20 @@ export default async function DashboardPage() {
   const centerId = await getCenterId()
 
   const since = new Date(Date.now() - 13 * 864e5).toISOString().slice(0, 10)
-  const [childrenRes, activitiesRes, classesRes, centerRes, attRes, insightsRes, calActRes, careRes, actAllRes] = await Promise.all([
+  const [childrenRes, activitiesRes, classesRes, centerRes, attRes, insightsRes, calActRes, careRes, actAllRes, feedRes] = await Promise.all([
     supabase.from('children').select('*').eq('center_id', centerId ?? '').order('created_at', { ascending: false }),
     supabase.from('activities').select('*, classes(name)').eq('center_id', centerId ?? '').order('created_at', { ascending: false }).limit(10),
     supabase.from('classes').select('*, children(id)').eq('center_id', centerId ?? ''),
-    supabase.from('centers').select('latitude, longitude').eq('id', centerId ?? '').maybeSingle(),
+    supabase.from('centers').select('latitude, longitude, region_name, address, name').eq('id', centerId ?? '').maybeSingle(),
     supabase.from('attendances').select('attendance_date, status').eq('center_id', centerId ?? '').gte('attendance_date', since).is('deleted_at', null),
     supabase.rpc('get_sna_insights', { p_center_id: centerId ?? '' }),
     supabase.from('activities').select('id, title, type, status, activity_date, activity_time').eq('center_id', centerId ?? '').is('deleted_at', null).not('activity_date', 'is', null),
     supabase.from('care_notes').select('id, child_id, content, noted_on, note_type, children(name)').eq('center_id', centerId ?? '').is('deleted_at', null).order('noted_on', { ascending: false }).limit(120),
     supabase.from('activities').select('type').eq('center_id', centerId ?? '').is('deleted_at', null),
+    supabase.from('dashboard_feeds').select('weather').eq('center_id', centerId ?? '').maybeSingle(),
   ])
   const hasLocation = centerRes.data?.latitude != null && centerRes.data?.longitude != null
+  const air = (feedRes.data?.weather as { air?: { pm25?: number; grade?: string } } | null)?.air ?? null
 
   const children: Child[] = childrenRes.data ?? []
   const activities: Activity[] = activitiesRes.data ?? []
@@ -126,54 +129,61 @@ export default async function DashboardPage() {
 
   return (
     <>
-      <Header title="대시보드" subtitle="시설 현황 · 운영 분석 통합" />
-      <div className="flex-1 min-h-0 p-3 overflow-hidden">
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-2.5 h-full min-h-0">
-          {/* LEFT — primary analytics column (internal scroll) */}
-          <div className="xl:col-span-2 flex flex-col gap-2.5 min-h-0">
-            <div className="shrink-0">
-              <AttendanceTrendPanel attendanceTrend={attendanceTrend} />
-            </div>
-            <div className="flex-1 min-h-0 overflow-y-auto pr-0.5 space-y-2.5">
-              <DashboardCalendar
-                centerId={centerId ?? ''}
-                initialActivities={(calActRes.data ?? []) as never[]}
-                careNotes={((careRes.data ?? []) as unknown as { id: string; child_id: string; content: string; noted_on: string; note_type: string; children: { name: string } | null }[])
-                  .map((c) => ({ id: c.id, child_id: c.child_id, content: c.content, noted_on: c.noted_on, note_type: c.note_type, child_name: c.children?.name ?? '아동' }))}
-              />
-              <DashboardCharts
-                genderStats={genderStats}
-                statusStats={statusStats}
-                classStats={classStats}
-                ageStats={ageStats}
-                attendanceTrend={attendanceTrend}
-                snaStats={snaStats}
-                monthlyData={monthlyData}
-                activityTypeData={activityTypeData}
-              />
-            </div>
+      <Header title="대시보드" subtitle="작전 지도 · 시설 현황 · 운영 분석 통합" />
+      <div className="flex-1 min-h-0 p-2.5 overflow-hidden flex gap-2.5">
+        {/* LEFT — operational map (hero) over a bottom bar */}
+        <div className="flex-1 min-w-0 flex flex-col gap-2.5 min-h-0">
+          <div className="flex-1 min-h-0">
+            <OperationalMap
+              lat={centerRes.data?.latitude != null ? Number(centerRes.data.latitude) : null}
+              lng={centerRes.data?.longitude != null ? Number(centerRes.data.longitude) : null}
+              label={centerRes.data?.region_name ?? centerRes.data?.name ?? null}
+              airPm25={air?.pm25 ?? null}
+              airGrade={air?.grade ?? null}
+            />
+          </div>
+          {/* Bottom bar (~1/5 height) — does not extend under the right section */}
+          <div className="h-[21%] min-h-[150px] shrink-0 grid grid-cols-2 gap-2.5">
+            <AttendanceTrendPanel attendanceTrend={attendanceTrend} />
+            <DashboardWeekStrip
+              activities={(calActRes.data ?? []) as never[]}
+              careNotes={((careRes.data ?? []) as unknown as { id: string; child_id: string; content: string; noted_on: string; note_type: string; children: { name: string } | null }[])
+                .map((c) => ({ id: c.id, child_id: c.child_id, content: c.content, noted_on: c.noted_on, note_type: c.note_type, child_name: c.children?.name ?? '아동' }))}
+            />
+          </div>
+        </div>
+
+        {/* RIGHT — fixed ~1/3 section, internal vertical scroll: weather, then graphs/cards */}
+        <div className="w-[33%] max-w-[460px] shrink-0 min-h-0 overflow-y-auto pr-0.5 space-y-2.5">
+          <DashboardFeed centerId={centerId ?? ''} hasLocation={hasLocation} />
+
+          {/* KPI mini-tiles */}
+          <div className="grid grid-cols-2 gap-2">
+            {stats.map((stat) => (
+              <div key={stat.label} className="bg-surface border border-line rounded-[3px] shadow-[var(--shadow-card)] px-2.5 py-2 flex items-center gap-2" title={stat.sub}>
+                <div className="w-6 h-6 rounded-[3px] bg-accent-soft flex items-center justify-center shrink-0">
+                  <stat.icon size={12} className="text-accent" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[17px] font-semibold text-ink leading-none font-data">{stat.value}</p>
+                  <p className="text-[9px] text-ink-faint truncate mt-0.5">{stat.label}</p>
+                </div>
+              </div>
+            ))}
           </div>
 
-          {/* RIGHT — square KPI tiles + region info + compact lists (internal scroll) */}
-          <div className="flex flex-col gap-2.5 min-h-0">
-            {/* KPI mini-tiles — compact (≈¼ of the previous square footprint) */}
-            <div className="grid grid-cols-2 gap-2 shrink-0">
-              {stats.map((stat) => (
-                <div key={stat.label} className="bg-surface border border-line rounded-[3px] shadow-[var(--shadow-card)] px-2.5 py-2 flex items-center gap-2" title={stat.sub}>
-                  <div className="w-6 h-6 rounded-[3px] bg-accent-soft flex items-center justify-center shrink-0">
-                    <stat.icon size={12} className="text-accent" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-[17px] font-semibold text-ink leading-none font-data">{stat.value}</p>
-                    <p className="text-[9px] text-ink-faint truncate mt-0.5">{stat.label}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
+          <DashboardCharts
+            genderStats={genderStats}
+            statusStats={statusStats}
+            classStats={classStats}
+            ageStats={ageStats}
+            attendanceTrend={attendanceTrend}
+            snaStats={snaStats}
+            monthlyData={monthlyData}
+            activityTypeData={activityTypeData}
+          />
 
-            {/* Scrolling info stack */}
-            <div className="flex-1 min-h-0 overflow-y-auto pr-0.5 space-y-2.5">
-              <DashboardFeed centerId={centerId ?? ''} hasLocation={hasLocation} />
+          <div className="space-y-2.5">
 
               {/* Recent children */}
               <Card>
@@ -245,7 +255,6 @@ export default async function DashboardPage() {
             </div>
           </div>
         </div>
-      </div>
     </>
   )
 }
