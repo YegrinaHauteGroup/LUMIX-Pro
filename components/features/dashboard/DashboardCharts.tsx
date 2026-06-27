@@ -1,5 +1,7 @@
 'use client'
 
+import { useRef } from 'react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { PanelCard } from '@/components/ui/PanelCard'
 import {
   Cell, Pie, PieChart, ResponsiveContainer, Tooltip, Legend,
@@ -78,7 +80,7 @@ function TrendChart({ data, h, compact }: { data: TrendDatum[]; h: number | `${n
           </linearGradient>
         </defs>
         <CartesianGrid strokeDasharray="3 3" stroke={GRID} vertical={false} />
-        <XAxis dataKey="date" tick={{ fontSize: compact ? 9 : 10, fill: '#8a9ba8' }} axisLine={false} tickLine={false} interval={compact ? 2 : 1} minTickGap={4} />
+        <XAxis dataKey="date" tick={{ fontSize: compact ? 9 : 10, fill: '#8a9ba8' }} axisLine={false} tickLine={false} interval={compact ? 0 : 1} minTickGap={4} />
         <YAxis tick={AXIS} axisLine={false} tickLine={false} allowDecimals={false} width={24} />
         <Tooltip {...TOOLTIP_STYLE} />
         {!compact && <Legend wrapperStyle={{ fontSize: 11 }} iconType="circle" iconSize={7} />}
@@ -170,10 +172,18 @@ function SnaBars({ data, h = 160 }: { data: { label: string; value: number }[]; 
 /** Stand-alone wide panel: the 14-day attendance trend (kept full-width on the dashboard). */
 export function AttendanceTrendPanel({ attendanceTrend, compact }: { attendanceTrend: TrendDatum[]; compact?: boolean }) {
   const trendRows = attendanceTrend.map((d) => [d.date, d.출석, d.지각, d.결석])
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const nudge = (dx: number) => scrollRef.current?.scrollBy({ left: dx, behavior: 'smooth' })
   return (
     <PanelCard title="최근 14일 출결 추이" subtitle="출석·지각·결석 복합 추이"
       className={compact ? 'h-full min-h-0' : undefined}
-      bodyClassName={compact ? 'min-h-0 !px-2 !py-2' : undefined}
+      bodyClassName={compact ? 'min-h-0 !px-1 !py-1.5' : undefined}
+      headerRight={compact ? (
+        <div className="flex items-center gap-0.5">
+          <button onClick={() => nudge(-180)} title="이전" className="w-6 h-6 flex items-center justify-center rounded-[3px] text-ink-faint hover:text-ink hover:bg-fill"><ChevronLeft size={14} /></button>
+          <button onClick={() => nudge(180)} title="다음" className="w-6 h-6 flex items-center justify-center rounded-[3px] text-ink-faint hover:text-ink hover:bg-fill"><ChevronRight size={14} /></button>
+        </div>
+      ) : undefined}
       detailTitle="출결 추이 상세" detail={
         <div className="space-y-4">
           <TrendChart data={attendanceTrend} h={320} />
@@ -181,7 +191,11 @@ export function AttendanceTrendPanel({ attendanceTrend, compact }: { attendanceT
         </div>
       }>
       {compact
-        ? <div className="h-full w-full min-h-0"><TrendChart data={attendanceTrend} h="100%" compact /></div>
+        ? (
+          <div ref={scrollRef} className="h-full w-full min-h-0 overflow-x-auto overflow-y-hidden no-scrollbar">
+            <div style={{ minWidth: 660, height: '100%' }}><TrendChart data={attendanceTrend} h="100%" compact /></div>
+          </div>
+        )
         : <TrendChart data={attendanceTrend} h={208} />}
     </PanelCard>
   )
