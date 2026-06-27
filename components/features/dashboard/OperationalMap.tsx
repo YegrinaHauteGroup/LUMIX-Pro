@@ -52,6 +52,12 @@ const walkMin = (m: number) => Math.max(1, Math.round(m / 75)) // ≈75 m/min
 // Korea-only viewport so the map never drifts into foreign territory.
 const KR_BOUNDS: [[number, number], [number, number]] = [[32.8, 124.4], [39.2, 132.2]]
 
+// VWorld (국토교통부) WMTS — domain-locked client key (exposed in tile URLs by
+// design). Override per-deployment with NEXT_PUBLIC_VWORLD_KEY.
+const VWORLD_KEY = process.env.NEXT_PUBLIC_VWORLD_KEY || 'CD86EFCF-2317-3FDC-B9F1-EDFB72661516'
+const vworld = (layer: string, ext: 'png' | 'jpeg' = 'png') =>
+  `https://api.vworld.kr/req/wmts/1.0.0/${VWORLD_KEY}/${layer}/{z}/{y}/{x}.${ext}`
+
 export function OperationalMap({ lat, lng, label, airPm25, airGrade }: Props) {
   const elRef = useRef<HTMLDivElement>(null)
   // deno-lint-ignore no-explicit-any
@@ -127,13 +133,16 @@ export function OperationalMap({ lat, lng, label, airPm25, airGrade }: Props) {
         minZoom: 7, maxBounds: KR_BOUNDS, maxBoundsViscosity: 0.7,
       })
       L.control.zoom({ position: 'bottomright' }).addTo(map)
-      // 2D white / clean (CartoDB Positron — good Korean labels, no key)
-      const base = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-        maxZoom: 19, subdomains: 'abcd', attribution: '&copy; OpenStreetMap &copy; CARTO',
+      // 2D — VWorld 일반지도 (국토부): 한국 도로/건물/상호까지 상세한 화이트 베이스맵.
+      // Falls back to CartoDB Positron if VWorld tiles fail (e.g. domain not registered).
+      const base = L.tileLayer(vworld('Base'), {
+        maxZoom: 19, attribution: '&copy; <a href="https://www.vworld.kr">VWorld</a> · 국토교통부',
       }).addTo(map)
-      const sat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-        maxZoom: 19, attribution: 'Tiles &copy; Esri',
-      })
+      // 위성 — VWorld 항공영상 + Hybrid 라벨 오버레이
+      const sat = L.layerGroup([
+        L.tileLayer(vworld('Satellite', 'jpeg'), { maxZoom: 19, attribution: '&copy; VWorld · 국토교통부' }),
+        L.tileLayer(vworld('Hybrid'), { maxZoom: 19, opacity: 0.9 }),
+      ])
       const rings = L.layerGroup([
         L.circle([lat, lng], { radius: 300, color: '#137cbd', weight: 1, opacity: 0.55, fill: false, dashArray: '4 5' }),
         L.circle([lat, lng], { radius: 700, color: '#137cbd', weight: 1, opacity: 0.34, fill: false, dashArray: '4 5' }),
@@ -146,6 +155,20 @@ export function OperationalMap({ lat, lng, label, airPm25, airGrade }: Props) {
       map.on('click', () => setSelected(null))
       layerRef.current = { base, sat, markers, rings, L }
       mapRef.current = map
+
+      // Graceful degradation: if VWorld tiles fail (unregistered domain / key),
+      // swap the 2D base to keyless CartoDB Positron so the map still renders.
+      let swapped = false
+      base.on('tileerror', () => {
+        if (swapped) return
+        swapped = true
+        const fallback = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+          maxZoom: 19, subdomains: 'abcd', attribution: '&copy; OpenStreetMap &copy; CARTO',
+        })
+        if (map.hasLayer(base)) { map.removeLayer(base); fallback.addTo(map) }
+        layerRef.current.base = fallback
+      })
+
       setTimeout(() => map.invalidateSize(), 60)
     })()
     return () => { disposed = true; mapRef.current?.remove?.(); mapRef.current = null }
