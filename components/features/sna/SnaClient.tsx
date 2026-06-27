@@ -541,8 +541,11 @@ export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) 
 
       {/* Control panel */}
       <div className="absolute top-6 left-6 z-10 w-[330px] max-h-[calc(100%-3rem)] overflow-y-auto rounded-[3px] border border-line bg-surface shadow-[var(--shadow-pop)] p-4">
-        <h1 className="text-[15px] font-semibold text-ink tracking-[-0.01em]">SNA 관계망 분석</h1>
-        <p className="text-[11px] text-ink-faint mt-0.5 mb-4 pb-4 border-b border-line">LUMIX Pro 다차원 노드 및 복합 엣지</p>
+        <div className="flex items-center gap-1.5">
+          <h1 className="text-[15px] font-semibold text-ink tracking-[-0.01em]">객체 그래프 · Vertex</h1>
+          <span className="text-[8.5px] font-semibold text-accent-ink bg-accent-soft px-1.5 py-0.5 rounded-[2px] uppercase tracking-wider">Foundry</span>
+        </div>
+        <p className="text-[11px] text-ink-faint mt-0.5 mb-4 pb-4 border-b border-line">온톨로지 객체·링크 · Force-Directed 그래프 탐색</p>
 
         {/* search */}
         <div className="mb-4 pb-4 border-b border-line">
@@ -570,7 +573,7 @@ export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) 
 
         {/* legend */}
         <div className="mb-4 pb-4 border-b border-line">
-          <p className="text-[11px] font-semibold text-ink-faint uppercase tracking-[0.1em] mb-2.5">노드</p>
+          <p className="text-[11px] font-semibold text-ink-faint uppercase tracking-[0.1em] mb-2.5">객체 유형 · Object Types</p>
           <ul className="grid grid-cols-2 gap-y-2 gap-x-2 text-[11.5px] text-ink-soft">
             {LEGEND.map((l) => (
               <li key={l.label} className="flex items-center gap-2">
@@ -581,7 +584,7 @@ export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) 
         </div>
 
         {/* scenarios */}
-        <p className="text-[11px] font-semibold text-ink-faint uppercase tracking-[0.1em] mb-2.5">AI Insights</p>
+        <p className="text-[11px] font-semibold text-ink-faint uppercase tracking-[0.1em] mb-2.5">Vertex 시뮬레이션 · Insights</p>
         <div className="space-y-1.5">
           {SCENARIOS.map((s) => (
             <button key={s.key} onClick={() => runScenario(s.key)}

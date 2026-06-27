@@ -1,11 +1,25 @@
 import type { Metadata } from 'next'
-import { Noto_Sans_KR } from 'next/font/google'
+import { Noto_Sans_KR, Inter, Geist_Mono } from 'next/font/google'
 import './globals.css'
 
 const notoSansKr = Noto_Sans_KR({
   subsets: ['latin'],
   weight: ['300', '400', '500', '600', '700'],
   variable: '--font-noto-sans-kr',
+  display: 'swap',
+})
+
+const inter = Inter({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-inter',
+  display: 'swap',
+})
+
+const geistMono = Geist_Mono({
+  subsets: ['latin'],
+  weight: ['400', '500', '600'],
+  variable: '--font-geist-mono',
   display: 'swap',
 })
 
@@ -20,7 +34,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="ko" className={notoSansKr.variable}>
+    <html lang="ko" className={`${notoSansKr.variable} ${inter.variable} ${geistMono.variable}`}>
       <body>{children}</body>
     </html>
   )

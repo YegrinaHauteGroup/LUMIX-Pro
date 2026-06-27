@@ -5,6 +5,20 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+/**
+ * Guard any thenable (incl. Supabase query builders / functions.invoke) with a
+ * timeout so a hanging network call can never freeze the UI in a loading state.
+ */
+export function withTimeout<T>(p: PromiseLike<T>, ms = 30000, msg = '요청 시간이 초과되었습니다. 네트워크 상태를 확인하세요.'): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error(msg)), ms)
+    Promise.resolve(p).then(
+      (v) => { clearTimeout(t); resolve(v) },
+      (e) => { clearTimeout(t); reject(e) },
+    )
+  })
+}
+
 export function formatDate(dateStr: string): string {
   const date = new Date(dateStr)
   return date.toLocaleDateString('ko-KR', {

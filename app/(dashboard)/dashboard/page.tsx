@@ -6,9 +6,10 @@ import { createClient } from '@/utils/supabase/server'
 import { cookies } from 'next/headers'
 import { Users, BookOpen, CalendarDays, TrendingUp, ArrowRight } from 'lucide-react'
 import Link from 'next/link'
-import { DashboardCharts } from '@/components/features/dashboard/DashboardCharts'
+import { DashboardCharts, AttendanceTrendPanel } from '@/components/features/dashboard/DashboardCharts'
 import { DashboardFeed } from '@/components/features/dashboard/DashboardFeed'
-import { DashboardCalendar } from '@/components/features/dashboard/DashboardCalendar'
+import { DashboardWeekStrip } from '@/components/features/dashboard/DashboardWeekStrip'
+import { OperationalMap } from '@/components/features/dashboard/OperationalMap'
 import { CHILD_STATUS_COLORS, CHILD_STATUS_LABELS, ACTIVITY_TYPE_LABELS, ACTIVITY_TYPE_COLORS } from '@/lib/utils'
 import type { Child, Activity, Class } from '@/lib/types'
 
@@ -18,17 +19,20 @@ export default async function DashboardPage() {
   const centerId = await getCenterId()
 
   const since = new Date(Date.now() - 13 * 864e5).toISOString().slice(0, 10)
-  const [childrenRes, activitiesRes, classesRes, centerRes, attRes, insightsRes, calActRes, careRes] = await Promise.all([
+  const [childrenRes, activitiesRes, classesRes, centerRes, attRes, insightsRes, calActRes, careRes, actAllRes, feedRes] = await Promise.all([
     supabase.from('children').select('*').eq('center_id', centerId ?? '').order('created_at', { ascending: false }),
     supabase.from('activities').select('*, classes(name)').eq('center_id', centerId ?? '').order('created_at', { ascending: false }).limit(10),
     supabase.from('classes').select('*, children(id)').eq('center_id', centerId ?? ''),
-    supabase.from('centers').select('latitude, longitude').eq('id', centerId ?? '').maybeSingle(),
+    supabase.from('centers').select('latitude, longitude, region_name, address, name').eq('id', centerId ?? '').maybeSingle(),
     supabase.from('attendances').select('attendance_date, status').eq('center_id', centerId ?? '').gte('attendance_date', since).is('deleted_at', null),
     supabase.rpc('get_sna_insights', { p_center_id: centerId ?? '' }),
     supabase.from('activities').select('id, title, type, status, activity_date, activity_time').eq('center_id', centerId ?? '').is('deleted_at', null).not('activity_date', 'is', null),
     supabase.from('care_notes').select('id, child_id, content, noted_on, note_type, children(name)').eq('center_id', centerId ?? '').is('deleted_at', null).order('noted_on', { ascending: false }).limit(120),
+    supabase.from('activities').select('type').eq('center_id', centerId ?? '').is('deleted_at', null),
+    supabase.from('dashboard_feeds').select('weather').eq('center_id', centerId ?? '').maybeSingle(),
   ])
   const hasLocation = centerRes.data?.latitude != null && centerRes.data?.longitude != null
+  const air = (feedRes.data?.weather as { air?: { pm25?: number; grade?: string } } | null)?.air ?? null
 
   const children: Child[] = childrenRes.data ?? []
   const activities: Activity[] = activitiesRes.data ?? []
@@ -108,120 +112,150 @@ export default async function DashboardPage() {
     value: (cls.children as { id: string }[] | undefined)?.length ?? 0,
   }))
 
+  // ── merged report metrics ─────────────────────────────────
+  // monthly registration (last 6 months) from children.created_at
+  const monthlyData = Array.from({ length: 6 }).map((_, i) => {
+    const d = new Date(); d.setMonth(d.getMonth() - (5 - i))
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    const count = children.filter((c) => (c.created_at ?? '').slice(0, 7) === key).length
+    return { month: `${d.getMonth() + 1}월`, 등록: count }
+  })
+  // activity-type distribution
+  const actTypeRows = (actAllRes.data ?? []) as { type: Activity['type'] }[]
+  const ACT_LABEL: Record<string, string> = { education: '교육', therapy: '치료', recreation: '레크리에이션', counseling: '상담', other: '기타' }
+  const actTypeMap = new Map<string, number>()
+  actTypeRows.forEach((a) => actTypeMap.set(a.type, (actTypeMap.get(a.type) ?? 0) + 1))
+  const activityTypeData = [...actTypeMap.entries()].map(([k, v]) => ({ name: ACT_LABEL[k] ?? k, value: v }))
+
   return (
     <>
-      <Header title="대시보드" subtitle="시설 현황 한눈에 보기" />
-      <div className="flex-1 p-5 space-y-4">
-        {/* Stats grid */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          {stats.map((stat) => (
-            <div key={stat.label} className="bg-surface border border-line rounded-[3px] shadow-[var(--shadow-card)] px-4 py-3.5">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-[10px] text-ink-faint uppercase tracking-[0.12em] mb-1.5">{stat.label}</p>
-                  <p className="text-2xl font-semibold text-ink tracking-[-0.02em]">{stat.value}</p>
-                  <p className="text-[10px] text-ink-ghost mt-1">{stat.sub}</p>
-                </div>
-                <div className="w-8 h-8 rounded-[3px] bg-accent-soft flex items-center justify-center shrink-0">
-                  <stat.icon size={15} className="text-accent" />
-                </div>
-              </div>
-            </div>
-          ))}
+      <Header title="대시보드" subtitle="작전 지도 · 시설 현황 · 운영 분석 통합" />
+      <div className="flex-1 min-h-0 p-2.5 overflow-hidden flex gap-2.5">
+        {/* LEFT — operational map (hero) over a bottom bar */}
+        <div className="flex-1 min-w-0 flex flex-col gap-2.5 min-h-0">
+          <div className="flex-1 min-h-0">
+            <OperationalMap
+              lat={centerRes.data?.latitude != null ? Number(centerRes.data.latitude) : null}
+              lng={centerRes.data?.longitude != null ? Number(centerRes.data.longitude) : null}
+              label={centerRes.data?.region_name ?? centerRes.data?.name ?? null}
+              airPm25={air?.pm25 ?? null}
+              airGrade={air?.grade ?? null}
+            />
+          </div>
+          {/* Bottom bar (~1/5 height) — does not extend under the right section */}
+          <div className="h-[22%] min-h-[176px] shrink-0 grid grid-cols-2 gap-2.5 pb-0.5">
+            <AttendanceTrendPanel attendanceTrend={attendanceTrend} compact />
+            <DashboardWeekStrip
+              activities={(calActRes.data ?? []) as never[]}
+              careNotes={((careRes.data ?? []) as unknown as { id: string; child_id: string; content: string; noted_on: string; note_type: string; children: { name: string } | null }[])
+                .map((c) => ({ id: c.id, child_id: c.child_id, content: c.content, noted_on: c.noted_on, note_type: c.note_type, child_name: c.children?.name ?? '아동' }))}
+            />
+          </div>
         </div>
 
-        {/* Analytics (top) */}
-        <DashboardCharts
-          genderStats={genderStats}
-          statusStats={statusStats}
-          classStats={classStats}
-          ageStats={ageStats}
-          attendanceTrend={attendanceTrend}
-          snaStats={snaStats}
-        />
-
-        {/* Calendar + location feed (half-width) */}
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 items-start">
-          <DashboardCalendar
-            centerId={centerId ?? ''}
-            initialActivities={(calActRes.data ?? []) as never[]}
-            careNotes={((careRes.data ?? []) as unknown as { id: string; child_id: string; content: string; noted_on: string; note_type: string; children: { name: string } | null }[])
-              .map((c) => ({ id: c.id, child_id: c.child_id, content: c.content, noted_on: c.noted_on, note_type: c.note_type, child_name: c.children?.name ?? '아동' }))}
-          />
+        {/* RIGHT — fixed ~1/3 section, internal vertical scroll: weather, then graphs/cards */}
+        <div className="w-[33%] max-w-[460px] shrink-0 min-h-0 overflow-y-auto pr-0.5 space-y-2.5">
           <DashboardFeed centerId={centerId ?? ''} hasLocation={hasLocation} />
-        </div>
 
-        {/* Bottom row */}
-        <div className="grid grid-cols-2 gap-3">
-          {/* Recent children */}
-          <Card>
-            <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <CardTitle>최근 등록 아동</CardTitle>
-                <Link href="/children" className="text-[10px] text-[#7a8499] hover:text-[#5a6678] flex items-center gap-1 transition-colors uppercase tracking-widest">
-                  전체보기 <ArrowRight size={10} />
-                </Link>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {recentChildren.length === 0 ? (
-                <p className="text-[12px] text-[#aab2c2] py-4 text-center">등록된 아동이 없습니다</p>
-              ) : (
-                <div className="space-y-1">
-                  {recentChildren.map((child) => (
-                    <Link key={child.id} href={`/children/${child.id}`}
-                      className="flex items-center gap-3 px-3 py-2 hover:bg-[#f3f6fb] transition-colors">
-                      <div className="w-6 h-6 bg-[#f1f4f9] border border-[#e6eaf2] flex items-center justify-center shrink-0">
-                        <span className="text-[9px] text-[#7a8499]">{child.name[0]}</span>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[12px] text-[#1c2740] font-medium truncate">{child.name}</p>
-                        <p className="text-[10px] text-[#8a93a6]">
-                          {child.gender === 'male' ? '남' : child.gender === 'female' ? '여' : '기타'}
-                        </p>
-                      </div>
-                      <Badge className={CHILD_STATUS_COLORS[child.status]}>{CHILD_STATUS_LABELS[child.status]}</Badge>
-                    </Link>
-                  ))}
+          {/* KPI mini-tiles */}
+          <div className="grid grid-cols-2 gap-2">
+            {stats.map((stat) => (
+              <div key={stat.label} className="bg-surface border border-line rounded-[3px] shadow-[var(--shadow-card)] px-2.5 py-2 flex items-center gap-2" title={stat.sub}>
+                <div className="w-6 h-6 rounded-[3px] bg-accent-soft flex items-center justify-center shrink-0">
+                  <stat.icon size={12} className="text-accent" />
                 </div>
-              )}
-            </CardContent>
-          </Card>
+                <div className="min-w-0">
+                  <p className="text-[17px] font-semibold text-ink leading-none font-data">{stat.value}</p>
+                  <p className="text-[9px] text-ink-faint truncate mt-0.5">{stat.label}</p>
+                </div>
+              </div>
+            ))}
+          </div>
 
-          {/* Upcoming activities */}
-          <Card>
-            <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <CardTitle>예정된 활동</CardTitle>
-                <Link href="/activities" className="text-[10px] text-[#7a8499] hover:text-[#5a6678] flex items-center gap-1 transition-colors uppercase tracking-widest">
-                  전체보기 <ArrowRight size={10} />
-                </Link>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {upcomingActivities.length === 0 ? (
-                <p className="text-[12px] text-[#aab2c2] py-4 text-center">예정된 활동이 없습니다</p>
-              ) : (
-                <div className="space-y-1">
-                  {upcomingActivities.map((activity) => (
-                    <Link key={activity.id} href="/activities"
-                      className="flex items-center gap-3 px-3 py-2 hover:bg-[#f3f6fb] transition-colors">
-                      <div className={`w-1 h-8 rounded-full ${ACTIVITY_TYPE_COLORS[activity.type]?.split(' ')[1] ?? 'bg-slate-100'}`} />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[12px] text-[#1c2740] font-medium truncate">{activity.title}</p>
-                        <p className="text-[10px] text-[#8a93a6]">
-                          {activity.activity_date ?? '날짜 미정'}{activity.activity_time ? ` · ${activity.activity_time}` : ''}
-                        </p>
-                      </div>
-                      <Badge className={ACTIVITY_TYPE_COLORS[activity.type]}>{ACTIVITY_TYPE_LABELS[activity.type]}</Badge>
+          <DashboardCharts
+            layout="stack"
+            genderStats={genderStats}
+            statusStats={statusStats}
+            classStats={classStats}
+            ageStats={ageStats}
+            attendanceTrend={attendanceTrend}
+            snaStats={snaStats}
+            monthlyData={monthlyData}
+            activityTypeData={activityTypeData}
+          />
+
+          <div className="space-y-2.5">
+
+              {/* Recent children */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <CardTitle>최근 등록 아동</CardTitle>
+                    <Link href="/children" className="text-[10px] text-ink-faint hover:text-accent flex items-center gap-1 transition-colors uppercase tracking-widest">
+                      전체보기 <ArrowRight size={10} />
                     </Link>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                  </div>
+                </CardHeader>
+                <CardContent className="py-2">
+                  {recentChildren.length === 0 ? (
+                    <p className="text-[12px] text-ink-ghost py-4 text-center">등록된 아동이 없습니다</p>
+                  ) : (
+                    <div className="space-y-0.5">
+                      {recentChildren.map((child) => (
+                        <Link key={child.id} href={`/children/${child.id}`}
+                          className="flex items-center gap-3 px-2.5 py-1.5 rounded-[3px] hover:bg-fill transition-colors">
+                          <div className="w-6 h-6 bg-fill-2 border border-line flex items-center justify-center shrink-0 rounded-[2px]">
+                            <span className="text-[9px] text-ink-soft">{child.name[0]}</span>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[12px] text-ink font-medium truncate">{child.name}</p>
+                            <p className="text-[10px] text-ink-faint">
+                              {child.gender === 'male' ? '남' : child.gender === 'female' ? '여' : '기타'}
+                            </p>
+                          </div>
+                          <Badge className={CHILD_STATUS_COLORS[child.status]}>{CHILD_STATUS_LABELS[child.status]}</Badge>
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Upcoming activities */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <CardTitle>예정된 활동</CardTitle>
+                    <Link href="/activities" className="text-[10px] text-ink-faint hover:text-accent flex items-center gap-1 transition-colors uppercase tracking-widest">
+                      전체보기 <ArrowRight size={10} />
+                    </Link>
+                  </div>
+                </CardHeader>
+                <CardContent className="py-2">
+                  {upcomingActivities.length === 0 ? (
+                    <p className="text-[12px] text-ink-ghost py-4 text-center">예정된 활동이 없습니다</p>
+                  ) : (
+                    <div className="space-y-0.5">
+                      {upcomingActivities.map((activity) => (
+                        <Link key={activity.id} href="/activities"
+                          className="flex items-center gap-3 px-2.5 py-1.5 rounded-[3px] hover:bg-fill transition-colors">
+                          <div className={`w-1 h-8 rounded-full ${ACTIVITY_TYPE_COLORS[activity.type]?.split(' ')[0]?.replace('text-', 'bg-') ?? 'bg-ink-ghost'}`} />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[12px] text-ink font-medium truncate">{activity.title}</p>
+                            <p className="text-[10px] text-ink-faint font-data">
+                              {activity.activity_date ?? '날짜 미정'}{activity.activity_time ? ` · ${activity.activity_time}` : ''}
+                            </p>
+                          </div>
+                          <Badge className={ACTIVITY_TYPE_COLORS[activity.type]}>{ACTIVITY_TYPE_LABELS[activity.type]}</Badge>
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </div>
         </div>
-      </div>
     </>
   )
 }

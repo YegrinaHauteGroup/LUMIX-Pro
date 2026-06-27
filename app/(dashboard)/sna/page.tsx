@@ -20,7 +20,7 @@ export default async function SnaPage() {
 
   return (
     <>
-      <Header title="SNA 관계망 분석" subtitle="온톨로지 다차원 노드 · 시나리오 인사이트" />
+      <Header title="객체 그래프 · Vertex" subtitle="온톨로지 Object Graph · Force-Directed 탐색 · 시뮬레이션" />
       <SnaClient
         centerId={cid}
         nodes={(snaData?.nodes as never[]) ?? []}

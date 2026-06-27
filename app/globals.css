@@ -1,5 +1,4 @@
 @import "tailwindcss";
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 @source "../components/**/*.{tsx,ts}";
 @source "../app/**/*.{tsx,ts}";
 
@@ -10,7 +9,11 @@
 + Minjae Kim Where are you?
    ============================================================ */
 @theme {
-  --font-family-sans: "Inter", "Noto Sans KR", "Apple SD Gothic Neo", "AppleGothic", sans-serif;
+  --font-family-sans: var(--font-inter), "Inter", "Noto Sans KR", "Apple SD Gothic Neo", "AppleGothic", sans-serif;
+  --font-sans: var(--font-inter), "Inter", "Noto Sans KR", "Apple SD Gothic Neo", "AppleGothic", sans-serif;
+  /* Data / tables / timestamps — tabular monospace (DBMS feel) */
+  --font-mono: var(--font-geist-mono), "SFMono-Regular", "JetBrains Mono", ui-monospace, monospace;
+  --font-family-mono: var(--font-geist-mono), "SFMono-Regular", "JetBrains Mono", ui-monospace, monospace;
 
   /* Surfaces — Palantir Blueprint light theme */
   --color-canvas: #f5f8fa;       /* pt-app-background */
@@ -81,6 +84,10 @@ html, body {
 }
 
 a { color: inherit; text-decoration: none; }
+
+/* Tabular-numeric data helpers — Foundry/DBMS-style aligned figures */
+.tnum { font-feature-settings: "tnum" 1; font-variant-numeric: tabular-nums; }
+.font-data { font-family: var(--font-family-mono); font-variant-numeric: tabular-nums; letter-spacing: 0; }
 
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track { background: transparent; }

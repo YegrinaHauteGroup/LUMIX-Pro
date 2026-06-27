@@ -70,6 +70,24 @@ async function interactions(sb: SB, center: string) {
     .eq('center_id', center).is('deleted_at', null).gt('weight', 0)
   return (data ?? []) as any[]
 }
+// WHO / standard controlled-vocabulary lookup (code -> { label, meta })
+async function refLabels(sb: SB, domain: string) {
+  const { data } = await sb.from('reference_categories').select('code, label, meta').eq('domain', domain)
+  const m = new Map<string, { label: string; meta: any }>()
+  for (const r of data ?? []) m.set(r.code, { label: r.label, meta: r.meta ?? {} })
+  return m
+}
+// Relationship valence (mirrors recompute_sna_metrics): conflict negative, cooperation/care positive.
+function valence(rt: string, label: string | null): number {
+  const l = label ?? ''
+  if (rt === 'conflict' || /갈등|분쟁|기피|거부|편식|다툼/.test(l)) return -2
+  if (rt === 'caregiving' || /돌봄|보살핌/.test(l)) return 1.6
+  if (rt === 'help_seeking' || /협동|양보|도움|위로|배려|나눔/.test(l)) return 1.5
+  if (/단짝|친밀|모방/.test(l)) return 1.3
+  if (rt === 'play' || /놀이/.test(l)) return 1
+  if (rt === 'communication' || rt === 'proximity' || /선호|소통|근접/.test(l)) return 0.8
+  return 1
+}
 
 async function questIsolation(sb: SB, center: string): Promise<Result> {
   const children = await activeChildren(sb, center)
@@ -261,6 +279,190 @@ async function questSpace(sb: SB, center: string): Promise<Result> {
   }
 }
 
+// ── ontology-aware quests (health_events + WHO vocabularies + SNA) ──────────
+// Epidemiological exposure: contagious symptom carriers propagate risk to
+// classmates and play/proximity neighbours within a 7-day window (WHO IMCI).
+async function questContagion(sb: SB, center: string): Promise<Result> {
+  const children = await activeChildren(sb, center)
+  const byId = new Map(children.map((c) => [c.id, c]))
+  const symLabels = await refLabels(sb, 'symptom')
+  const since = new Date(Date.now() - 7 * 864e5).toISOString().slice(0, 10)
+  const { data: ev } = await sb.from('health_events')
+    .select('child_id, domain, code, label, severity, event_date, contagious, status')
+    .eq('center_id', center).is('deleted_at', null).gte('event_date', since)
+  const sources = (ev ?? []).filter((e: any) => e.status !== 'resolved' &&
+    (e.contagious || (e.domain === 'symptom' && symLabels.get(e.code)?.meta?.contagious) ||
+     (e.domain === 'icd11_category' && symLabels.size >= 0 && e.code === 'INFECTIOUS')))
+  const edges = (await interactions(sb, center)).filter((e: any) => e.source_kind === 'child' && e.target_kind === 'child')
+  const exposure = new Map<string, { paths: Set<string>; symptoms: Set<string>; src: Set<string>; sev: number }>()
+  for (const s of sources) {
+    const sc = byId.get(s.child_id); if (!sc) continue
+    const symLabel = symLabels.get(s.code)?.label ?? s.label ?? '전염성 증상'
+    const sevW = s.severity === 'severe' ? 3 : s.severity === 'moderate' ? 2 : 1
+    const classmates = children.filter((c) => c.id !== s.child_id && c.class_id && c.class_id === sc.class_id).map((c) => c.id)
+    const neigh = edges.filter((e: any) => e.relation_type === 'play' || e.relation_type === 'proximity')
+      .filter((e: any) => e.source_id === s.child_id || e.target_id === s.child_id)
+      .map((e: any) => (e.source_id === s.child_id ? e.target_id : e.source_id))
+    const classSet = new Set(classmates)
+    for (const pid of new Set<string>([...classmates, ...neigh])) {
+      if (!byId.has(pid)) continue
+      const rec = exposure.get(pid) ?? { paths: new Set(), symptoms: new Set(), src: new Set(), sev: 0 }
+      rec.paths.add(classSet.has(pid) ? '동일 반' : '또래 접촉')
+      rec.symptoms.add(symLabel); rec.src.add(sc.name); rec.sev += sevW
+      exposure.set(pid, rec)
+    }
+  }
+  const rows: Row[] = [...exposure.entries()].map(([pid, rec]) => {
+    const score = rec.src.size * 2 + rec.paths.size + rec.sev
+    return { primary: byId.get(pid)!.name, secondary: `노출 경로 ${[...rec.paths].join('·')} · 감염원 ${[...rec.src].join(', ')} · 증상 ${[...rec.symptoms].join(', ')}`, tag: score >= 6 ? '높음' : '주의', _s: score }
+  }).sort((a, b) => (b as any)._s - (a as any)._s).map(({ _s, ...r }: any) => r)
+  return {
+    headline: rows.length ? `${rows.length}명이 전염성 증상 노출 경로에 있습니다 (WHO IMCI 7일 잠복 기준).` : '최근 7일 전염성 증상 노출 경로가 없습니다.',
+    stats: [{ label: '감염원', value: sources.length }, { label: '노출 위험', value: rows.length }, { label: '고위험', value: rows.filter((r) => r.tag === '높음').length }],
+    rows,
+  }
+}
+
+// Allergen safety: coded allergens (Codex/WHO) cross-referenced with food edges.
+async function questAllergySafety(sb: SB, center: string): Promise<Result> {
+  const children = await activeChildren(sb, center)
+  const name = new Map(children.map((c) => [c.id, c.name]))
+  const allergen = await refLabels(sb, 'allergen_class')
+  const { data: hp } = await sb.from('health_profiles')
+    .select('child_id, allergen_codes, allergies').eq('center_id', center).is('deleted_at', null)
+  const ints = await interactions(sb, center)
+  const foodLinks = ints.filter((e: any) => (e.source_kind === 'food' || e.target_kind === 'food'))
+  const rows: Row[] = []
+  let coded = 0, foodConflicts = 0
+  for (const r of hp ?? []) {
+    if (!name.has(r.child_id)) continue
+    const codes = (r.allergen_codes ?? []) as string[]
+    const free = (r.allergies ?? '').trim()
+    if (codes.length === 0 && !free) continue
+    if (codes.length) coded++
+    const labels = codes.map((c) => allergen.get(c)?.label ?? c)
+    const groups = new Set(codes.map((c) => allergen.get(c)?.meta?.group ?? 'other'))
+    const linked = foodLinks.some((e: any) => e.source_id === r.child_id || e.target_id === r.child_id)
+    if (linked && groups.has('food')) foodConflicts++
+    rows.push({
+      primary: name.get(r.child_id)!,
+      secondary: `표준 알레르겐: ${labels.length ? labels.join(', ') : '(미코딩)'}${free ? ` · 비고 ${free}` : ''}${linked ? ' · 급식 연결 감지' : ''}`,
+      tag: linked && groups.has('food') ? '식단주의' : groups.has('medication') ? '투약주의' : '관리',
+    })
+  }
+  return {
+    headline: rows.length ? `${rows.length}명의 알레르기 관리 대상 (Codex/WHO 주요 알레르겐 기준).` : '등록된 알레르기 정보가 없습니다.',
+    stats: [{ label: '관리 대상', value: rows.length }, { label: '표준 코딩', value: coded }, { label: '급식 충돌', value: foodConflicts }],
+    rows,
+  }
+}
+
+// Developmental support screening (WHO ICF-CY domains).
+async function questDevelopmental(sb: SB, center: string): Promise<Result> {
+  const children = await activeChildren(sb, center)
+  const name = new Map(children.map((c) => [c.id, c.name]))
+  const dom = await refLabels(sb, 'developmental_domain')
+  const { data: ev } = await sb.from('health_events')
+    .select('child_id, domain, code, label, severity, status')
+    .eq('center_id', center).is('deleted_at', null).eq('kind', 'screening')
+  const rows: Row[] = []
+  for (const e of ev ?? []) {
+    if (e.domain !== 'developmental_domain' || !name.has(e.child_id) || e.severity === 'mild') continue
+    rows.push({ primary: name.get(e.child_id)!, secondary: `${dom.get(e.code)?.label ?? e.label ?? '발달 영역'} · 지원 필요 (${e.severity === 'severe' ? '높음' : '중간'})`, tag: e.severity === 'severe' ? '높음' : '주의' })
+  }
+  return {
+    headline: rows.length ? `${rows.length}건의 발달 지원 권고 (WHO ICF-CY 기준).` : '발달 선별 결과 지원 권고가 없습니다.',
+    stats: [{ label: '선별 기록', value: (ev ?? []).length }, { label: '지원 권고', value: rows.length }],
+    rows,
+  }
+}
+
+// Hub-node collapse simulation: remove the top betweenness "mediator", measure
+// how the positive-tie graph fragments, extract children at isolation risk, and
+// auto-issue ontology-Action-based Bridge-Building quests.
+async function questHubCollapse(sb: SB, center: string): Promise<Result> {
+  const children = await activeChildren(sb, center)
+  const byId = new Map(children.map((c) => [c.id, c]))
+  const metrics = await latestMetrics(sb, center)
+  const ints = await interactions(sb, center)
+
+  // net signed strength per undirected child-child pair → positive adjacency
+  const net = new Map<string, number>()
+  for (const e of ints) {
+    if (e.source_kind !== 'child' || e.target_kind !== 'child') continue
+    if (!byId.has(e.source_id) || !byId.has(e.target_id)) continue
+    const [a, b] = [e.source_id, e.target_id].sort()
+    net.set(`${a}|${b}`, (net.get(`${a}|${b}`) ?? 0) + Number(e.weight) * valence(e.relation_type, e.label))
+  }
+  const adj = new Map<string, Set<string>>()
+  const link = (a: string, b: string) => { if (!adj.has(a)) adj.set(a, new Set()); adj.get(a)!.add(b) }
+  for (const [k, v] of net) { if (v > 0) { const [a, b] = k.split('|'); link(a, b); link(b, a) } }
+
+  // pick the mediator hub: highest betweenness among connected children
+  let hub: { id: string; name: string } | null = null, hubB = -1
+  for (const c of children) {
+    const b = metrics.get(c.id)?.betweenness ?? 0
+    if ((adj.get(c.id)?.size ?? 0) >= 2 && b > hubB) { hubB = b; hub = c }
+  }
+  if (!hub) return { headline: '중재자 허브를 식별할 데이터가 부족합니다. 또래 관계를 더 입력하세요.', stats: [{ label: '분석 아동', value: children.length }], rows: [] }
+  const hubId = hub.id
+
+  const components = (excluded: string | null) => {
+    const comp = new Map<string, number>(); let cid = 0
+    for (const c of children) {
+      if (c.id === excluded || comp.has(c.id)) continue
+      const q = [c.id]; comp.set(c.id, cid)
+      while (q.length) {
+        const x = q.shift()!
+        for (const y of adj.get(x) ?? []) { if (y === excluded || comp.has(y)) continue; comp.set(y, cid); q.push(y) }
+      }
+      cid++
+    }
+    return comp
+  }
+  const baseCount = new Set(components(null).values()).size
+  const cutComp = components(hubId)
+  const cutCount = new Set(cutComp.values()).size
+  const sizeOf = new Map<number, number>()
+  for (const v of cutComp.values()) sizeOf.set(v, (sizeOf.get(v) ?? 0) + 1)
+
+  const neighbors = [...(adj.get(hubId) ?? [])]
+  const atRisk = neighbors.map((m) => {
+    const origDeg = adj.get(m)?.size ?? 0
+    const remDeg = origDeg - 1
+    const myComp = cutComp.get(m)
+    const mySize = myComp != null ? (sizeOf.get(myComp) ?? 1) : 1
+    let risk: number
+    if (remDeg <= 0) risk = 92
+    else if (mySize <= 2) risk = 72
+    else risk = Math.min(60, Math.round(100 * (1 - remDeg / Math.max(origDeg, 1))))
+    return { id: m, risk }
+  }).filter((r) => r.risk >= 30).sort((a, b) => b.risk - a.risk)
+
+  const rows: Row[] = atRisk.map((r) => ({
+    primary: byId.get(r.id)!.name,
+    secondary: `${hub!.name} 부재 시 고립 위험도 ${r.risk}%`,
+    tag: r.risk >= 70 ? '높음' : '주의',
+  }))
+
+  // Bridge-Building quests (ontology Action): pair each at-risk child with a
+  // well-connected child in a different remaining cluster.
+  const connectors = children.filter((c) => c.id !== hubId)
+    .map((c) => ({ c, deg: adj.get(c.id)?.size ?? 0 })).sort((a, b) => b.deg - a.deg)
+  for (const r of atRisk.slice(0, 5)) {
+    const m = byId.get(r.id)!
+    const cand = connectors.find((x) => x.c.id !== r.id && x.deg >= 2 && cutComp.get(x.c.id) !== cutComp.get(r.id) && !(adj.get(r.id)?.has(x.c.id)))
+      ?? connectors.find((x) => x.c.id !== r.id && x.deg >= 2 && !(adj.get(r.id)?.has(x.c.id)) && x.c.id !== hubId)
+    if (cand) rows.push({ primary: `${m.name} ⇄ ${cand.c.name}`, secondary: '같은 블록놀이 조 편성 — 사회성 결속 퀘스트(Bridge Building)', tag: '결속퀘스트' })
+  }
+
+  return {
+    headline: `중재자 허브 '${hub.name}' 부재 시 관계망이 ${baseCount}→${cutCount}개로 분열, ${atRisk.length}명이 고립 위험에 노출됩니다.`,
+    stats: [{ label: '중재자 허브', value: hub.name }, { label: '컴포넌트', value: `${baseCount}→${cutCount}` }, { label: '고립 위험', value: atRisk.length }],
+    rows,
+  }
+}
+
 const RUNNERS: Record<string, (sb: SB, c: string) => Promise<Result>> = {
   isolation_risk: questIsolation,
   tutor_matching: questTutor,
@@ -269,6 +471,10 @@ const RUNNERS: Record<string, (sb: SB, c: string) => Promise<Result>> = {
   allergy_diet: questAllergy,
   achievement_gap: questAchievement,
   space_preference: questSpace,
+  health_contagion: questContagion,
+  allergy_safety: questAllergySafety,
+  developmental_support: questDevelopmental,
+  hub_collapse: questHubCollapse,
 }
 
 Deno.serve(async (req) => {

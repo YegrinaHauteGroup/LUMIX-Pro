@@ -8,9 +8,13 @@ import {
   ACTIVITY_STATUS_COLORS, ACTIVITY_STATUS_LABELS, ACTIVITY_TYPE_COLORS,
   CHILD_STATUS_COLORS, CHILD_STATUS_LABELS, GENDER_LABELS, calculateAge, formatDate,
 } from '@/lib/utils'
-import type { Activity, Child, Class, ChildGuardian, HealthProfile } from '@/lib/types'
+import type { Activity, Child, Class, ChildGuardian, HealthProfile, HealthEvent } from '@/lib/types'
+import {
+  BLOOD_TYPES, ALLERGEN_CLASSES, ICD11_CATEGORIES,
+  HEALTH_EVENT_KINDS, SEVERITY, CATALOG_BY_DOMAIN, labelOf, isContagious,
+} from '@/lib/ontology'
 import { createClient } from '@/utils/supabase/client'
-import { ArrowLeft, Plus, Save, Trash2 } from 'lucide-react'
+import { Activity as ActivityIcon, AlertTriangle, ArrowLeft, Plus, Save, Trash2 } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useMemo, useState } from 'react'
@@ -26,6 +30,7 @@ interface Props {
   links: ChildGuardian[]
   guardians: Guardian[]
   recentActivities: Activity[]
+  healthEvents: HealthEvent[]
 }
 
 type Tab = 'basic' | 'health' | 'family' | 'dev'
@@ -38,7 +43,7 @@ const TABS: { key: Tab; label: string }[] = [
 
 const RELATIONSHIP_OPTIONS = ['부', '모', '조부', '조모', '형제', '자매', '친척', '기타']
 
-export function ChildDetailClient({ child, centerId, classes, staff, health, links, guardians, recentActivities }: Props) {
+export function ChildDetailClient({ child, centerId, classes, staff, health, links, guardians, recentActivities, healthEvents }: Props) {
   const router = useRouter()
   const supabase = useMemo(() => createClient(), [])
   const [tab, setTab] = useState<Tab>('basic')
@@ -77,7 +82,17 @@ export function ChildDetailClient({ child, centerId, classes, staff, health, lin
     allergies: health?.allergies ?? '',
     medications: health?.medications ?? '',
     conditions: health?.conditions ?? '',
+    allergen_codes: (health?.allergen_codes ?? []) as string[],
+    chronic_condition_codes: (health?.chronic_condition_codes ?? []) as string[],
   })
+  const toggleCode = (key: 'allergen_codes' | 'chronic_condition_codes', code: string) =>
+    setHp((h) => ({ ...h, [key]: h[key].includes(code) ? h[key].filter((c) => c !== code) : [...h[key], code] }))
+
+  // WHO-coded health events
+  const [events, setEvents] = useState<HealthEvent[]>(healthEvents)
+  const [ev, setEv] = useState({ kind: 'symptom', code: '', severity: 'mild', event_date: new Date().toISOString().slice(0, 10), note: '' })
+  const evDomain = HEALTH_EVENT_KINDS.find((k) => k.code === ev.kind)?.domain ?? 'symptom'
+  const evOptions = CATALOG_BY_DOMAIN[evDomain] ?? []
 
   function set<K extends keyof typeof form>(k: K, v: (typeof form)[K]) { setForm((f) => ({ ...f, [k]: v })) }
 
@@ -119,7 +134,10 @@ export function ChildDetailClient({ child, centerId, classes, staff, health, lin
 
   async function saveHealth() {
     setSaving(true); setMsg(null)
-    const payload = { allergies: hp.allergies || null, medications: hp.medications || null, conditions: hp.conditions || null }
+    const payload = {
+      allergies: hp.allergies || null, medications: hp.medications || null, conditions: hp.conditions || null,
+      allergen_codes: hp.allergen_codes, chronic_condition_codes: hp.chronic_condition_codes,
+    }
     let error
     if (health?.id) {
       ({ error } = await supabase.from('health_profiles').update(payload).eq('id', health.id))
@@ -131,10 +149,36 @@ export function ChildDetailClient({ child, centerId, classes, staff, health, lin
     setMsg({ kind: 'ok', text: '건강 정보가 저장되었습니다.' }); router.refresh()
   }
 
+  async function addEvent() {
+    if (!ev.code) { setMsg({ kind: 'err', text: '항목을 선택하세요.' }); return }
+    setSaving(true); setMsg(null)
+    const label = labelOf(evDomain, ev.code)
+    const contagious = evDomain === 'symptom' ? isContagious('symptom', ev.code) : (evDomain === 'icd11_category' && ev.code === 'INFECTIOUS')
+    const { data, error } = await supabase.from('health_events').insert({
+      center_id: centerId, child_id: child.id, event_date: ev.event_date, kind: ev.kind,
+      domain: evDomain, code: ev.code, label, severity: ev.severity, contagious, note: ev.note || null,
+    }).select('id, event_date, kind, domain, code, label, severity, status, contagious, note').single()
+    setSaving(false)
+    if (error) { setMsg({ kind: 'err', text: `이벤트 저장 실패: ${error.message}` }); return }
+    setEvents((e) => [data as HealthEvent, ...e])
+    setEv((s) => ({ ...s, code: '', note: '' }))
+    setMsg({ kind: 'ok', text: '건강 이벤트가 기록되었습니다.' })
+  }
+
+  async function toggleResolve(id: string, status: 'active' | 'resolved') {
+    const next = status === 'active' ? 'resolved' : 'active'
+    await supabase.from('health_events').update({ status: next, resolved_on: next === 'resolved' ? new Date().toISOString().slice(0, 10) : null }).eq('id', id)
+    setEvents((e) => e.map((x) => x.id === id ? { ...x, status: next } : x))
+  }
+  async function removeEvent(id: string) {
+    await supabase.from('health_events').update({ deleted_at: new Date().toISOString() }).eq('id', id)
+    setEvents((e) => e.filter((x) => x.id !== id))
+  }
+
   const age = child.birth_date ? `${calculateAge(child.birth_date)}세` : '나이 미등록'
 
   return (
-    <div className="flex-1 p-5 w-full space-y-5 overflow-auto">
+    <div className="flex-1 min-h-0 p-5 w-full space-y-5 overflow-auto">
       <div className="flex items-center justify-between">
         <Link href="/children" className="inline-flex items-center gap-1.5 text-sm text-ink-soft hover:text-ink transition-colors">
           <ArrowLeft size={14} /> 아동 목록으로
@@ -249,16 +293,69 @@ export function ChildDetailClient({ child, centerId, classes, staff, health, lin
                 <div className="grid grid-cols-3 gap-3">
                   <Input label="키 (cm)" type="number" value={form.height_cm} onChange={(e) => set('height_cm', e.target.value)} />
                   <Input label="몸무게 (kg)" type="number" value={form.weight_kg} onChange={(e) => set('weight_kg', e.target.value)} />
-                  <Input label="혈액형" value={form.blood_type} onChange={(e) => set('blood_type', e.target.value)} placeholder="A / B / O / AB" />
+                  <Select label="혈액형 (ISBT ABO/Rh)" value={form.blood_type} onChange={(e) => set('blood_type', e.target.value)}>
+                    <option value="">미등록</option>
+                    {BLOOD_TYPES.map((b) => <option key={b.code} value={b.code}>{b.label}</option>)}
+                  </Select>
                 </div>
                 <Textarea label="식이 특이사항" rows={2} value={form.dietary_notes} onChange={(e) => set('dietary_notes', e.target.value)} placeholder="편식, 식사 보조 필요 등" />
                 <SaveBar saving={saving} onSave={saveChild} label="신체 정보 저장" />
-                <div className="border-t border-line pt-4 space-y-4">
-                  <p className="text-[11px] font-semibold text-ink-faint uppercase tracking-[0.08em]">건강 기록</p>
-                  <Textarea label="알레르기" rows={2} value={hp.allergies} onChange={(e) => setHp((h) => ({ ...h, allergies: e.target.value }))} placeholder="예: 땅콩, 우유" />
+
+                {/* Coded allergens (Codex/WHO) */}
+                <div className="border-t border-line pt-4 space-y-3">
+                  <p className="text-[11px] font-semibold text-ink-faint uppercase tracking-[0.08em]">표준 알레르겐 · Codex/WHO</p>
+                  <ChipSelect items={ALLERGEN_CLASSES} selected={hp.allergen_codes} onToggle={(c) => toggleCode('allergen_codes', c)} />
+                  <p className="text-[11px] font-semibold text-ink-faint uppercase tracking-[0.08em] pt-1">기저 질환 분류 · WHO ICD-11</p>
+                  <ChipSelect items={ICD11_CATEGORIES} selected={hp.chronic_condition_codes} onToggle={(c) => toggleCode('chronic_condition_codes', c)} />
+                  <Textarea label="알레르기 비고 (자유 기술)" rows={2} value={hp.allergies} onChange={(e) => setHp((h) => ({ ...h, allergies: e.target.value }))} placeholder="예: 견과류 미량에도 반응" />
                   <Textarea label="복용 약물" rows={2} value={hp.medications} onChange={(e) => setHp((h) => ({ ...h, medications: e.target.value }))} />
-                  <Textarea label="기저 질환 / 특이사항" rows={2} value={hp.conditions} onChange={(e) => setHp((h) => ({ ...h, conditions: e.target.value }))} />
-                  <SaveBar saving={saving} onSave={saveHealth} label="건강 기록 저장" />
+                  <Textarea label="기타 특이사항" rows={2} value={hp.conditions} onChange={(e) => setHp((h) => ({ ...h, conditions: e.target.value }))} />
+                  <SaveBar saving={saving} onSave={saveHealth} label="건강 프로필 저장" />
+                </div>
+
+                {/* WHO-coded health events */}
+                <div className="border-t border-line pt-4 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <ActivityIcon size={14} className="text-danger" />
+                    <p className="text-[11px] font-semibold text-ink-faint uppercase tracking-[0.08em]">건강 이벤트 · WHO 코드 기반 (SNA 추론 연계)</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Select label="유형" value={ev.kind} onChange={(e) => setEv((s) => ({ ...s, kind: e.target.value, code: '' }))}>
+                      {HEALTH_EVENT_KINDS.map((k) => <option key={k.code} value={k.code}>{k.label} · {k.standard}</option>)}
+                    </Select>
+                    <Select label="항목" value={ev.code} onChange={(e) => setEv((s) => ({ ...s, code: e.target.value }))}>
+                      <option value="">선택…</option>
+                      {evOptions.map((o) => <option key={o.code} value={o.code}>{o.label}</option>)}
+                    </Select>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3">
+                    <Select label="중증도" value={ev.severity} onChange={(e) => setEv((s) => ({ ...s, severity: e.target.value }))}>
+                      {SEVERITY.map((s) => <option key={s.code} value={s.code}>{s.label}</option>)}
+                    </Select>
+                    <Input label="발생일" type="date" value={ev.event_date} onChange={(e) => setEv((s) => ({ ...s, event_date: e.target.value }))} />
+                    <div className="flex items-end"><Button className="w-full" loading={saving} onClick={addEvent}><Plus size={13} /> 기록</Button></div>
+                  </div>
+                  {events.length === 0 ? (
+                    <p className="text-[12px] text-ink-ghost py-2">기록된 건강 이벤트가 없습니다.</p>
+                  ) : (
+                    <div className="border border-line rounded-[3px] divide-y divide-[color:var(--color-line)] max-h-64 overflow-y-auto">
+                      {events.map((e) => (
+                        <div key={e.id} className="flex items-center gap-2 px-3 py-2">
+                          <span className="text-[11px] text-ink-faint font-data tabular-nums w-[72px] shrink-0">{e.event_date}</span>
+                          <span className="text-[12px] text-ink font-medium flex-1 min-w-0 truncate">{e.label ?? e.code}</span>
+                          {e.contagious && <span title="전염성"><AlertTriangle size={12} className="text-danger shrink-0" /></span>}
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded-[2px] shrink-0 ${e.severity === 'severe' ? 'text-danger bg-danger-soft' : e.severity === 'moderate' ? 'text-warn bg-warn-soft' : 'text-ink-soft bg-fill'}`}>
+                            {SEVERITY.find((s) => s.code === e.severity)?.label}
+                          </span>
+                          <button onClick={() => toggleResolve(e.id, e.status)} title={e.status === 'active' ? '해소 처리' : '재개'}
+                            className={`text-[10px] px-1.5 py-0.5 rounded-[2px] shrink-0 ${e.status === 'resolved' ? 'text-[color:var(--color-success)] bg-success-soft' : 'text-info bg-info-soft'}`}>
+                            {e.status === 'resolved' ? '해소' : '진행'}
+                          </button>
+                          <button onClick={() => removeEvent(e.id)} className="text-ink-ghost hover:text-danger shrink-0"><Trash2 size={12} /></button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </>
             )}
@@ -310,6 +407,23 @@ function SaveBar({ saving, onSave, label = '저장' }: { saving: boolean; onSave
   return (
     <div className="flex justify-end pt-1">
       <Button onClick={onSave} loading={saving}><Save size={14} /> {label}</Button>
+    </div>
+  )
+}
+
+function ChipSelect({ items, selected, onToggle }: { items: { code: string; label: string }[]; selected: string[]; onToggle: (code: string) => void }) {
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {items.map((it) => {
+        const on = selected.includes(it.code)
+        return (
+          <button key={it.code} type="button" onClick={() => onToggle(it.code)}
+            className={'text-[11.5px] px-2 py-1 rounded-[3px] border transition-colors ' +
+              (on ? 'bg-accent-soft border-accent text-accent-ink font-medium' : 'bg-surface border-line text-ink-soft hover:bg-fill')}>
+            {it.label}
+          </button>
+        )
+      })}
     </div>
   )
 }

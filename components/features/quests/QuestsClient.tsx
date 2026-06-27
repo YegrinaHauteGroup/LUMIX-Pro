@@ -1,9 +1,9 @@
 'use client'
 
 import { createClient } from '@/utils/supabase/client'
+import { withTimeout } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
-import { useRouter } from 'next/navigation'
 import { Database, Filter, FlaskConical, Play, BarChart3, ChevronRight, Trash2 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { PipelineCanvas } from './PipelineCanvas'
@@ -34,6 +34,10 @@ const CATALOG: { type: string; title: string; desc: string }[] = [
   { type: 'allergy_diet', title: '알레르기·식단 관리', desc: '알레르기 정보와 식재료 엣지를 교차해 식단 충돌을 점검합니다.' },
   { type: 'achievement_gap', title: '학습 성취 보충 분석', desc: '성취 영역 엣지에서 보충 지도가 필요한 신호를 모읍니다.' },
   { type: 'space_preference', title: '공간 선호·기피 분석', desc: '공간별 선호/기피 분포로 환경 재설계 포인트를 찾습니다.' },
+  { type: 'health_contagion', title: '전염성 질환 확산 분석 · WHO IMCI', desc: 'WHO IMCI 증상 기록과 SNA 근접·반 구조를 결합해 7일 잠복 기준 노출 위험 아동을 도출합니다.' },
+  { type: 'allergy_safety', title: '알레르겐 안전 점검 · Codex/WHO', desc: 'Codex/WHO 주요 알레르겐 코드와 급식 식재료 연결을 교차해 식단·투약 충돌을 점검합니다.' },
+  { type: 'developmental_support', title: '발달 지원 선별 · WHO ICF-CY', desc: 'WHO ICF-CY 발달 영역 선별 기록에서 지원이 필요한 아동을 선별합니다.' },
+  { type: 'hub_collapse', title: '허브 붕괴 시뮬레이션 · 결속 퀘스트', desc: '매개 중심성 최상위 중재자 아동 부재 시 관계망 분열을 시뮬레이션해 고립 위험 아동을 추출하고 사회성 결속(Bridge Building) 퀘스트를 자동 발행합니다.' },
 ]
 const SENS: Record<string, { label: string; factor: number }> = {
   low: { label: '보수적', factor: 0.7 }, normal: { label: '표준', factor: 1 }, high: { label: '민감', factor: 1.3 },
@@ -52,7 +56,6 @@ const TAG_STYLE = (tag?: string) => {
 
 export function QuestsClient({ centerId, initialQuests, insights, classes, staffCount, entityCount }: Props) {
   const supabase = useMemo(() => createClient(), [])
-  const router = useRouter()
   const [quests, setQuests] = useState<Quest[]>(initialQuests)
   const [type, setType] = useState(CATALOG[0].type)
   const [scope, setScope] = useState('ALL')
@@ -88,33 +91,43 @@ export function QuestsClient({ centerId, initialQuests, insights, classes, staff
         estimate = ins.entities?.space ?? 0; label = '분석 공간'; note = '공간 노드 선호/기피 분포'; break
       case 'attendance_summary':
         estimate = Math.round(pool * 0.15 * SENS[sensitivity].factor); label = '예상 관리 대상'; note = '최근 30일 결석률 기반 추정'; break
+      case 'health_contagion':
+        estimate = Math.round(pool * 0.1 * f); label = '예상 노출 위험'; note = 'WHO IMCI 증상 + SNA 근접 (실행 시 건강 이벤트로 정밀 산출)'; break
+      case 'allergy_safety':
+        estimate = Math.round((ins.allergy_children?.length ?? 0) * scopeFactor); label = '관리 대상'; note = 'Codex/WHO 알레르겐 코드 기반'; break
+      case 'developmental_support':
+        estimate = Math.round(pool * 0.12 * SENS[sensitivity].factor); label = '지원 권고'; note = 'WHO ICF-CY 발달 선별 기록'; break
+      case 'hub_collapse':
+        estimate = Math.round((ins.summary?.isolated ?? 0) + pool * 0.05); label = '예상 고립 위험'; note = '허브 부재 시 매개 중심성 기반 네트워크 분열 시뮬레이션'; break
     }
     setSim({ pool, estimate, label, note })
   }
 
   async function execute() {
-    if (!centerId) return
+    if (!centerId || running) return
     setRunning(true); setMsg(null)
     const finalTitle = title.trim() || `${selected.title} · ${scopeName}`
     const params = { class_id: scope === 'ALL' ? null : scope, scope_name: scopeName, sensitivity }
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      const { data: inserted, error: insErr } = await supabase.from('analysis_quests')
+      const { data: { user } } = await withTimeout(supabase.auth.getUser(), 15000)
+      const { data: inserted, error: insErr } = await withTimeout(supabase.from('analysis_quests')
         .insert({ center_id: centerId, title: finalTitle, quest_type: type, params, status: 'pending', created_by: user?.id ?? null })
-        .select('id, title, quest_type, params, status, result, error, created_at, updated_at').single()
+        .select('id, title, quest_type, params, status, result, error, created_at, updated_at').single(), 15000)
       if (insErr || !inserted) throw new Error(insErr?.message ?? '퀘스트 생성 실패')
       setQuests((q) => [inserted as Quest, ...q])
-      const { error: fnErr } = await supabase.functions.invoke('run_quest', { body: { center_id: centerId, quest_id: inserted.id } })
+      const { error: fnErr } = await withTimeout(supabase.functions.invoke('run_quest', { body: { center_id: centerId, quest_id: inserted.id } }), 45000)
       if (fnErr) throw new Error(fnErr.message)
-      const { data: refreshed } = await supabase.from('analysis_quests')
-        .select('id, title, quest_type, params, status, result, error, created_at, updated_at').eq('id', inserted.id).single()
+      const { data: refreshed } = await withTimeout(supabase.from('analysis_quests')
+        .select('id, title, quest_type, params, status, result, error, created_at, updated_at').eq('id', inserted.id).single(), 15000)
       if (refreshed) setQuests((q) => q.map((x) => x.id === refreshed.id ? (refreshed as Quest) : x))
       setMsg({ type: 'success', text: '파이프라인 실행이 완료되어 결과가 저장되었습니다.' })
       setTitle('')
     } catch (e) {
       setMsg({ type: 'error', text: (e as Error).message })
     } finally {
-      setRunning(false); router.refresh()
+      // No router.refresh(): results are applied optimistically; refreshing here
+      // re-runs the heavy SNA insights query and stalls the UI after each run.
+      setRunning(false)
     }
   }
 
@@ -132,33 +145,33 @@ export function QuestsClient({ centerId, initialQuests, insights, classes, staff
   ]
 
   return (
-    <div className="flex-1 p-5 w-full space-y-4 overflow-auto">
-      {/* Interactive pipeline canvas */}
-      <PipelineCanvas
-        centerId={centerId} classes={classes} insights={insights}
-        staffCount={staffCount} entityCount={entityCount}
-        onResult={(q) => setQuests((prev) => [q as unknown as Quest, ...prev.filter((x) => x.id !== q.id)])}
-      />
+    <div className="flex-1 min-h-0 p-4 w-full flex gap-4 overflow-hidden">
+      {/* LEFT — interactive pipeline canvas + configuration */}
+      <div className="flex-1 min-w-0 flex flex-col gap-3 min-h-0 overflow-y-auto pr-1">
+        <PipelineCanvas
+          centerId={centerId} classes={classes} insights={insights}
+          staffCount={staffCount} entityCount={entityCount}
+          onResult={(q) => setQuests((prev) => [q as unknown as Quest, ...prev.filter((x) => x.id !== q.id)])}
+        />
 
-      {/* Pipeline summary strip */}
-      <div className="flex items-stretch gap-0 overflow-x-auto pb-1">
-        {STAGES.map((s, i) => (
-          <div key={s.title} className="flex items-center shrink-0">
-            <div className="w-[210px] bg-surface border border-line rounded-[3px] shadow-[var(--shadow-card)] px-3.5 py-3">
-              <div className="flex items-center gap-2 mb-1.5">
-                <s.icon size={14} className="text-accent" />
-                <span className="text-[11px] font-semibold text-ink uppercase tracking-wider">{s.title}</span>
+        {/* Pipeline summary strip */}
+        <div className="flex items-stretch gap-0 overflow-x-auto pb-1 shrink-0">
+          {STAGES.map((s, i) => (
+            <div key={s.title} className="flex items-center shrink-0">
+              <div className="w-[200px] bg-surface border border-line rounded-[3px] shadow-[var(--shadow-card)] px-3.5 py-2.5">
+                <div className="flex items-center gap-2 mb-1">
+                  <s.icon size={14} className="text-accent" />
+                  <span className="text-[11px] font-semibold text-ink uppercase tracking-wider">{s.title}</span>
+                </div>
+                <p className="text-[11px] text-ink-soft leading-snug">{s.body}</p>
               </div>
-              <p className="text-[11px] text-ink-soft leading-snug">{s.body}</p>
+              {i < STAGES.length - 1 && <ChevronRight size={16} className="text-ink-ghost mx-1 shrink-0" />}
             </div>
-            {i < STAGES.length - 1 && <ChevronRight size={16} className="text-ink-ghost mx-1 shrink-0" />}
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
 
-      <div className="grid grid-cols-[380px_1fr] gap-4">
-        {/* Config */}
-        <div className="space-y-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+          {/* Config */}
           <Card>
             <CardHeader><CardTitle>퀘스트 구성</CardTitle></CardHeader>
             <CardContent className="space-y-3">
@@ -218,9 +231,15 @@ export function QuestsClient({ centerId, initialQuests, insights, classes, staff
             </Card>
           )}
         </div>
+      </div>
 
-        {/* Results history */}
-        <div className="space-y-4 min-w-0">
+      {/* RIGHT — analysis reports (section scrolls internally, page does not) */}
+      <div className="w-[400px] xl:w-[440px] shrink-0 flex flex-col min-h-0">
+        <div className="flex items-center justify-between mb-2.5 shrink-0">
+          <h2 className="text-[12px] font-semibold text-ink uppercase tracking-[0.1em]">분석 보고서</h2>
+          <span className="text-[11px] text-ink-faint font-data tabular-nums">{quests.length}건</span>
+        </div>
+        <div className="flex-1 min-h-0 overflow-y-auto space-y-3 pr-0.5">
           {quests.length === 0 ? (
             <Card><CardContent><p className="text-[13px] text-ink-faint py-8 text-center">아직 실행된 퀘스트가 없습니다. 좌측에서 구성 후 시뮬레이션·실행하세요.</p></CardContent></Card>
           ) : quests.map((q) => (

@@ -1,5 +1,5 @@
 import {
-  BarChart3, BookOpen, CalendarDays, ClipboardCheck, ClipboardList,
+  CalendarDays, ClipboardCheck, ClipboardList,
   Home, Network, Settings, ShieldAlert, Sparkles, Users, type LucideIcon,
 } from 'lucide-react'
 
@@ -11,8 +11,7 @@ export const NAV_GROUPS: NavGroup[] = [
     label: '통합 운영체계',
     items: [
       { href: '/dashboard', icon: Home, label: '통합 대시보드' },
-      { href: '/children', icon: Users, label: '아동 관리 체계' },
-      { href: '/classes', icon: BookOpen, label: '반 및 그룹 관리' },
+      { href: '/children', icon: Users, label: '아동·반 관리 체계' },
       { href: '/activities', icon: CalendarDays, label: '활동 관리' },
       { href: '/attendance', icon: ClipboardList, label: '출결 관리 시스템' },
     ],
@@ -20,11 +19,10 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     label: '다중 분석체계',
     items: [
-      { href: '/sna', icon: Network, label: 'SNA 분석 보드' },
+      { href: '/sna', icon: Network, label: '객체 그래프 · Vertex' },
       { href: '/quests', icon: Sparkles, label: '퀘스트 분석 엔진' },
       { href: '/threats', icon: ShieldAlert, label: '위협 탐지 시스템' },
       { href: '/assessments', icon: ClipboardCheck, label: '가중치 입력' },
-      { href: '/reports', icon: BarChart3, label: '보고서 플랫폼' },
     ],
   },
 ]
@@ -51,7 +49,7 @@ export function resolveBreadcrumb(pathname: string): { group: string; page: stri
 
 /** Tables whose edit history is relevant to a given route (for the header history popover). */
 export function auditTablesFor(pathname: string): string[] {
-  if (pathname.startsWith('/children')) return ['children', 'health_profiles', 'child_guardians', 'care_notes']
+  if (pathname.startsWith('/children')) return ['children', 'classes', 'health_profiles', 'child_guardians', 'care_notes']
   if (pathname.startsWith('/attendance')) return ['attendances']
   if (pathname.startsWith('/classes')) return ['classes']
   if (pathname.startsWith('/activities')) return ['activities']
