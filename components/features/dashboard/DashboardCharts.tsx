@@ -67,24 +67,24 @@ function DataTable({ cols, rows }: { cols: string[]; rows: (string | number)[][]
   )
 }
 
-function TrendChart({ data, h }: { data: TrendDatum[]; h: number }) {
+function TrendChart({ data, h, compact }: { data: TrendDatum[]; h: number | `${number}%`; compact?: boolean }) {
   const avg = data.length ? data.reduce((a, b) => a + b.출석, 0) / data.length : 0
   return (
     <ResponsiveContainer width="100%" height={h}>
-      <ComposedChart data={data} margin={{ top: 8, right: 6, left: -20, bottom: 0 }}>
+      <ComposedChart data={data} margin={{ top: 6, right: compact ? 8 : 6, left: -22, bottom: 0 }}>
         <defs>
           <linearGradient id="gPres" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="#137cbd" stopOpacity={0.25} /><stop offset="100%" stopColor="#137cbd" stopOpacity={0} />
           </linearGradient>
         </defs>
         <CartesianGrid strokeDasharray="3 3" stroke={GRID} vertical={false} />
-        <XAxis dataKey="date" tick={AXIS} axisLine={false} tickLine={false} interval={1} />
-        <YAxis tick={AXIS} axisLine={false} tickLine={false} allowDecimals={false} width={26} />
+        <XAxis dataKey="date" tick={{ fontSize: compact ? 9 : 10, fill: '#8a9ba8' }} axisLine={false} tickLine={false} interval={compact ? 2 : 1} minTickGap={4} />
+        <YAxis tick={AXIS} axisLine={false} tickLine={false} allowDecimals={false} width={24} />
         <Tooltip {...TOOLTIP_STYLE} />
-        <Legend wrapperStyle={{ fontSize: 11 }} iconType="circle" iconSize={7} />
+        {!compact && <Legend wrapperStyle={{ fontSize: 11 }} iconType="circle" iconSize={7} />}
         {avg > 0 && (
           <ReferenceLine y={avg} stroke="#137cbd" strokeDasharray="4 4" strokeOpacity={0.5}
-            label={{ value: `μ ${avg.toFixed(1)}`, position: 'right', fontSize: 9, fill: '#5c7080' }} />
+            label={compact ? undefined : { value: `μ ${avg.toFixed(1)}`, position: 'right', fontSize: 9, fill: '#5c7080' }} />
         )}
         <Area type="monotone" dataKey="출석" stroke="#137cbd" strokeWidth={2} fill="url(#gPres)" dot={false} activeDot={{ r: 3 }} />
         <Bar dataKey="결석" barSize={7} fill="#db3737" radius={[2, 2, 0, 0]} />
@@ -168,25 +168,29 @@ function SnaBars({ data, h = 160 }: { data: { label: string; value: number }[]; 
 }
 
 /** Stand-alone wide panel: the 14-day attendance trend (kept full-width on the dashboard). */
-export function AttendanceTrendPanel({ attendanceTrend }: { attendanceTrend: TrendDatum[] }) {
+export function AttendanceTrendPanel({ attendanceTrend, compact }: { attendanceTrend: TrendDatum[]; compact?: boolean }) {
   const trendRows = attendanceTrend.map((d) => [d.date, d.출석, d.지각, d.결석])
   return (
     <PanelCard title="최근 14일 출결 추이" subtitle="출석·지각·결석 복합 추이"
+      className={compact ? 'h-full min-h-0' : undefined}
+      bodyClassName={compact ? 'min-h-0 !px-2 !py-2' : undefined}
       detailTitle="출결 추이 상세" detail={
         <div className="space-y-4">
           <TrendChart data={attendanceTrend} h={320} />
           <DataTable cols={['날짜', '출석', '지각', '결석']} rows={trendRows} />
         </div>
       }>
-      <TrendChart data={attendanceTrend} h={208} />
+      {compact
+        ? <div className="h-full w-full min-h-0"><TrendChart data={attendanceTrend} h="100%" compact /></div>
+        : <TrendChart data={attendanceTrend} h={208} />}
     </PanelCard>
   )
 }
 
-export function DashboardCharts({ genderStats, statusStats, classStats, ageStats, attendanceTrend, snaStats, monthlyData, activityTypeData }: ChartProps) {
+export function DashboardCharts({ genderStats, statusStats, classStats, ageStats, attendanceTrend, snaStats, monthlyData, activityTypeData, layout = 'grid' }: ChartProps & { layout?: 'grid' | 'stack' }) {
   const trendRows = attendanceTrend.map((d) => [d.date, d.출석, d.지각, d.결석])
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+    <div className={layout === 'stack' ? 'grid grid-cols-1 gap-2.5' : 'grid grid-cols-1 sm:grid-cols-2 gap-3'}>
       {monthlyData && (
         <PanelCard title="월별 아동 등록 추이" subtitle="최근 6개월 신규 등록"
           detailTitle="월별 등록 추이 상세" detail={

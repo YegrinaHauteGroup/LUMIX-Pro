@@ -26,6 +26,15 @@ const CATS: Record<string, { label: string; color: string; q: string[] }> = {
 type CatKey = keyof typeof CATS
 interface Poi { id: number; lat: number; lon: number; name: string; cat: CatKey }
 
+// great-circle distance in metres (facility → asset)
+function haversine(aLat: number, aLng: number, bLat: number, bLng: number): number {
+  const R = 6371000, toRad = (d: number) => (d * Math.PI) / 180
+  const dLat = toRad(bLat - aLat), dLng = toRad(bLng - aLng)
+  const s = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(aLat)) * Math.cos(toRad(bLat)) * Math.sin(dLng / 2) ** 2
+  return 2 * R * Math.asin(Math.sqrt(s))
+}
+const fmtD = (m: number) => (m < 1000 ? `${Math.round(m)}m` : `${(m / 1000).toFixed(1)}km`)
+
 export function OperationalMap({ lat, lng, label, airPm25, airGrade }: Props) {
   const elRef = useRef<HTMLDivElement>(null)
   // deno-lint-ignore no-explicit-any
@@ -44,6 +53,17 @@ export function OperationalMap({ lat, lng, label, airPm25, airGrade }: Props) {
     const level = p > 75 ? 'high' : p > 35 ? 'mid' : 'low'
     return { level, color: level === 'high' ? '#e5484d' : level === 'mid' ? '#d97706' : '#16a34a', text: `PM2.5 ${Math.round(p)}㎍/㎥ · ${airGrade ?? '-'}` }
   }, [airPm25, airGrade])
+
+  // nearest critical assets (for the situational summary panel)
+  const nearest = useMemo(() => {
+    const find = (cat: CatKey) => {
+      if (!hasLoc) return null
+      let best: { name: string; d: number } | null = null
+      for (const p of pois) { if (p.cat !== cat) continue; const d = haversine(lat!, lng!, p.lat, p.lon); if (!best || d < best.d) best = { name: p.name, d } }
+      return best
+    }
+    return { medical: find('medical'), police: find('police'), fire: find('fire'), pharmacy: find('pharmacy') } as Record<CatKey, { name: string; d: number } | null>
+  }, [pois, hasLoc, lat, lng])
 
   // init map once we have coordinates
   useEffect(() => {
@@ -91,24 +111,38 @@ export function OperationalMap({ lat, lng, label, airPm25, airGrade }: Props) {
   async function loadPois() {
     if (!hasLoc) return
     setLoadingPois(true); setPoiErr(false)
-    const filters = Object.entries(CATS).flatMap(([, c]) => c.q.map((q) => `node[${q.replace('=', '="')}"](around:1500,${lat},${lng});`)).join('')
-    const query = `[out:json][timeout:20];(${filters});out body 80;`
-    try {
-      const res = await fetch('https://overpass-api.de/api/interpreter', { method: 'POST', body: 'data=' + encodeURIComponent(query) })
-      const data = await res.json()
-      const catOf = (tags: Record<string, string>): CatKey | null => {
-        const a = tags.amenity
-        for (const k of Object.keys(CATS) as CatKey[]) if (CATS[k].q.some((q) => q === `amenity=${a}`)) return k
-        return null
-      }
-      const out: Poi[] = []
-      for (const el of data.elements ?? []) {
-        const cat = catOf(el.tags ?? {})
-        if (!cat || el.lat == null) continue
-        out.push({ id: el.id, lat: el.lat, lon: el.lon, name: el.tags?.name ?? CATS[cat].label, cat })
-      }
-      setPois(out)
-    } catch { setPoiErr(true) } finally { setLoadingPois(false) }
+    // `nwr` = node + way + relation. Most Korean facilities (hospitals, schools,
+    // fire/police stations) are mapped as ways/relations, so a node-only query
+    // returns almost nothing. `out center` collapses each area to a point.
+    const filters = Object.values(CATS).flatMap((c) => c.q.map((q) => `nwr[${q.replace('=', '="')}"](around:1500,${lat},${lng});`)).join('')
+    const query = `[out:json][timeout:25];(${filters});out center 150;`
+    const endpoints = [
+      'https://overpass-api.de/api/interpreter',
+      'https://overpass.kumi.systems/api/interpreter',
+      'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
+    ]
+    const catOf = (tags: Record<string, string>): CatKey | null => {
+      const a = tags.amenity
+      for (const k of Object.keys(CATS) as CatKey[]) if (CATS[k].q.some((q) => q === `amenity=${a}`)) return k
+      return null
+    }
+    for (const url of endpoints) {
+      try {
+        const res = await fetch(url, { method: 'POST', body: 'data=' + encodeURIComponent(query) })
+        if (!res.ok) continue
+        const data = await res.json()
+        const out: Poi[] = []
+        for (const el of data.elements ?? []) {
+          const cat = catOf(el.tags ?? {})
+          const plat = el.lat ?? el.center?.lat
+          const plon = el.lon ?? el.center?.lon
+          if (!cat || plat == null || plon == null) continue
+          out.push({ id: el.id, lat: plat, lon: plon, name: el.tags?.name ?? CATS[cat].label, cat })
+        }
+        setPois(out); setLoadingPois(false); return
+      } catch { /* fall through to the next mirror */ }
+    }
+    setPoiErr(true); setLoadingPois(false)
   }
   useEffect(() => { if (hasLoc) loadPois() /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [hasLoc])
 
@@ -141,7 +175,7 @@ export function OperationalMap({ lat, lng, label, airPm25, airGrade }: Props) {
   }
 
   return (
-    <div className="relative h-full w-full rounded-[3px] border border-line overflow-hidden bg-[#0b0e14]">
+    <div className="relative isolate h-full w-full rounded-[3px] border border-line overflow-hidden bg-[#0b0e14]">
       <style>{`@keyframes lmpulse{0%{transform:scale(1);opacity:.6}100%{transform:scale(2.4);opacity:0}}
         .leaflet-container{background:#0b0e14;font-family:inherit}
         .leaflet-tooltip{background:#161b22;border:1px solid #30363d;color:#c9d1d9;font-size:11px;box-shadow:0 4px 12px rgba(0,0,0,.5)}
@@ -160,14 +194,31 @@ export function OperationalMap({ lat, lng, label, airPm25, airGrade }: Props) {
         <p className="text-[10px] text-[#8b949e] font-mono mt-0.5">{label ?? '우리 시설'} · {lat!.toFixed(5)}, {lng!.toFixed(5)}</p>
       </div>
 
-      {/* Risk badge */}
-      {risk && (
-        <div className="absolute top-2.5 right-2.5 z-[500] flex items-center gap-1.5 bg-[#0b0e14]/85 backdrop-blur border rounded-[3px] px-2.5 py-1.5"
-          style={{ borderColor: risk.color }}>
-          <ShieldAlert size={12} style={{ color: risk.color }} />
-          <span className="text-[10.5px] font-medium" style={{ color: risk.color }}>{risk.text}</span>
+      {/* Situational summary — air quality + nearest emergency/response assets */}
+      <div className="absolute top-2.5 right-2.5 z-[500] w-[178px] bg-[#0b0e14]/85 backdrop-blur border border-[#30363d] rounded-[3px] overflow-hidden">
+        <div className="px-2.5 py-1.5 border-b border-[#30363d] flex items-center gap-1.5">
+          <ShieldAlert size={11} className="text-[#58a6ff]" />
+          <span className="text-[9.5px] font-semibold text-[#8b949e] uppercase tracking-wider">주변 현황 · 대응 자산</span>
         </div>
-      )}
+        <div className="px-2.5 py-1.5 space-y-1">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[10px] text-[#8b949e]">대기질</span>
+            <span className="text-[10px] font-medium" style={{ color: risk?.color ?? '#6e7681' }}>{risk?.text ?? '데이터 없음'}</span>
+          </div>
+          {(([['medical', '최근접 의료'], ['police', '최근접 경찰'], ['fire', '최근접 소방'], ['pharmacy', '최근접 약국']]) as [CatKey, string][]).map(([k, lbl]) => {
+            const nx = nearest[k]
+            return (
+              <div key={k} className="flex items-center justify-between gap-2">
+                <span className="flex items-center gap-1.5 min-w-0">
+                  <span className="w-1.5 h-1.5 rounded-[1px] shrink-0" style={{ background: CATS[k].color }} />
+                  <span className="text-[10px] text-[#8b949e] truncate" title={nx?.name}>{nx ? nx.name : lbl}</span>
+                </span>
+                <span className="text-[10px] font-mono text-[#c9d1d9] tabular-nums shrink-0">{nx ? fmtD(nx.d) : '—'}</span>
+              </div>
+            )
+          })}
+        </div>
+      </div>
 
       {/* View + recenter controls */}
       <div className="absolute bottom-2.5 left-2.5 z-[500] flex flex-col gap-1.5">

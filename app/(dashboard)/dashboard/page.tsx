@@ -143,8 +143,8 @@ export default async function DashboardPage() {
             />
           </div>
           {/* Bottom bar (~1/5 height) — does not extend under the right section */}
-          <div className="h-[21%] min-h-[150px] shrink-0 grid grid-cols-2 gap-2.5">
-            <AttendanceTrendPanel attendanceTrend={attendanceTrend} />
+          <div className="h-[22%] min-h-[176px] shrink-0 grid grid-cols-2 gap-2.5 pb-0.5">
+            <AttendanceTrendPanel attendanceTrend={attendanceTrend} compact />
             <DashboardWeekStrip
               activities={(calActRes.data ?? []) as never[]}
               careNotes={((careRes.data ?? []) as unknown as { id: string; child_id: string; content: string; noted_on: string; note_type: string; children: { name: string } | null }[])
@@ -173,6 +173,7 @@ export default async function DashboardPage() {
           </div>
 
           <DashboardCharts
+            layout="stack"
             genderStats={genderStats}
             statusStats={statusStats}
             classStats={classStats}
