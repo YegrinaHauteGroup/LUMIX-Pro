@@ -1,9 +1,10 @@
 'use client'
 
-import { useWorkspace, type WorkspaceFileItem, type WorkspaceInfoItem, type WorkspaceItem, type WorkspaceLinkItem } from '@/lib/workspace'
+import { useWorkspace, type SnapshotMeta, type WorkspaceFileItem, type WorkspaceInfoItem, type WorkspaceItem, type WorkspaceLinkItem } from '@/lib/workspace'
 import { MemoPad } from './MemoPad'
 import Link from 'next/link'
-import { ChevronDown, ChevronRight, Database, ExternalLink, FilePlus2, FileText, FolderOpen, Image as ImageIcon, Layers, Link2, Loader2, Maximize2, PanelRightClose, Paperclip, Search, Trash2, X } from 'lucide-react'
+import { Modal } from '@/components/ui/Modal'
+import { Camera, ChevronDown, ChevronRight, Clock, Database, ExternalLink, FilePlus2, FileText, FolderOpen, Image as ImageIcon, Layers, Link2, Loader2, Maximize2, PanelRightClose, Paperclip, Save, Search, Trash2, X } from 'lucide-react'
 import { useMemo, useRef, useState } from 'react'
 
 function matches(it: WorkspaceItem, q: string): boolean {
@@ -109,13 +110,20 @@ function FileCard({ item }: { item: WorkspaceFileItem }) {
 }
 
 export function WorkspacePanel() {
-  const { items, open, setOpen, query, setQuery, addMemo, addLink, addFile, loadSaved, integrate, clearAll, busy } = useWorkspace()
+  const { items, open, setOpen, query, setQuery, addMemo, addLink, addFile, integrate, clearAll, busy,
+    saveSnapshot, listSnapshots, loadSnapshot, deleteSnapshot, captureScreen } = useWorkspace()
   const filtered = useMemo(() => items.filter((it) => matches(it, query)), [items, query])
   const memoCount = items.filter((i) => i.kind === 'memo').length
   const fileRef = useRef<HTMLInputElement>(null)
   const [linkOpen, setLinkOpen] = useState(false)
   const [linkUrl, setLinkUrl] = useState('')
   const [clearArmed, setClearArmed] = useState(false)
+  const [savedOk, setSavedOk] = useState(false)
+  const [loadOpen, setLoadOpen] = useState(false)
+  const [snaps, setSnaps] = useState<SnapshotMeta[] | null>(null)
+
+  async function openLoad() { setLoadOpen(true); setSnaps(null); setSnaps(await listSnapshots()) }
+  async function doSave() { await saveSnapshot(); setSavedOk(true); setTimeout(() => setSavedOk(false), 1800) }
 
   if (!open) {
     return (
@@ -144,6 +152,7 @@ export function WorkspacePanel() {
 
       {/* toolbar */}
       <div className="shrink-0 px-2.5 py-2 space-y-1.5">
+        <button onClick={captureScreen} className="w-full inline-flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-[3px] text-[11px] font-medium bg-ink text-white hover:opacity-90"><Camera size={13} /> 이 화면 담기 (전체 내역)</button>
         <div className="grid grid-cols-3 gap-1.5">
           <button onClick={() => addMemo()} className="inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded-[3px] text-[10.5px] font-medium bg-accent text-white hover:bg-accent-hover"><FilePlus2 size={12} /> 메모</button>
           <button onClick={() => setLinkOpen((v) => !v)} className="inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded-[3px] text-[10.5px] font-medium border border-line text-ink-soft hover:bg-fill"><Link2 size={12} /> 링크</button>
@@ -157,9 +166,10 @@ export function WorkspacePanel() {
             <button type="submit" className="px-2.5 py-1.5 rounded-[3px] bg-accent text-white text-[10.5px] font-medium">추가</button>
           </form>
         )}
-        <div className="grid grid-cols-2 gap-1.5">
-          <button onClick={() => loadSaved()} disabled={busy} className="inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded-[3px] text-[10.5px] font-medium border border-line text-ink-soft hover:bg-fill disabled:opacity-50"><FolderOpen size={12} /> 불러오기</button>
-          <button onClick={() => integrate()} disabled={busy || memoCount === 0} className="inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded-[3px] text-[10.5px] font-medium border border-accent/50 text-accent hover:bg-accent-soft/50 disabled:opacity-40">{busy ? <Loader2 size={12} className="animate-spin" /> : <Database size={12} />} 통합</button>
+        <div className="grid grid-cols-3 gap-1.5">
+          <button onClick={doSave} disabled={busy || items.length === 0} className="inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded-[3px] text-[10.5px] font-medium border border-accent/50 text-accent hover:bg-accent-soft/50 disabled:opacity-40">{savedOk ? '저장됨' : <><Save size={12} /> 저장</>}</button>
+          <button onClick={openLoad} disabled={busy} className="inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded-[3px] text-[10.5px] font-medium border border-line text-ink-soft hover:bg-fill disabled:opacity-50"><FolderOpen size={12} /> 불러오기</button>
+          <button onClick={() => integrate()} disabled={busy || memoCount === 0} title="메모를 시설 데이터에 반영" className="inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded-[3px] text-[10.5px] font-medium border border-line text-ink-soft hover:bg-fill disabled:opacity-40">{busy ? <Loader2 size={12} className="animate-spin" /> : <Database size={12} />} 통합</button>
         </div>
       </div>
 
@@ -190,6 +200,30 @@ export function WorkspacePanel() {
           </button>
         </div>
       )}
+
+      {/* saved snapshots picker */}
+      <Modal open={loadOpen} onClose={() => setLoadOpen(false)} title="저장된 작업창 불러오기" size="md">
+        {snaps === null ? (
+          <p className="text-[12px] text-ink-faint py-6 text-center">불러오는 중…</p>
+        ) : snaps.length === 0 ? (
+          <p className="text-[12px] text-ink-faint py-6 text-center">저장된 작업창이 없습니다. 먼저 <span className="text-accent">저장</span>하세요.</p>
+        ) : (
+          <div className="space-y-1.5 max-h-[60vh] overflow-y-auto">
+            {snaps.map((s) => (
+              <div key={s.id} className="flex items-center justify-between gap-2 px-3 py-2 border border-line rounded-[3px] hover:bg-fill">
+                <button onClick={async () => { await loadSnapshot(s.id); setLoadOpen(false) }} className="flex items-center gap-2 min-w-0 text-left flex-1">
+                  <Clock size={13} className="text-ink-faint shrink-0" />
+                  <span className="min-w-0">
+                    <span className="block text-[12.5px] text-ink truncate">{s.title ?? '작업창'}</span>
+                    <span className="block text-[10px] text-ink-faint">{new Date(s.created_at).toLocaleString('ko-KR')} · {s.item_count}개 항목</span>
+                  </span>
+                </button>
+                <button onClick={async () => { await deleteSnapshot(s.id); setSnaps((cur) => (cur ?? []).filter((x) => x.id !== s.id)) }} title="삭제" className="text-ink-faint hover:text-danger shrink-0"><Trash2 size={13} /></button>
+              </div>
+            ))}
+          </div>
+        )}
+      </Modal>
     </aside>
   )
 }

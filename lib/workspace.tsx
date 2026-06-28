@@ -44,6 +44,7 @@ export interface WorkspaceFileItem extends BaseItem {
 export type WorkspaceItem = WorkspaceInfoItem | WorkspaceMemoItem | WorkspaceLinkItem | WorkspaceFileItem
 
 export interface ChildRef { id: string; name: string }
+export interface SnapshotMeta { id: string; title: string | null; item_count: number; created_at: string }
 
 interface WorkspaceCtx {
   items: WorkspaceItem[]
@@ -62,6 +63,13 @@ interface WorkspaceCtx {
   clearAll: () => void
   integrate: (id?: string) => Promise<void>
   loadSaved: () => Promise<void>
+  // full-workspace snapshots (all item kinds, timestamped, selectable restore)
+  saveSnapshot: () => Promise<void>
+  listSnapshots: () => Promise<SnapshotMeta[]>
+  loadSnapshot: (id: string) => Promise<void>
+  deleteSnapshot: (id: string) => Promise<void>
+  // capture the whole current screen's content into the workspace
+  captureScreen: () => void
 }
 
 const Ctx = createContext<WorkspaceCtx | null>(null)
@@ -167,9 +175,55 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     } catch { /* ignore */ } finally { setBusy(false) }
   }, [])
 
+  // ── full-workspace snapshots ────────────────────────────────────────────
+  const saveSnapshot = useCallback(async () => {
+    if (items.length === 0) return
+    setBusy(true)
+    try {
+      // file dataUrls are dropped to keep snapshots light; metadata is kept
+      const slim = items.map((it) => (it.kind === 'file' ? { ...it, dataUrl: '' } : it))
+      const stamp = new Date().toLocaleString('ko-KR', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+      await fetch('/api/workspace/snapshots', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ title: `${stamp} · ${items.length}건`, items: slim }),
+      })
+    } catch { /* ignore */ } finally { setBusy(false) }
+  }, [items])
+
+  const listSnapshots = useCallback(async (): Promise<SnapshotMeta[]> => {
+    try { const r = await fetch('/api/workspace/snapshots'); if (r.ok) return (await r.json()).snapshots ?? [] } catch { /* ignore */ }
+    return []
+  }, [])
+
+  const loadSnapshot = useCallback(async (id: string) => {
+    setBusy(true)
+    try {
+      const r = await fetch('/api/workspace/snapshots?id=' + encodeURIComponent(id))
+      if (r.ok) {
+        const { snapshot } = await r.json()
+        const its: WorkspaceItem[] = Array.isArray(snapshot?.items) ? snapshot.items : []
+        const loaded = its.map((it) => ({ ...it, id: uid() }))
+        if (loaded.length) { setItems((cur) => [...loaded, ...cur]); setOpen(true) }
+      }
+    } catch { /* ignore */ } finally { setBusy(false) }
+  }, [])
+
+  const deleteSnapshot = useCallback(async (id: string) => {
+    try { await fetch('/api/workspace/snapshots?id=' + encodeURIComponent(id), { method: 'DELETE' }) } catch { /* ignore */ }
+  }, [])
+
+  // pull the whole current screen's rendered content into the workspace
+  const captureScreen = useCallback(() => {
+    const el = document.getElementById('app-main')
+    const heading = el?.querySelector('h1, h2, [data-page-title]')?.textContent?.trim()
+    const text = (el?.innerText ?? '').replace(/\n{3,}/g, '\n\n').trim().slice(0, 8000)
+    addInfo({ source: '화면 캡처', title: heading || (typeof document !== 'undefined' ? document.title : '현재 화면') || '현재 화면', subtitle: location.pathname, body: text || '(표시할 텍스트가 없습니다)', href: location.pathname, accent: '#5c7080' })
+  }, [addInfo])
+
   const value: WorkspaceCtx = {
     items, open, setOpen, query, setQuery, busy, childList,
     addInfo, addMemo, addLink, addFile, updateItem, remove, clearAll, integrate, loadSaved,
+    saveSnapshot, listSnapshots, loadSnapshot, deleteSnapshot, captureScreen,
   }
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }
