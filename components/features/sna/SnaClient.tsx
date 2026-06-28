@@ -3,7 +3,7 @@
 import { createClient } from '@/utils/supabase/client'
 import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { AddToWorkspaceButton } from '@/components/workspace/AddToWorkspaceButton'
+import { useWorkspaceOptional } from '@/lib/workspace'
 
 // ----- data shapes (from get_sna_graph / get_sna_insights) ------------------
 type Kind = 'child' | 'staff' | 'guardian' | 'space' | 'skill' | 'food' | 'achievement' | 'ecosystem'
@@ -160,6 +160,8 @@ function childActions(group: Group, hasAllergy: boolean, hasConflict: boolean, b
 
 export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
+  const reportBodyRef = useRef<HTMLDivElement>(null)
+  const ws = useWorkspaceOptional()
   const router = useRouter()
   const supabase = useMemo(() => createClient(), [])
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -609,11 +611,14 @@ export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) 
           <div className="px-6 py-4 border-b border-line flex items-center justify-between gap-2">
             <span className="text-[14px] font-semibold text-ink truncate">{report.title}</span>
             <div className="flex items-center gap-1 shrink-0">
-              <AddToWorkspaceButton source="SNA · 객체 그래프" title={report.title} subtitle="Vertex 시뮬레이션 인사이트" href="/sna" accent="#8b5cf6" />
+              {ws && (
+                <button title="작업창에 추가" onClick={() => ws.addInfo({ source: 'SNA · 객체 그래프', title: report.title, subtitle: 'Vertex 시뮬레이션 인사이트', body: reportBodyRef.current?.innerText?.trim() || undefined, href: '/sna', accent: '#8b5cf6' })}
+                  className="w-7 h-7 flex items-center justify-center rounded-[3px] text-[18px] leading-none text-ink-faint hover:text-accent hover:bg-accent-soft/50 transition-colors">+</button>
+              )}
               <button onClick={() => setReport(null)} className="text-ink-faint hover:text-ink hover:bg-fill rounded-[3px] w-7 h-7 flex items-center justify-center transition-colors">✕</button>
             </div>
           </div>
-          <div className="flex-1 overflow-y-auto px-6 py-5 text-[13px] text-ink-soft leading-relaxed">{report.body}</div>
+          <div ref={reportBodyRef} className="flex-1 overflow-y-auto px-6 py-5 text-[13px] text-ink-soft leading-relaxed">{report.body}</div>
         </div>
       )}
     </div>

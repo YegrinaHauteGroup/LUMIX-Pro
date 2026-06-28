@@ -5,28 +5,43 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 
 // ── Workspace item model ────────────────────────────────────────────────────
 export interface InfoField { label: string; value: string }
-export interface WorkspaceInfoItem {
-  id: string
+interface BaseItem { id: string; createdAt: number }
+export interface WorkspaceInfoItem extends BaseItem {
   kind: 'info'
-  source: string            // origin module, e.g. 'SNA' · '파이프라인' · '아동' · '작전지도'
+  source: string            // origin module, e.g. 'SNA' · '파이프라인' · '아동' · '작전지도' · '대시보드'
   title: string
   subtitle?: string
   fields?: InfoField[]
-  href?: string             // link back to the origin
-  accent?: string           // hex accent
-  createdAt: number
+  body?: string             // full self-contained snapshot (shown when expanded)
+  href?: string             // optional link back to the origin
+  accent?: string
+  expanded?: boolean
 }
-export interface WorkspaceMemoItem {
-  id: string
+export interface WorkspaceMemoItem extends BaseItem {
   kind: 'memo'
   title: string
   body: string
   mentions: string[]
   expanded?: boolean
   integrated?: boolean
-  createdAt: number
 }
-export type WorkspaceItem = WorkspaceInfoItem | WorkspaceMemoItem
+export interface WorkspaceLinkItem extends BaseItem {
+  kind: 'link'
+  url: string
+  title: string
+  note?: string
+  accent?: string
+  expanded?: boolean
+}
+export interface WorkspaceFileItem extends BaseItem {
+  kind: 'file'
+  name: string
+  mime: string
+  dataUrl: string
+  size: number
+  expanded?: boolean
+}
+export type WorkspaceItem = WorkspaceInfoItem | WorkspaceMemoItem | WorkspaceLinkItem | WorkspaceFileItem
 
 export interface ChildRef { id: string; name: string }
 
@@ -40,6 +55,8 @@ interface WorkspaceCtx {
   childList: ChildRef[]
   addInfo: (i: Omit<WorkspaceInfoItem, 'id' | 'kind' | 'createdAt'>) => void
   addMemo: (init?: Partial<WorkspaceMemoItem>) => void
+  addLink: (url: string, title?: string, note?: string, accent?: string) => void
+  addFile: (file: File) => Promise<void>
   updateItem: (id: string, patch: Partial<WorkspaceItem>) => void
   remove: (id: string) => void
   clearAll: () => void
@@ -49,9 +66,9 @@ interface WorkspaceCtx {
 
 const Ctx = createContext<WorkspaceCtx | null>(null)
 const LS_KEY = 'lumix_ws_v1'
+const MAX_FILE = 3 * 1024 * 1024
 const uid = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`
 
-/** Clear persisted workspace state (call on logout). */
 export function clearWorkspaceStorage() {
   try { localStorage.removeItem(LS_KEY) } catch { /* ignore */ }
 }
@@ -65,7 +82,6 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const hydrated = useRef(false)
   const supabase = useMemo(() => createClient(), [])
 
-  // hydrate from localStorage once (survives navigation AND reload)
   useEffect(() => {
     try {
       const raw = localStorage.getItem(LS_KEY)
@@ -74,20 +90,23 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     hydrated.current = true
   }, [])
 
-  // persist
   useEffect(() => {
     if (!hydrated.current) return
-    try { localStorage.setItem(LS_KEY, JSON.stringify({ items, open })) } catch { /* ignore */ }
+    try { localStorage.setItem(LS_KEY, JSON.stringify({ items, open })) }
+    catch { /* quota: drop file dataUrls before giving up */
+      try { localStorage.setItem(LS_KEY, JSON.stringify({ items: items.filter((i) => i.kind !== 'file'), open })) } catch { /* ignore */ }
+    }
   }, [items, open])
 
-  // expose the panel width to fixed drawers so they open to its left
+  // expose panel width to fixed drawers AND nudge maps/charts to re-measure
   useEffect(() => {
     const root = document.documentElement
     root.style.setProperty('--workspace-w', open ? 'clamp(280px, 20vw, 360px)' : '40px')
-    return () => { root.style.setProperty('--workspace-w', '0px') }
+    const t = setTimeout(() => window.dispatchEvent(new Event('resize')), 60)
+    const t2 = setTimeout(() => window.dispatchEvent(new Event('resize')), 260)
+    return () => { clearTimeout(t); clearTimeout(t2); root.style.setProperty('--workspace-w', '0px') }
   }, [open])
 
-  // children for @mentions (RLS scopes to the active center)
   useEffect(() => {
     let alive = true
     supabase.from('children').select('id, name').eq('status', 'active').is('deleted_at', null).limit(800)
@@ -96,23 +115,30 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   }, [supabase])
 
   const addInfo = useCallback((i: Omit<WorkspaceInfoItem, 'id' | 'kind' | 'createdAt'>) => {
-    setItems((cur) => [{ ...i, id: uid(), kind: 'info', createdAt: Date.now() }, ...cur])
-    setOpen(true)
+    setItems((cur) => [{ ...i, id: uid(), kind: 'info', createdAt: Date.now() }, ...cur]); setOpen(true)
   }, [])
-
   const addMemo = useCallback((init?: Partial<WorkspaceMemoItem>) => {
-    setItems((cur) => [{ id: uid(), kind: 'memo', title: init?.title ?? '', body: init?.body ?? '', mentions: init?.mentions ?? [], createdAt: Date.now(), ...init }, ...cur])
-    setOpen(true)
+    setItems((cur) => [{ id: uid(), kind: 'memo', title: init?.title ?? '', body: init?.body ?? '', mentions: init?.mentions ?? [], createdAt: Date.now(), ...init }, ...cur]); setOpen(true)
+  }, [])
+  const addLink = useCallback((url: string, title?: string, note?: string, accent?: string) => {
+    const u = /^https?:\/\//i.test(url) ? url : `https://${url}`
+    let host = u; try { host = new URL(u).hostname } catch { /* keep */ }
+    setItems((cur) => [{ id: uid(), kind: 'link', url: u, title: title?.trim() || host, note, accent, createdAt: Date.now() }, ...cur]); setOpen(true)
+  }, [])
+  const addFile = useCallback(async (file: File) => {
+    if (file.size > MAX_FILE) { alert('파일이 너무 큽니다 (최대 3MB).'); return }
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const r = new FileReader(); r.onload = () => resolve(String(r.result)); r.onerror = reject; r.readAsDataURL(file)
+    })
+    setItems((cur) => [{ id: uid(), kind: 'file', name: file.name, mime: file.type || 'application/octet-stream', dataUrl, size: file.size, createdAt: Date.now() }, ...cur]); setOpen(true)
   }, [])
 
   const updateItem = useCallback((id: string, patch: Partial<WorkspaceItem>) => {
     setItems((cur) => cur.map((it) => (it.id === id ? { ...it, ...patch } as WorkspaceItem : it)))
   }, [])
-
   const remove = useCallback((id: string) => setItems((cur) => cur.filter((it) => it.id !== id)), [])
   const clearAll = useCallback(() => setItems([]), [])
 
-  // integrate memo(s) into facility data via the workspace API
   const integrate = useCallback(async (id?: string) => {
     const memos = items.filter((it): it is WorkspaceMemoItem => it.kind === 'memo' && (id ? it.id === id : true) && (it.body.trim() !== '' || (it.title ?? '').trim() !== ''))
     if (memos.length === 0) return
@@ -143,7 +169,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
 
   const value: WorkspaceCtx = {
     items, open, setOpen, query, setQuery, busy, childList,
-    addInfo, addMemo, updateItem, remove, clearAll, integrate, loadSaved,
+    addInfo, addMemo, addLink, addFile, updateItem, remove, clearAll, integrate, loadSaved,
   }
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }
@@ -153,8 +179,6 @@ export function useWorkspace() {
   if (!c) throw new Error('useWorkspace must be used within WorkspaceProvider')
   return c
 }
-
-/** Safe variant for components that may render outside the provider. */
 export function useWorkspaceOptional() {
   return useContext(Ctx)
 }

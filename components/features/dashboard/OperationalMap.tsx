@@ -3,7 +3,7 @@
 import 'leaflet/dist/leaflet.css'
 import Link from 'next/link'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Crosshair, Layers, Locate, MapPin, Minus, Navigation, Phone, Plus, RefreshCw, Satellite, Search, ShieldAlert, X, Clock, Globe, Footprints, Car, ExternalLink } from 'lucide-react'
+import { Crosshair, Layers, Locate, MapPin, Minus, Navigation, Phone, Plus, RefreshCw, Satellite, Search, ShieldAlert, Star, X, Clock, Globe, Footprints, Car, Route } from 'lucide-react'
 import { useWorkspaceOptional } from '@/lib/workspace'
 
 interface Props {
@@ -66,7 +66,7 @@ export function OperationalMap({ lat, lng, label, airPm25, airGrade }: Props) {
   const elRef = useRef<HTMLDivElement>(null)
   // deno-lint-ignore no-explicit-any
   const mapRef = useRef<any>(null)
-  const layerRef = useRef<{ base?: any; sat?: any; markers?: any; rings?: any; selMarker?: any; routeLine?: any; L?: any }>({})
+  const layerRef = useRef<{ base?: any; sat?: any; markers?: any; rings?: any; selMarker?: any; routeLine?: any; saved?: any; L?: any }>({})
   const ws = useWorkspaceOptional()
   const [view, setView] = useState<'light' | 'sat'>('light')
   const [pois, setPois] = useState<Poi[]>([])
@@ -85,7 +85,25 @@ export function OperationalMap({ lat, lng, label, airPm25, airGrade }: Props) {
   const [searchQ, setSearchQ] = useState('')
   const [remoteResults, setRemoteResults] = useState<Place[]>([])
   const [searchOpen, setSearchOpen] = useState(false)
+  const [savedPlaces, setSavedPlaces] = useState<Place[]>([])
+  const [showSaved, setShowSaved] = useState(true)
   const hasLoc = lat != null && lng != null
+
+  // ── my saved places ("내 장소") — persisted per browser ───────────────────
+  useEffect(() => { try { const r = localStorage.getItem('lumix_places_v1'); if (r) setSavedPlaces(JSON.parse(r)) } catch { /* ignore */ } }, [])
+  const placeKey = (p: Place) => `${p.name}@${p.lat.toFixed(5)},${p.lon.toFixed(5)}`
+  const isSaved = (p: Place) => savedPlaces.some((s) => placeKey(s) === placeKey(p))
+  function persistPlaces(next: Place[]) { setSavedPlaces(next); try { localStorage.setItem('lumix_places_v1', JSON.stringify(next)) } catch { /* ignore */ } }
+  function toggleSave(p: Place) {
+    if (isSaved(p)) persistPlaces(savedPlaces.filter((s) => placeKey(s) !== placeKey(p)))
+    else persistPlaces([{ lat: p.lat, lon: p.lon, name: p.name, cat: p.cat, phone: p.phone, addr: p.addr, website: p.website, hours: p.hours }, ...savedPlaces])
+  }
+  // route to workspace (in-app) instead of an external window
+  function routeToWorkspace(p: Place) {
+    const url = `https://map.kakao.com/link/to/${encodeURIComponent(p.name)},${p.lat},${p.lon}`
+    if (ws) ws.addLink(url, `${p.name} 길찾기`, '카카오맵 길찾기 · 작업창에서 확대하거나 외부에서 열기', '#fee500')
+    else window.open(url, '_blank')
+  }
 
   const risk = useMemo(() => {
     const p = airPm25 ?? null
@@ -256,6 +274,22 @@ export function OperationalMap({ lat, lng, label, airPm25, airGrade }: Props) {
     }
   }, [pois, active, hasLoc, lat, lng])
 
+  // ── saved-place star markers ───────────────────────────────────────────────
+  useEffect(() => {
+    const { L } = layerRef.current
+    const map = mapRef.current
+    if (!map || !L) return
+    if (layerRef.current.saved) { map.removeLayer(layerRef.current.saved); layerRef.current.saved = undefined }
+    if (!showSaved || savedPlaces.length === 0) return
+    const grp = L.layerGroup().addTo(map)
+    for (const p of savedPlaces) {
+      const icon = L.divIcon({ className: '', iconSize: [16, 16], iconAnchor: [8, 8], html: `<span class="lm-star">★</span>` })
+      L.marker([p.lat, p.lon], { icon, zIndexOffset: 1100 }).addTo(grp).bindTooltip(`★ ${p.name}`, { direction: 'top' })
+        .on('click', (e: any) => { if (e?.originalEvent) e.originalEvent.stopPropagation?.(); setSelected(p) })
+    }
+    layerRef.current.saved = grp
+  }, [savedPlaces, showSaved])
+
   // ── selected place: highlight + fit + reverse-geocode ──────────────────────
   useEffect(() => {
     const { L } = layerRef.current
@@ -379,6 +413,7 @@ export function OperationalMap({ lat, lng, label, airPm25, airGrade }: Props) {
         .lm-dot{display:block;width:11px;height:11px;border-radius:50%;border:1.5px solid #fff;box-shadow:0 1px 3px rgba(16,22,26,.28);transition:transform .12s ease;cursor:pointer}
         .leaflet-marker-icon:hover .lm-dot{transform:scale(1.3)}
         .lm-sel{display:block;width:22px;height:22px;border-radius:50%;border:3px solid currentColor;background:transparent}
+        .lm-star{display:flex;align-items:center;justify-content:center;width:16px;height:16px;color:#f5a623;font-size:15px;line-height:1;text-shadow:0 1px 2px rgba(0,0,0,.4);cursor:pointer}
         .leaflet-tooltip{background:#fff;border:1px solid #ced9e0;color:#182026;font-size:11px;box-shadow:0 4px 12px rgba(16,22,26,.15)}
         .leaflet-tooltip-top:before{border-top-color:#ced9e0}
         .leaflet-control-attribution{background:rgba(255,255,255,.82);color:#8a9ba8;font-size:9px}
@@ -432,6 +467,8 @@ export function OperationalMap({ lat, lng, label, airPm25, airGrade }: Props) {
         <span className="w-px h-4 bg-line mx-0.5" />
         <button onClick={() => zoom(-1)} title="축소" className={`${ctrlBtn} text-ink-soft hover:bg-fill`}><Minus size={13} /></button>
         <button onClick={() => zoom(1)} title="확대" className={`${ctrlBtn} text-ink-soft hover:bg-fill`}><Plus size={13} /></button>
+        <span className="w-px h-4 bg-line mx-0.5" />
+        <button onClick={() => setShowSaved((v) => !v)} title="내 장소 표시" className={`${ctrlBtn} ${showSaved ? 'text-[#d98a00]' : 'text-ink-soft hover:bg-fill'}`}><Star size={12} className={showSaved ? 'fill-[#f5a623]' : ''} /> {savedPlaces.length}</button>
       </div>
 
       {/* Search + selected-place info card (top-right) */}
@@ -468,6 +505,7 @@ export function OperationalMap({ lat, lng, label, airPm25, airGrade }: Props) {
                 <p className="text-[9.5px] text-ink-faint mt-0.5">{selected.cat ? CATS[selected.cat].label : '검색 위치'}{selected.operator ? ` · ${selected.operator}` : ''}</p>
               </div>
               <div className="flex items-center gap-1 shrink-0">
+                <button onClick={() => toggleSave(selected)} title={isSaved(selected) ? '내 장소에서 제거' : '내 장소로 저장'} className={isSaved(selected) ? 'text-[#f5a623]' : 'text-ink-faint hover:text-[#f5a623]'}><Star size={14} className={isSaved(selected) ? 'fill-[#f5a623]' : ''} /></button>
                 {ws && <button onClick={addSelectedToWorkspace} title="작업창에 추가" className="text-ink-faint hover:text-accent"><Plus size={14} /></button>}
                 <button onClick={() => { setSelected(null); setSearchQ('') }} className="text-ink-faint hover:text-ink"><X size={13} /></button>
               </div>
@@ -492,8 +530,8 @@ export function OperationalMap({ lat, lng, label, airPm25, airGrade }: Props) {
                 {selected.phone
                   ? <a href={telHref(selected.phone)} className="flex-1 inline-flex items-center justify-center gap-1 px-2 py-1 rounded-[3px] text-[10px] bg-[#0f9960] text-white hover:opacity-90"><Phone size={11} /> {selected.phone}</a>
                   : <span className="flex-1 inline-flex items-center justify-center gap-1 px-2 py-1 rounded-[3px] text-[10px] text-ink-ghost border border-line"><Phone size={11} /> 번호 없음</span>}
-                <a href={`https://map.kakao.com/link/to/${encodeURIComponent(selected.name)},${selected.lat},${selected.lon}`} target="_blank" rel="noopener noreferrer"
-                  title="카카오맵 길찾기" className="inline-flex items-center justify-center gap-1 px-2 py-1 rounded-[3px] text-[10px] bg-[#fee500] text-[#3c1e1e] hover:opacity-90"><ExternalLink size={11} /> 길찾기</a>
+                <button onClick={() => routeToWorkspace(selected)} title="길찾기를 작업창에 추가"
+                  className="inline-flex items-center justify-center gap-1 px-2 py-1 rounded-[3px] text-[10px] bg-[#fee500] text-[#3c1e1e] hover:opacity-90"><Route size={11} /> 길찾기</button>
               </div>
               {selected.website && (
                 <a href={selected.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-[10px] text-accent hover:text-accent-hover truncate"><Globe size={11} className="shrink-0" /> <span className="truncate">{selected.website}</span></a>

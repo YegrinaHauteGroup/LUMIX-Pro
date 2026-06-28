@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { Bug, ChevronRight, History, LogOut, Search } from 'lucide-react'
 import { ACTION_LABELS, TABLE_LABELS, auditTablesFor, resolveBreadcrumb } from '@/lib/nav'
 import { clearWorkspaceStorage } from '@/lib/workspace'
+import { HeaderTools } from './HeaderTools'
 
 interface HeaderProps {
   title?: string
@@ -102,6 +103,8 @@ export function Header({ subtitle, actions }: HeaderProps) {
         {subtitle && <span className="hidden lg:inline text-[11px] text-ink-soft truncate ml-1.5">· {subtitle}</span>}
       </div>
 
+      <div className="flex-1" />
+      <HeaderTools />
       <div className="flex-1" />
 
       <div ref={wrapRef} className="flex items-center gap-1.5">
