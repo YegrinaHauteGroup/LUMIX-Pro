@@ -32,7 +32,9 @@ const NODE_META: Record<NType, { label: string; icon: typeof Database; color: st
   sim: { label: '시뮬레이션', icon: FlaskConical, color: '#d9822b' },
   output: { label: '결과 출력', icon: BarChart3, color: '#5c7080' },
 }
-const NW = 184, NH = 78
+const NW = 156, NH = 72
+const MIN_ZOOM = 0.5, MAX_ZOOM = 1.8
+const clampZoom = (z: number) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z))
 
 let idc = 100
 const nid = () => `n${idc++}`
@@ -50,11 +52,11 @@ export function PipelineCanvas({ centerId, classes, insights, staffCount, entity
   const supabase = useMemo(() => createClient(), [])
   const canvasRef = useRef<HTMLDivElement>(null)
   const [nodes, setNodes] = useState<PNode[]>([
-    { id: 'src', type: 'source', x: 30, y: 48 },
-    { id: 'flt', type: 'filter', x: 250, y: 48, scope: scopeProp ?? 'ALL' },
-    { id: 'ana', type: 'analysis', x: 470, y: 48, questType: questType ?? 'isolation_risk' },
-    { id: 'sim', type: 'sim', x: 690, y: 168, sim: null },
-    { id: 'out', type: 'output', x: 690, y: 48, result: null },
+    { id: 'src', type: 'source', x: 12, y: 32 },
+    { id: 'flt', type: 'filter', x: 168, y: 32, scope: scopeProp ?? 'ALL' },
+    { id: 'ana', type: 'analysis', x: 324, y: 32, questType: questType ?? 'isolation_risk' },
+    { id: 'out', type: 'output', x: 480, y: 32, result: null },
+    { id: 'sim', type: 'sim', x: 480, y: 142, sim: null },
   ])
 
   // keep the canvas analysis/filter nodes synced with the shared config form
@@ -73,36 +75,74 @@ export function PipelineCanvas({ centerId, classes, insights, staffCount, entity
   const [connectFrom, setConnectFrom] = useState<string | null>(null)
   const [running, setRunning] = useState(false)
   const [runMsg, setRunMsg] = useState<{ type: 'error' | 'success'; text: string } | null>(null)
-  const drag = useRef<{ id: string; dx: number; dy: number; pid: number; el: Element | null } | null>(null)
+  const [zoom, setZoom] = useState(1)
+  const [pan, setPan] = useState({ x: 0, y: 0 })
+  const view = useRef({ zoom: 1, pan: { x: 0, y: 0 } })
+  view.current = { zoom, pan }
+  // drag state for a node OR the canvas (pan); handlers live on document so the
+  // gesture continues even when the cursor leaves the canvas.
+  const drag = useRef<{ mode: 'node'; id: string; dx: number; dy: number } | { mode: 'pan'; sx: number; sy: number; px: number; py: number } | null>(null)
 
   const totalChildren = insights?.summary?.children ?? 0
 
-  function onPointerDownNode(e: React.PointerEvent, n: PNode) {
-    if (connectFrom !== null) return
-    const canvas = canvasRef.current
-    if (!canvas) return
-    const rect = canvas.getBoundingClientRect()
-    // Capture on the node container (currentTarget), never an inner <svg>/<path>:
-    // setPointerCapture on SVG sub-elements throws in Firefox/Safari.
-    const el = e.currentTarget as HTMLElement
-    drag.current = { id: n.id, dx: e.clientX - rect.left - n.x, dy: e.clientY - rect.top - n.y, pid: e.pointerId, el }
-    setSelected(n.id)
-    try { el.setPointerCapture(e.pointerId) } catch { /* not all targets support capture */ }
+  // screen (canvas-relative) → world coordinates
+  function toWorld(clientX: number, clientY: number) {
+    const rect = canvasRef.current!.getBoundingClientRect()
+    const { zoom: z, pan: p } = view.current
+    return { x: (clientX - rect.left - p.x) / z, y: (clientY - rect.top - p.y) / z }
   }
-  function onPointerMove(e: React.PointerEvent) {
-    if (!drag.current) return
-    const canvas = canvasRef.current
-    if (!canvas) return
-    const rect = canvas.getBoundingClientRect()
-    const x = Math.max(0, Math.min(rect.width - NW, e.clientX - rect.left - drag.current.dx))
-    const y = Math.max(0, Math.min(rect.height - NH, e.clientY - rect.top - drag.current.dy))
-    setNodes((ns) => ns.map((nn) => nn.id === drag.current!.id ? { ...nn, x, y } : nn))
-  }
-  function onPointerUp() {
+
+  function onDocMove(e: PointerEvent) {
     const d = drag.current
-    if (d?.el) { try { (d.el as HTMLElement).releasePointerCapture?.(d.pid) } catch { /* already released */ } }
-    drag.current = null
+    if (!d) return
+    if (d.mode === 'node') {
+      const w = toWorld(e.clientX, e.clientY)
+      const x = Math.max(0, Math.min(2000, w.x - d.dx))
+      const y = Math.max(0, Math.min(1200, w.y - d.dy))
+      setNodes((ns) => ns.map((nn) => (nn.id === d.id ? { ...nn, x, y } : nn)))
+    } else {
+      setPan({ x: d.px + (e.clientX - d.sx), y: d.py + (e.clientY - d.sy) })
+    }
   }
+  function onDocUp() {
+    drag.current = null
+    document.removeEventListener('pointermove', onDocMove)
+    document.removeEventListener('pointerup', onDocUp)
+  }
+  function startNodeDrag(e: React.PointerEvent, n: PNode) {
+    if (connectFrom !== null) return
+    e.stopPropagation()
+    const w = toWorld(e.clientX, e.clientY)
+    drag.current = { mode: 'node', id: n.id, dx: w.x - n.x, dy: w.y - n.y }
+    setSelected(n.id)
+    document.addEventListener('pointermove', onDocMove)
+    document.addEventListener('pointerup', onDocUp)
+  }
+  function startPan(e: React.PointerEvent) {
+    if (connectFrom !== null) return
+    drag.current = { mode: 'pan', sx: e.clientX, sy: e.clientY, px: view.current.pan.x, py: view.current.pan.y }
+    document.addEventListener('pointermove', onDocMove)
+    document.addEventListener('pointerup', onDocUp)
+  }
+
+  // wheel zoom toward the cursor, clamped
+  useEffect(() => {
+    const el = canvasRef.current
+    if (!el) return
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault()
+      const rect = el.getBoundingClientRect()
+      const cx = e.clientX - rect.left, cy = e.clientY - rect.top
+      const { zoom: z, pan: p } = view.current
+      const nz = clampZoom(z * (e.deltaY < 0 ? 1.1 : 1 / 1.1))
+      const k = nz / z
+      setPan({ x: cx - k * (cx - p.x), y: cy - k * (cy - p.y) })
+      setZoom(nz)
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
+  }, [])
+  function resetView() { setZoom(1); setPan({ x: 0, y: 0 }) }
 
   function clickNode(n: PNode) {
     if (connectFrom === null) { setSelected(n.id); return }
@@ -213,49 +253,57 @@ export function PipelineCanvas({ centerId, classes, insights, staffCount, entity
       </div>
 
       <div className="flex">
-        {/* canvas */}
-        <div ref={canvasRef} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerLeave={onPointerUp}
-          className="relative flex-1 h-[460px] overflow-hidden bg-fill-2"
-          style={{ backgroundImage: 'radial-gradient(circle, #d4dde4 1px, transparent 1px)', backgroundSize: '18px 18px' }}>
-          {/* edges */}
-          <svg className="absolute inset-0 w-full h-full pointer-events-none">
-            <defs>
-              <marker id="pa" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
-                <path d="M0,0 L7,3 L0,6 Z" fill="#a7b6c2" />
-              </marker>
-            </defs>
-            {edges.map((e, i) => {
-              const a = nodes.find((n) => n.id === e.from), b = nodes.find((n) => n.id === e.to)
-              if (!a || !b) return null
-              const p1 = center(a), p2 = center(b)
-              return <line key={i} x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} stroke="#a7b6c2" strokeWidth={1.5} markerEnd="url(#pa)" />
+        {/* canvas — wheel to zoom, drag empty space to pan, drag node to move */}
+        <div ref={canvasRef} onPointerDown={startPan}
+          className="relative flex-1 h-[520px] overflow-hidden bg-fill-2 touch-none"
+          style={{ backgroundImage: 'radial-gradient(circle, #d4dde4 1px, transparent 1px)', backgroundSize: `${18 * zoom}px ${18 * zoom}px`, backgroundPosition: `${pan.x}px ${pan.y}px` }}>
+          {/* zoom controls */}
+          <div className="absolute top-2 right-2 z-10 flex items-center bg-surface/90 backdrop-blur border border-line rounded-[3px] overflow-hidden">
+            <button onClick={() => setZoom((z) => clampZoom(z / 1.1))} className="w-7 h-7 text-ink-soft hover:bg-fill text-[14px]">−</button>
+            <span className="w-10 text-center text-[10px] font-data text-ink-faint tabular-nums">{Math.round(zoom * 100)}%</span>
+            <button onClick={() => setZoom((z) => clampZoom(z * 1.1))} className="w-7 h-7 text-ink-soft hover:bg-fill text-[14px]">+</button>
+            <button onClick={resetView} title="초기화" className="px-2 h-7 border-l border-line text-[10px] text-ink-soft hover:bg-fill">리셋</button>
+          </div>
+          {/* world (panned + zoomed) */}
+          <div className="absolute top-0 left-0 origin-top-left" style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}>
+            <svg className="absolute top-0 left-0 pointer-events-none overflow-visible" width={1} height={1}>
+              <defs>
+                <marker id="pa" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+                  <path d="M0,0 L7,3 L0,6 Z" fill="#a7b6c2" />
+                </marker>
+              </defs>
+              {edges.map((e, i) => {
+                const a = nodes.find((n) => n.id === e.from), b = nodes.find((n) => n.id === e.to)
+                if (!a || !b) return null
+                const p1 = center(a), p2 = center(b)
+                return <line key={i} x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} stroke="#a7b6c2" strokeWidth={1.5} markerEnd="url(#pa)" />
+              })}
+            </svg>
+            {nodes.map((n) => {
+              const M = NODE_META[n.type]
+              const isSel = selected === n.id
+              const sub = n.type === 'source' ? `아동 ${totalChildren} · 교사 ${staffCount}`
+                : n.type === 'filter' ? (n.scope === 'ALL' ? '전체 센터' : classes.find((c) => c.id === n.scope)?.name ?? '—')
+                : n.type === 'analysis' ? (QUEST_TYPES.find((q) => q.v === n.questType)?.t ?? '—')
+                : n.type === 'sim' ? (n.sim != null ? `예상 ${n.sim}건` : '미실행')
+                : (n.result ? '결과 있음' : '대기')
+              return (
+                <div key={n.id} onPointerDown={(e) => startNodeDrag(e, n)} onClick={() => clickNode(n)}
+                  style={{ left: n.x, top: n.y, width: NW }}
+                  className={`absolute select-none cursor-move bg-surface border rounded-[3px] shadow-[var(--shadow-card)] ${isSel ? 'border-accent ring-1 ring-accent/40' : connectFrom === n.id ? 'border-accent' : 'border-line'}`}>
+                  <div className="h-7 px-2 flex items-center gap-1.5 border-b border-line" style={{ background: `${M.color}10` }}>
+                    <M.icon size={12} style={{ color: M.color }} />
+                    <span className="text-[11px] font-semibold text-ink truncate">{M.label}</span>
+                    <Move size={10} className="text-ink-ghost ml-auto" />
+                  </div>
+                  <div className="px-2 py-2">
+                    <p className="text-[11px] text-ink-soft truncate">{sub}</p>
+                    {n.type === 'output' && n.result && <p className="text-[10px] text-ink-faint mt-0.5 line-clamp-2 leading-tight">{n.result.headline}</p>}
+                  </div>
+                </div>
+              )
             })}
-          </svg>
-          {/* nodes */}
-          {nodes.map((n) => {
-            const M = NODE_META[n.type]
-            const isSel = selected === n.id
-            const sub = n.type === 'source' ? `아동 ${totalChildren} · 교사 ${staffCount}`
-              : n.type === 'filter' ? (n.scope === 'ALL' ? '전체 센터' : classes.find((c) => c.id === n.scope)?.name ?? '—')
-              : n.type === 'analysis' ? (QUEST_TYPES.find((q) => q.v === n.questType)?.t ?? '—')
-              : n.type === 'sim' ? (n.sim != null ? `예상 ${n.sim}건` : '미실행')
-              : (n.result ? '결과 있음' : '대기')
-            return (
-              <div key={n.id} onPointerDown={(e) => onPointerDownNode(e, n)} onClick={() => clickNode(n)}
-                style={{ left: n.x, top: n.y, width: NW }}
-                className={`absolute select-none cursor-move bg-surface border rounded-[3px] shadow-[var(--shadow-card)] ${isSel ? 'border-accent ring-1 ring-accent/40' : connectFrom === n.id ? 'border-accent' : 'border-line'}`}>
-                <div className="h-7 px-2 flex items-center gap-1.5 border-b border-line" style={{ background: `${M.color}10` }}>
-                  <M.icon size={12} style={{ color: M.color }} />
-                  <span className="text-[11px] font-semibold text-ink truncate">{M.label}</span>
-                  <Move size={10} className="text-ink-ghost ml-auto" />
-                </div>
-                <div className="px-2 py-2">
-                  <p className="text-[11px] text-ink-soft truncate">{sub}</p>
-                  {n.type === 'output' && n.result && <p className="text-[10px] text-ink-faint mt-0.5 line-clamp-2 leading-tight">{n.result.headline}</p>}
-                </div>
-              </div>
-            )
-          })}
+          </div>
         </div>
 
         {/* inspector */}

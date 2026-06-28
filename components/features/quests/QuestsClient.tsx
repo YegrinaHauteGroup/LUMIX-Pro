@@ -237,7 +237,7 @@ export function QuestsClient({ centerId, initialQuests, insights, classes, staff
       </div>
 
       {/* RIGHT — analysis reports (section scrolls internally, page does not) */}
-      <div className="w-[400px] xl:w-[440px] shrink-0 flex flex-col min-h-0">
+      <div className="w-[300px] xl:w-[340px] shrink-0 flex flex-col min-h-0">
         <div className="flex items-center justify-between mb-2.5 shrink-0">
           <h2 className="text-[12px] font-semibold text-ink uppercase tracking-[0.1em]">분석 보고서</h2>
           <span className="text-[11px] text-ink-faint font-data tabular-nums">{quests.length}건</span>
