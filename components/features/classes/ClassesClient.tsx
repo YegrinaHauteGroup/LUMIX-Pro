@@ -10,6 +10,7 @@ import { CHILD_STATUS_COLORS, CHILD_STATUS_LABELS } from '@/lib/utils'
 import type { Child } from '@/lib/types'
 import { createClient } from '@/utils/supabase/client'
 import { BookOpen, Plus, Settings2, Trash2, UserMinus, UserPlus, Users } from 'lucide-react'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { useRouter } from 'next/navigation'
 import { useMemo, useState } from 'react'
 
@@ -41,6 +42,8 @@ export function ClassesClient({ initialClasses, staff, allChildren, centerId }: 
   const [edit, setEdit] = useState({ name: '', age_group: '', capacity: '', description: '', homeroom_staff_id: '' })
   const [savingEdit, setSavingEdit] = useState(false)
   const [drawerMsg, setDrawerMsg] = useState('')
+  const [pendingDel, setPendingDel] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   const staffName = useMemo(() => new Map(staff.map((s) => [s.id, s.name])), [staff])
 
@@ -96,12 +99,14 @@ export function ClassesClient({ initialClasses, staff, allChildren, centerId }: 
   }
 
   const handleDelete = async (id: string) => {
-    if (!confirm('이 반을 삭제하시겠습니까? 배정된 아동은 미배정 상태가 됩니다.')) return
+    setDeleting(true)
     await supabase.from('children').update({ class_id: null }).eq('class_id', id)
-    const { error } = await supabase.from('classes').update({ deleted_at: new Date().toISOString() }).eq('id', id)
+    const { data, error } = await supabase.from('classes').update({ deleted_at: new Date().toISOString() }).eq('id', id).select('id')
+    setDeleting(false)
     if (error) { alert(`삭제 실패: ${error.message}`); return }
+    if (!data || data.length === 0) { alert('삭제 권한이 없거나 대상을 찾을 수 없습니다.'); return }
     setClasses((prev) => prev.filter((c) => c.id !== id))
-    setEditId(null)
+    setEditId(null); setPendingDel(null)
     router.refresh()
   }
 
@@ -189,7 +194,7 @@ export function ClassesClient({ initialClasses, staff, allChildren, centerId }: 
       <Drawer open={!!editing} onClose={() => setEditId(null)} title={editing?.name ?? '반 관리'} subtitle="반 속성 및 아동 배정 관리" width={440}
         footer={
           <div className="flex items-center justify-between">
-            <Button variant="danger" size="sm" onClick={() => editing && handleDelete(editing.id)}><Trash2 size={12} /> 반 삭제</Button>
+            <Button variant="danger" size="sm" onClick={() => editing && setPendingDel(editing.id)}><Trash2 size={12} /> 반 삭제</Button>
             <Button size="sm" loading={savingEdit} onClick={saveEdit}>속성 저장</Button>
           </div>
         }>
@@ -251,6 +256,10 @@ export function ClassesClient({ initialClasses, staff, allChildren, centerId }: 
           </div>
         )}
       </Drawer>
+
+      <ConfirmDialog open={!!pendingDel} title="반 삭제" danger loading={deleting}
+        message={<><span className="font-semibold text-ink">{classes.find((c) => c.id === pendingDel)?.name}</span> 반을 삭제하시겠습니까? 배정된 아동은 미배정 상태가 됩니다.</>}
+        confirmLabel="삭제" onConfirm={() => pendingDel && handleDelete(pendingDel)} onCancel={() => setPendingDel(null)} />
     </div>
   )
 }

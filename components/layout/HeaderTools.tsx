@@ -39,17 +39,17 @@ export function HeaderTools() {
 
   return (
     <div className="flex items-center gap-2">
-      {/* live clock */}
-      <div className="hidden md:flex flex-col items-end leading-none">
+      {/* live clock — single line */}
+      <div className="hidden md:flex items-center gap-1.5 leading-none">
+        <span className="text-[10px] text-ink-faint">{date}</span>
         <span className="text-[13px] font-data tabular-nums text-ink tracking-tight">{hhmm}</span>
-        <span className="text-[9px] text-ink-faint mt-0.5">{date}</span>
       </div>
 
       {/* emergency */}
       <div ref={wrap} className="relative">
         <button onClick={() => setOpen((v) => !v)} title="응급 상황"
-          className="flex items-center gap-1.5 h-8 px-2.5 rounded-[3px] bg-danger text-white text-[12px] font-semibold hover:opacity-90 transition-opacity">
-          <Siren size={14} /> 응급
+          className="flex items-center h-8 px-3 rounded-[3px] bg-danger text-white text-[11px] font-bold tracking-[0.08em] hover:opacity-90 transition-opacity">
+          EMERGENCY
         </button>
         {open && (
           <div className="absolute right-0 mt-1.5 w-[244px] bg-surface border border-line rounded-[4px] shadow-[var(--shadow-pop)] z-50 overflow-hidden">

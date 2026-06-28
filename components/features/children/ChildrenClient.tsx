@@ -9,6 +9,7 @@ import { CHILD_STATUS_COLORS, CHILD_STATUS_LABELS, GENDER_LABELS, calculateAge }
 import type { Child, Class } from '@/lib/types'
 import { createClient } from '@/utils/supabase/client'
 import { ExternalLink, Pencil, Plus, Search, Trash2, Users } from 'lucide-react'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
@@ -39,6 +40,8 @@ export function ChildrenClient({ initialChildren, classes, centerId }: Props) {
   const [filterClass, setFilterClass] = useState('all')
   // drawer: add (editId === 'new') / edit (editId === child.id) / closed (null)
   const [editId, setEditId] = useState<string | null>(null)
+  const [pendingDel, setPendingDel] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState(false)
   const [form, setForm] = useState(emptyForm)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -91,11 +94,14 @@ export function ChildrenClient({ initialChildren, classes, centerId }: Props) {
   }
 
   const handleDelete = async (id: string) => {
-    if (!confirm('이 아동을 삭제하시겠습니까?')) return
-    const { error } = await supabase.from('children').update({ deleted_at: new Date().toISOString() }).eq('id', id)
+    setDeleting(true)
+    const { data, error } = await supabase.from('children').update({ deleted_at: new Date().toISOString() }).eq('id', id).select('id')
+    setDeleting(false)
     if (error) { alert(`삭제 실패: ${error.message}`); return }
+    if (!data || data.length === 0) { alert('삭제 권한이 없거나 대상을 찾을 수 없습니다.'); return }
     setChildren((prev) => prev.filter((c) => c.id !== id))
     if (editId === id) setEditId(null)
+    setPendingDel(null)
     router.refresh()
   }
 
@@ -189,7 +195,7 @@ export function ChildrenClient({ initialChildren, classes, centerId }: Props) {
                       <button onClick={() => openEdit(child)} title="편집" className="text-ink-ghost hover:text-ink transition-colors p-1">
                         <Pencil size={13} />
                       </button>
-                      <button onClick={() => handleDelete(child.id)} title="삭제" className="text-ink-ghost hover:text-danger transition-colors p-1">
+                      <button onClick={() => setPendingDel(child.id)} title="삭제" className="text-ink-ghost hover:text-danger transition-colors p-1">
                         <Trash2 size={13} />
                       </button>
                     </div>
@@ -211,7 +217,7 @@ export function ChildrenClient({ initialChildren, classes, centerId }: Props) {
         footer={
           <div className="flex items-center justify-between">
             {editing
-              ? <Button variant="danger" size="sm" onClick={() => handleDelete(editing.id)}><Trash2 size={12} /> 삭제</Button>
+              ? <Button variant="danger" size="sm" onClick={() => setPendingDel(editing.id)}><Trash2 size={12} /> 삭제</Button>
               : <span />}
             <Button size="sm" form="child-form" type="submit" loading={loading}>{editId === 'new' ? '등록' : '저장'}</Button>
           </div>
@@ -293,6 +299,10 @@ export function ChildrenClient({ initialChildren, classes, centerId }: Props) {
           )}
         </form>
       </Drawer>
+
+      <ConfirmDialog open={!!pendingDel} title="아동 삭제" danger loading={deleting}
+        message={<><span className="font-semibold text-ink">{children.find((c) => c.id === pendingDel)?.name}</span> 아동을 삭제하시겠습니까?</>}
+        confirmLabel="삭제" onConfirm={() => pendingDel && handleDelete(pendingDel)} onCancel={() => setPendingDel(null)} />
     </div>
   )
 }

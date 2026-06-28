@@ -115,6 +115,7 @@ export function WorkspacePanel() {
   const fileRef = useRef<HTMLInputElement>(null)
   const [linkOpen, setLinkOpen] = useState(false)
   const [linkUrl, setLinkUrl] = useState('')
+  const [clearArmed, setClearArmed] = useState(false)
 
   if (!open) {
     return (
@@ -183,7 +184,10 @@ export function WorkspacePanel() {
       {items.length > 0 && (
         <div className="shrink-0 px-2.5 py-2 border-t border-line bg-surface flex items-center justify-between">
           <span className="text-[10px] text-ink-faint">{memoCount}개 메모 · {items.length - memoCount}개 항목</span>
-          <button onClick={() => { if (confirm('작업창의 모든 항목을 비울까요?')) clearAll() }} className="inline-flex items-center gap-1 text-[10px] text-ink-faint hover:text-danger"><Trash2 size={11} /> 전체 비우기</button>
+          <button onClick={() => { if (clearArmed) { clearAll(); setClearArmed(false) } else { setClearArmed(true); setTimeout(() => setClearArmed(false), 3000) } }}
+            className={`inline-flex items-center gap-1 text-[10px] ${clearArmed ? 'text-danger font-semibold' : 'text-ink-faint hover:text-danger'}`}>
+            <Trash2 size={11} /> {clearArmed ? '한 번 더 클릭' : '전체 비우기'}
+          </button>
         </div>
       )}
     </aside>

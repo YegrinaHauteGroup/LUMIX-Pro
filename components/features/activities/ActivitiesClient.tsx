@@ -42,6 +42,8 @@ export function ActivitiesClient({ initialActivities, classes, allChildren, part
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [manageId, setManageId] = useState<string | null>(null)
+  const [confirmDel, setConfirmDel] = useState<Activity | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   const nameOf = useMemo(() => new Map(allChildren.map((c) => [c.id, c.name])), [allChildren])
   const countByActivity = useMemo(() => {
@@ -79,12 +81,17 @@ export function ActivitiesClient({ initialActivities, classes, allChildren, part
     setActivities((prev) => prev.map((a) => a.id === id ? { ...a, status } : a))
   }
 
+  // In-app confirm (window.confirm is blocked in some embedded/preview frames,
+  // which silently aborted deletes). `.select('id')` surfaces RLS 0-row cases.
   const handleDelete = async (id: string) => {
-    if (!confirm('이 활동을 삭제하시겠습니까?')) return
-    const { error } = await supabase.from('activities').update({ deleted_at: new Date().toISOString() }).eq('id', id)
+    setDeleting(true)
+    const { data, error } = await supabase.from('activities').update({ deleted_at: new Date().toISOString() }).eq('id', id).select('id')
+    setDeleting(false)
     if (error) { alert(`삭제 실패: ${error.message}`); return }
+    if (!data || data.length === 0) { alert('삭제 권한이 없거나 대상을 찾을 수 없습니다.'); return }
     setActivities((prev) => prev.filter((a) => a.id !== id))
     if (manageId === id) setManageId(null)
+    setConfirmDel(null)
     router.refresh()
   }
 
@@ -164,7 +171,7 @@ export function ActivitiesClient({ initialActivities, classes, allChildren, part
                     </select>
                   </td>
                   <td className="px-4 py-3">
-                    <button onClick={() => handleDelete(a.id)} className="text-line-strong hover:text-danger transition-colors p-1"><Trash2 size={13} /></button>
+                    <button onClick={() => setConfirmDel(a)} className="text-line-strong hover:text-danger transition-colors p-1"><Trash2 size={13} /></button>
                   </td>
                 </tr>
               ))}
@@ -197,6 +204,17 @@ export function ActivitiesClient({ initialActivities, classes, allChildren, part
             <Button type="submit" loading={loading}>추가</Button>
           </div>
         </form>
+      </Modal>
+
+      {/* Delete confirmation (in-app, not window.confirm) */}
+      <Modal open={!!confirmDel} onClose={() => setConfirmDel(null)} title="활동 삭제" size="sm">
+        <p className="text-[13px] text-ink-soft leading-relaxed">
+          <span className="font-semibold text-ink">{confirmDel?.title}</span> 활동을 삭제하시겠습니까?<br />삭제된 활동은 목록에서 제거됩니다.
+        </p>
+        <div className="flex gap-2 justify-end pt-4">
+          <Button variant="secondary" type="button" onClick={() => setConfirmDel(null)}>취소</Button>
+          <Button type="button" loading={deleting} onClick={() => confirmDel && handleDelete(confirmDel.id)} className="!bg-danger hover:!bg-danger/90">삭제</Button>
+        </div>
       </Modal>
 
       {/* Manage drawer (participants + SNA linkage) */}
