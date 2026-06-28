@@ -1,6 +1,7 @@
 'use client'
 
 import { useWorkspace, type SnapshotMeta, type WorkspaceFileItem, type WorkspaceInfoItem, type WorkspaceItem, type WorkspaceLinkItem } from '@/lib/workspace'
+import { hasCardDrag, parseCardDrop } from '@/lib/cardDrag'
 import { MemoPad } from './MemoPad'
 import Link from 'next/link'
 import { Modal } from '@/components/ui/Modal'
@@ -110,8 +111,15 @@ function FileCard({ item }: { item: WorkspaceFileItem }) {
 }
 
 export function WorkspacePanel() {
-  const { items, open, setOpen, query, setQuery, addMemo, addLink, addFile, integrate, clearAll, busy,
+  const { items, open, setOpen, query, setQuery, addInfo, addMemo, addLink, addFile, integrate, clearAll, busy,
     saveSnapshot, listSnapshots, loadSnapshot, deleteSnapshot, captureScreen } = useWorkspace()
+  const [dragOver, setDragOver] = useState(false)
+  function onDragOver(e: React.DragEvent) { if (hasCardDrag(e)) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; if (!dragOver) setDragOver(true) } }
+  function onDrop(e: React.DragEvent) {
+    e.preventDefault(); setDragOver(false)
+    const p = parseCardDrop(e)
+    if (p) { addInfo({ source: p.source, title: p.title, body: p.body, accent: '#5c7080' }); setOpen(true) }
+  }
   const filtered = useMemo(() => items.filter((it) => matches(it, query)), [items, query])
   const memoCount = items.filter((i) => i.kind === 'memo').length
   const fileRef = useRef<HTMLInputElement>(null)
@@ -127,7 +135,8 @@ export function WorkspacePanel() {
 
   if (!open) {
     return (
-      <aside className="shrink-0 w-[40px] border-l border-line bg-fill-2 flex flex-col items-center py-2 gap-2">
+      <aside onDragOver={onDragOver} onDragLeave={() => setDragOver(false)} onDrop={onDrop}
+        className={`shrink-0 w-[40px] border-l bg-fill-2 flex flex-col items-center py-2 gap-2 ${dragOver ? 'border-accent bg-accent-soft/40' : 'border-line'}`}>
         <button onClick={() => setOpen(true)} title="작업창 열기" className="w-7 h-7 flex items-center justify-center rounded-[3px] text-ink-soft hover:text-accent hover:bg-surface"><Layers size={16} /></button>
         {items.length > 0 && <span className="text-[9px] font-data text-ink-faint tabular-nums">{items.length}</span>}
         <button onClick={() => addMemo()} title="메모 추가" className="w-7 h-7 flex items-center justify-center rounded-[3px] text-ink-soft hover:text-accent hover:bg-surface mt-auto"><FilePlus2 size={15} /></button>
@@ -136,7 +145,8 @@ export function WorkspacePanel() {
   }
 
   return (
-    <aside className="shrink-0 border-l border-line bg-fill-2 flex flex-col h-full" style={{ width: 'clamp(280px, 20vw, 360px)' }}>
+    <aside onDragOver={onDragOver} onDragLeave={() => setDragOver(false)} onDrop={onDrop}
+      className={`shrink-0 border-l bg-fill-2 flex flex-col h-full ${dragOver ? 'border-accent ring-1 ring-inset ring-accent/40' : 'border-line'}`} style={{ width: 'clamp(280px, 20vw, 360px)' }}>
       <div className="shrink-0 px-3 h-11 flex items-center justify-between border-b border-line bg-surface">
         <div className="flex items-center gap-1.5"><Layers size={14} className="text-accent" /><span className="text-[12px] font-semibold text-ink">작업창</span><span className="text-[10px] text-ink-faint font-data tabular-nums">{items.length}</span></div>
         <button onClick={() => setOpen(false)} title="접기" className="text-ink-faint hover:text-ink p-1 rounded-[3px] hover:bg-fill"><PanelRightClose size={15} /></button>
@@ -178,7 +188,7 @@ export function WorkspacePanel() {
           <div className="h-full flex flex-col items-center justify-center text-center px-4 py-10">
             <Layers size={26} className="text-ink-ghost mb-2" />
             <p className="text-[12px] text-ink-soft font-medium">작업창이 비어 있습니다</p>
-            <p className="text-[10.5px] text-ink-faint mt-1">앱 곳곳의 <span className="text-accent font-medium">+ 작업창</span> 버튼, 또는 위 <span className="text-accent font-medium">메모·링크·파일</span> 로 내용을 모아 연속 작업하세요.</p>
+            <p className="text-[10.5px] text-ink-faint mt-1">아무 <span className="text-accent font-medium">카드</span>나 이곳으로 끌어다 놓거나, <span className="text-accent font-medium">+ 작업창</span> 버튼·<span className="text-accent font-medium">메모·링크·파일</span>로 내용을 모아 연속 작업하세요.</p>
           </div>
         ) : filtered.length === 0 ? (
           <p className="text-[11px] text-ink-ghost text-center py-8">검색 결과가 없습니다</p>

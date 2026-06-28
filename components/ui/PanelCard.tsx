@@ -1,6 +1,7 @@
 'use client'
 
 import { cn } from '@/lib/utils'
+import { cardDragStart } from '@/lib/cardDrag'
 import { Maximize2, Pencil } from 'lucide-react'
 import { useState } from 'react'
 import { Modal } from './Modal'
@@ -31,7 +32,7 @@ export function PanelCard({
 }: PanelCardProps) {
   const [open, setOpen] = useState(false)
   return (
-    <div className={cn('bg-surface border border-line rounded-[3px] shadow-[var(--shadow-card)] flex flex-col', className)}>
+    <div draggable onDragStart={(e) => cardDragStart(e, title)} className={cn('bg-surface border border-line rounded-[3px] shadow-[var(--shadow-card)] flex flex-col', className)}>
       <div className="flex items-center justify-between px-4 h-10 border-b border-line shrink-0">
         <div className="min-w-0">
           <h3 className="text-[11px] font-semibold text-ink-faint uppercase tracking-[0.1em] truncate">{title}</h3>
