@@ -112,7 +112,7 @@ export function Header({ subtitle, actions }: HeaderProps) {
 
         {/* global search */}
         <div className="relative">
-          <div className="flex items-center h-8 w-[260px] bg-fill border border-line rounded-[3px] px-2.5 focus-within:border-accent transition-colors">
+          <div className="flex items-center h-8 w-[150px] lg:w-[210px] xl:w-[260px] bg-fill border border-line rounded-[3px] px-2.5 focus-within:border-accent transition-colors">
             <Search size={13} className="text-ink-faint shrink-0" />
             <input value={q} onChange={(e) => setQ(e.target.value)} onFocus={() => q && setSearchOpen(true)}
               placeholder="객체·온톨로지·데이터 통합 검색…"

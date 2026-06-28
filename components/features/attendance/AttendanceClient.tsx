@@ -97,7 +97,7 @@ export function AttendanceClient({ children, classes, today, centerId }: Props) 
   return (
     <div className="flex-1 min-h-0 p-5 w-full flex flex-col gap-4 overflow-hidden">
       {/* Controls */}
-      <div className="flex items-center gap-2 shrink-0">
+      <div className="flex items-center gap-2 shrink-0 flex-wrap">
         <input type="date" value={checkDate} onChange={(e) => setCheckDate(e.target.value)}
           className="bg-surface border border-line px-3 text-[12px] text-ink focus:outline-none focus:border-accent h-8 rounded-[3px]" />
         <select value={filterClass} onChange={(e) => setFilterClass(e.target.value)}

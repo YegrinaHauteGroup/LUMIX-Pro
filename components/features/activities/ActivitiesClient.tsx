@@ -174,7 +174,7 @@ export function ActivitiesClient({ initialActivities, classes, allChildren, part
 
   return (
     <div className="flex-1 min-h-0 p-5 w-full flex flex-col gap-4 overflow-hidden">
-      <div className="flex items-center gap-2 shrink-0">
+      <div className="flex items-center gap-2 shrink-0 flex-wrap">
         <select value={filterType} onChange={(e) => setFilterType(e.target.value as typeof filterType)}
           className="bg-surface border border-line px-3 text-[12px] text-ink-soft focus:outline-none focus:border-accent h-8 rounded-[3px] cursor-pointer">
           <option value="all">전체 유형</option>
