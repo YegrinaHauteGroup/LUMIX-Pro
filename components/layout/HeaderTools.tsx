@@ -48,7 +48,7 @@ export function HeaderTools() {
       {/* emergency */}
       <div ref={wrap} className="relative">
         <button onClick={() => setOpen((v) => !v)} title="응급 상황"
-          className="flex items-center h-8 px-3 rounded-[3px] bg-danger text-white text-[11px] font-bold tracking-[0.08em] hover:opacity-90 transition-opacity">
+          className="flex items-center h-7 px-2 rounded-[3px] bg-danger text-white text-[9.5px] font-bold tracking-[0.06em] hover:opacity-90 transition-opacity">
           EMERGENCY
         </button>
         {open && (

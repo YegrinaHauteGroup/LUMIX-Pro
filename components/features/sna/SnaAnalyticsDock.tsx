@@ -67,7 +67,7 @@ export function SnaAnalyticsDock({ centerId, threats, assess }: Props) {
       )}
 
       {/* slide-in editor (opens left of the workspace, never covering it) */}
-      <Drawer open={drawer} onClose={() => setDrawer(false)} title="가중치·평가 입력" subtitle="또래·교사·보호자 평가 · 온톨로지 규칙" width={540}>
+      <Drawer open={drawer} onClose={() => setDrawer(false)} title="가중치·평가 입력" subtitle="또래·교사·보호자 평가 · 온톨로지 규칙" width={810}>
         <AssessmentsClient embedded {...assess} />
       </Drawer>
     </div>
