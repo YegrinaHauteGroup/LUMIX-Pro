@@ -87,6 +87,7 @@ export function OperationalMap({ lat, lng, label, airPm25, airGrade }: Props) {
   const [searchOpen, setSearchOpen] = useState(false)
   const [savedPlaces, setSavedPlaces] = useState<Place[]>([])
   const [showSaved, setShowSaved] = useState(true)
+  const [mapReady, setMapReady] = useState(false)
   const hasLoc = lat != null && lng != null
 
   // ── my saved places ("내 장소") — persisted per browser ───────────────────
@@ -180,6 +181,7 @@ export function OperationalMap({ lat, lng, label, airPm25, airGrade }: Props) {
       map.on('click', () => { setSelected(null); setSearchOpen(false) })
       layerRef.current = { base, sat, markers, rings, L }
       mapRef.current = map
+      setMapReady(true)
       let swapped = false
       base.on('tileerror', () => {
         if (swapped) return
@@ -192,7 +194,7 @@ export function OperationalMap({ lat, lng, label, airPm25, airGrade }: Props) {
       })
       setTimeout(() => map.invalidateSize(), 60)
     })()
-    return () => { disposed = true; mapRef.current?.remove?.(); mapRef.current = null }
+    return () => { disposed = true; mapRef.current?.remove?.(); mapRef.current = null; setMapReady(false) }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasLoc])
 
@@ -272,7 +274,7 @@ export function OperationalMap({ lat, lng, label, airPm25, airGrade }: Props) {
         .bindTooltip(`<b style="color:${c}">${CATS[p.cat].label}</b> · ${p.name}`, { direction: 'top' })
         .on('click', (e: any) => { if (e?.originalEvent) e.originalEvent.stopPropagation?.(); setSelected(p) })
     }
-  }, [pois, active, hasLoc, lat, lng])
+  }, [pois, active, hasLoc, lat, lng, mapReady])
 
   // ── saved-place star markers ───────────────────────────────────────────────
   useEffect(() => {
@@ -288,7 +290,7 @@ export function OperationalMap({ lat, lng, label, airPm25, airGrade }: Props) {
         .on('click', (e: any) => { if (e?.originalEvent) e.originalEvent.stopPropagation?.(); setSelected(p) })
     }
     layerRef.current.saved = grp
-  }, [savedPlaces, showSaved])
+  }, [savedPlaces, showSaved, mapReady])
 
   // ── selected place: highlight + fit + reverse-geocode ──────────────────────
   useEffect(() => {
@@ -308,7 +310,7 @@ export function OperationalMap({ lat, lng, label, airPm25, airGrade }: Props) {
       fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&accept-language=ko&lat=${selected.lat}&lon=${selected.lon}`)
         .then((r) => r.json()).then((d) => setAddr(d?.display_name ?? null)).catch(() => {})
     }
-  }, [selected, hasLoc, lat, lng])
+  }, [selected, hasLoc, lat, lng, mapReady])
 
   // ── routing (public OSRM) ──────────────────────────────────────────────────
   useEffect(() => {
@@ -337,7 +339,7 @@ export function OperationalMap({ lat, lng, label, airPm25, airGrade }: Props) {
     } else if (selected && hasLoc) {
       layerRef.current.routeLine = L.polyline([[lat, lng], [selected.lat, selected.lon]], { color: '#8a9ba8', weight: 2, opacity: 0.7, dashArray: '6 6' }).addTo(map)
     }
-  }, [route, selected, hasLoc, lat, lng])
+  }, [route, selected, hasLoc, lat, lng, mapReady])
 
   // ── search (local + Nominatim) ─────────────────────────────────────────────
   useEffect(() => {
