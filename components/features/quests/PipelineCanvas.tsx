@@ -258,7 +258,7 @@ export function PipelineCanvas({ centerId, classes, insights, staffCount, entity
           className="relative flex-1 h-[520px] overflow-hidden bg-fill-2 touch-none"
           style={{ backgroundImage: 'radial-gradient(circle, #d4dde4 1px, transparent 1px)', backgroundSize: `${18 * zoom}px ${18 * zoom}px`, backgroundPosition: `${pan.x}px ${pan.y}px` }}>
           {/* zoom controls */}
-          <div className="absolute top-2 right-2 z-10 flex items-center bg-surface/90 backdrop-blur border border-line rounded-[3px] overflow-hidden">
+          <div onPointerDown={(e) => e.stopPropagation()} className="absolute top-2 right-2 z-10 flex items-center bg-surface/90 backdrop-blur border border-line rounded-[3px] overflow-hidden">
             <button onClick={() => setZoom((z) => clampZoom(z / 1.1))} className="w-7 h-7 text-ink-soft hover:bg-fill text-[14px]">−</button>
             <span className="w-10 text-center text-[10px] font-data text-ink-faint tabular-nums">{Math.round(zoom * 100)}%</span>
             <button onClick={() => setZoom((z) => clampZoom(z * 1.1))} className="w-7 h-7 text-ink-soft hover:bg-fill text-[14px]">+</button>
