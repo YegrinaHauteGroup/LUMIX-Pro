@@ -538,7 +538,7 @@ export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) 
   ]
 
   return (
-    <div className="relative flex-1 h-[calc(100vh-3rem)] overflow-hidden bg-canvas">
+    <div className="relative h-full w-full overflow-hidden bg-canvas">
       {nodes.length === 0 ? (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-ink-faint">
           <p className="text-sm">표시할 관계망 데이터가 없습니다</p>
