@@ -9,6 +9,7 @@ interface Props {
   title: string
   subtitle?: string
   fields?: InfoField[]
+  body?: string
   href?: string
   accent?: string
   /** 'icon' = compact square button, 'chip' = labeled pill */
@@ -20,13 +21,13 @@ interface Props {
  * Universal "+ 작업창" affordance. Drop it next to any piece of information in
  * the SaaS to collect it into the persistent right-side workspace.
  */
-export function AddToWorkspaceButton({ source, title, subtitle, fields, href, accent, variant = 'icon', className }: Props) {
+export function AddToWorkspaceButton({ source, title, subtitle, fields, body, href, accent, variant = 'icon', className }: Props) {
   const ws = useWorkspaceOptional()
   const [done, setDone] = useState(false)
   if (!ws) return null
 
   const onAdd = () => {
-    ws.addInfo({ source, title, subtitle, fields, href, accent })
+    ws.addInfo({ source, title, subtitle, fields, body, href, accent })
     setDone(true)
     setTimeout(() => setDone(false), 1200)
   }

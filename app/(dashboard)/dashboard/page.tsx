@@ -10,6 +10,7 @@ import { DashboardCharts, AttendanceTrendPanel } from '@/components/features/das
 import { DashboardFeed } from '@/components/features/dashboard/DashboardFeed'
 import { DashboardWeekStrip } from '@/components/features/dashboard/DashboardWeekStrip'
 import { OperationalMap } from '@/components/features/dashboard/OperationalMap'
+import { AddToWorkspaceButton } from '@/components/workspace/AddToWorkspaceButton'
 import { CHILD_STATUS_COLORS, CHILD_STATUS_LABELS, ACTIVITY_TYPE_LABELS, ACTIVITY_TYPE_COLORS } from '@/lib/utils'
 import type { Child, Activity, Class } from '@/lib/types'
 
@@ -153,11 +154,21 @@ export default async function DashboardPage() {
           </div>
         </div>
 
-        {/* RIGHT — fixed ~1/3 section, internal vertical scroll: weather, then graphs/cards */}
-        <div className="w-[33%] max-w-[460px] shrink-0 min-h-0 overflow-y-auto pr-0.5 space-y-2.5">
+        {/* RIGHT — fixed section, internal vertical scroll: weather, then graphs/cards */}
+        <div className="w-[300px] xl:w-[340px] shrink-0 min-h-0 overflow-y-auto pr-0.5 space-y-2.5">
           <DashboardFeed centerId={centerId ?? ''} hasLocation={hasLocation} />
 
           {/* KPI mini-tiles */}
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-semibold text-ink-faint uppercase tracking-[0.1em]">운영 현황 요약</span>
+            <AddToWorkspaceButton source="대시보드" title="운영 현황 요약" subtitle={`${new Date().toLocaleDateString('ko-KR')} 기준`}
+              fields={[
+                ...stats.map((s) => ({ label: s.label, value: String(s.value) })),
+                ...snaStats.map((s) => ({ label: s.label, value: String(s.value) })),
+              ]}
+              body={`운영 현황 — ${stats.map((s) => `${s.label} ${s.value}`).join(', ')}\n관계망 — ${snaStats.map((s) => `${s.label} ${s.value}`).join(', ')}`}
+              href="/dashboard" accent="#137cbd" />
+          </div>
           <div className="grid grid-cols-2 gap-2">
             {stats.map((stat) => (
               <div key={stat.label} className="bg-surface border border-line rounded-[3px] shadow-[var(--shadow-card)] px-2.5 py-2 flex items-center gap-2" title={stat.sub}>
