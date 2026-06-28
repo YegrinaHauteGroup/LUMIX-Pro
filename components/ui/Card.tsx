@@ -13,6 +13,12 @@ export function Card({ children, className, dragSource = '카드', noDrag }: { c
     <div
       className={cn('bg-surface border border-line rounded-[3px] shadow-[var(--shadow-card)]', className)}
       draggable={!noDrag}
+      // Disable the card drag when the gesture starts on an interactive element
+      // so selecting/dragging text inside inputs works normally.
+      onMouseDown={noDrag ? undefined : (e) => {
+        const interactive = (e.target as HTMLElement).closest('input,textarea,select,button,a,label,[contenteditable="true"]')
+        ;(e.currentTarget as HTMLDivElement).draggable = !interactive
+      }}
       onDragStart={noDrag ? undefined : (e) => cardDragStart(e, dragSource)}
     >
       {children}

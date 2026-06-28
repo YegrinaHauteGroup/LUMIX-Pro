@@ -81,7 +81,7 @@ export function FacilitySchemaGraph({ facilityName, classes, unassigned }: Props
             </div>
           </div>
         </div>
-        <div ref={scrollRef} className="flex-1 min-h-0 overflow-auto bg-fill-2" style={{ backgroundImage: 'radial-gradient(circle, #d4dde4 1px, transparent 1px)', backgroundSize: '18px 18px' }}>
+        <div ref={scrollRef} className="flex-1 min-h-0 overflow-auto bg-fill-2" style={{ backgroundImage: 'linear-gradient(#e7ecf1 1px, transparent 1px), linear-gradient(90deg, #e7ecf1 1px, transparent 1px)', backgroundSize: '24px 24px' }}>
           <div style={{ width: canvasW * zoom, height: canvasH * zoom }}>
           <div className="relative origin-top-left" style={{ width: canvasW, height: canvasH, transform: `scale(${zoom})` }}>
             <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ width: canvasW, height: canvasH }}>

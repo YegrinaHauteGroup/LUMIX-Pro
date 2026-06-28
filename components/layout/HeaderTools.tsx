@@ -39,8 +39,8 @@ export function HeaderTools() {
 
   return (
     <div className="flex items-center gap-2">
-      {/* live clock — single line, default UI font */}
-      <div className="hidden md:flex items-center gap-1.5 leading-none">
+      {/* live clock — one block, same height as the header buttons */}
+      <div className="hidden md:flex items-center gap-1.5 h-8 px-2.5 rounded-[3px] border border-line bg-fill leading-none">
         <span className="text-[11px] text-ink-faint tabular-nums">{date}</span>
         <span className="text-[12.5px] tabular-nums text-ink tracking-tight">{hhmm}</span>
       </div>

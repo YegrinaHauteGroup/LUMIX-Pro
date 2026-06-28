@@ -8,8 +8,8 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, ComposedChart, Line, Area, ReferenceLine, AreaChart,
 } from 'recharts'
 
-const GENDER_COLORS = ['#137cbd', '#0ea5e9', '#8b5cf6']
-const STATUS_COLORS = ['#0f9960', '#d9822b', '#db3737']
+const GENDER_COLORS = ['#3b7fb0', '#4596b8', '#6b6fae']
+const STATUS_COLORS = ['#3f9e7c', '#c08a3e', '#b85c4f']
 const TOOLTIP_STYLE = {
   contentStyle: { background: '#ffffff', border: '1px solid #ced9e0', borderRadius: 3, fontSize: 11, boxShadow: '0 8px 24px rgba(16,22,26,0.12)' },
   itemStyle: { color: '#5c7080', fontVariantNumeric: 'tabular-nums' }, labelStyle: { color: '#182026', fontWeight: 600 },
@@ -33,14 +33,14 @@ function MonthlyArea({ data, h }: { data: MonthlyDatum[]; h: number }) {
       <AreaChart data={data} margin={{ top: 6, right: 6, left: -22, bottom: 0 }}>
         <defs>
           <linearGradient id="gReg" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#2563eb" stopOpacity={0.3} /><stop offset="100%" stopColor="#2563eb" stopOpacity={0} />
+            <stop offset="0%" stopColor="#3b7fb0" stopOpacity={0.3} /><stop offset="100%" stopColor="#3b7fb0" stopOpacity={0} />
           </linearGradient>
         </defs>
         <CartesianGrid strokeDasharray="3 3" stroke={GRID} vertical={false} />
         <XAxis dataKey="month" tick={AXIS} axisLine={false} tickLine={false} />
         <YAxis tick={AXIS} axisLine={false} tickLine={false} allowDecimals={false} width={26} />
         <Tooltip {...TOOLTIP_STYLE} cursor={{ stroke: '#ced9e0' }} />
-        <Area type="monotone" dataKey="등록" stroke="#2563eb" strokeWidth={2} fill="url(#gReg)" dot={{ r: 2 }} activeDot={{ r: 4 }} />
+        <Area type="monotone" dataKey="등록" stroke="#3b7fb0" strokeWidth={2} fill="url(#gReg)" dot={{ r: 2 }} activeDot={{ r: 4 }} />
       </AreaChart>
     </ResponsiveContainer>
   )
@@ -76,7 +76,7 @@ function TrendChart({ data, h, compact }: { data: TrendDatum[]; h: number | `${n
       <ComposedChart data={data} margin={{ top: 6, right: compact ? 8 : 6, left: -22, bottom: 0 }}>
         <defs>
           <linearGradient id="gPres" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#137cbd" stopOpacity={0.25} /><stop offset="100%" stopColor="#137cbd" stopOpacity={0} />
+            <stop offset="0%" stopColor="#3b7fb0" stopOpacity={0.25} /><stop offset="100%" stopColor="#3b7fb0" stopOpacity={0} />
           </linearGradient>
         </defs>
         <CartesianGrid strokeDasharray="3 3" stroke={GRID} vertical={false} />
@@ -85,13 +85,13 @@ function TrendChart({ data, h, compact }: { data: TrendDatum[]; h: number | `${n
         <Tooltip {...TOOLTIP_STYLE} />
         {!compact && <Legend wrapperStyle={{ fontSize: 11 }} iconType="circle" iconSize={7} />}
         {avg > 0 && (
-          <ReferenceLine y={avg} stroke="#137cbd" strokeDasharray="4 4" strokeOpacity={0.5}
+          <ReferenceLine y={avg} stroke="#3b7fb0" strokeDasharray="4 4" strokeOpacity={0.5}
             label={compact ? undefined : { value: `μ ${avg.toFixed(1)}`, position: 'right', fontSize: 9, fill: '#5c7080' }} />
         )}
-        <Area type="monotone" dataKey="출석" stroke="#137cbd" strokeWidth={2} fill="url(#gPres)" dot={false} activeDot={{ r: 3 }} />
-        <Bar dataKey="결석" barSize={7} fill="#db3737" radius={[2, 2, 0, 0]} />
-        <Line type="monotone" dataKey="지각" stroke="#d9822b" strokeWidth={1.5} dot={false} />
-        <Line type="monotone" dataKey="조퇴" stroke="#8b5cf6" strokeWidth={1.5} strokeDasharray="4 3" dot={false} />
+        <Area type="monotone" dataKey="출석" stroke="#3b7fb0" strokeWidth={2} fill="url(#gPres)" dot={false} activeDot={{ r: 3 }} />
+        <Bar dataKey="결석" barSize={7} fill="#b85c4f" radius={[2, 2, 0, 0]} />
+        <Line type="monotone" dataKey="지각" stroke="#c08a3e" strokeWidth={1.5} dot={false} />
+        <Line type="monotone" dataKey="조퇴" stroke="#6b6fae" strokeWidth={1.5} strokeDasharray="4 3" dot={false} />
       </ComposedChart>
     </ResponsiveContainer>
   )
@@ -106,10 +106,10 @@ function CompositionChart({ data, h }: { data: TrendDatum[]; h: number }) {
         <YAxis tick={AXIS} axisLine={false} tickLine={false} width={26} tickFormatter={(v) => `${Math.round(v * 100)}%`} />
         <Tooltip {...TOOLTIP_STYLE} />
         <Legend wrapperStyle={{ fontSize: 11 }} iconType="circle" iconSize={7} />
-        <Bar dataKey="출석" stackId="a" fill="#0f9960" />
-        <Bar dataKey="지각" stackId="a" fill="#d9822b" />
-        <Bar dataKey="조퇴" stackId="a" fill="#8b5cf6" />
-        <Bar dataKey="결석" stackId="a" fill="#db3737" />
+        <Bar dataKey="출석" stackId="a" fill="#3f9e7c" />
+        <Bar dataKey="지각" stackId="a" fill="#c08a3e" />
+        <Bar dataKey="조퇴" stackId="a" fill="#6b6fae" />
+        <Bar dataKey="결석" stackId="a" fill="#b85c4f" />
       </BarChart>
     </ResponsiveContainer>
   )
@@ -165,7 +165,7 @@ function SnaBars({ data, h = 160 }: { data: { label: string; value: number }[]; 
         <XAxis type="number" tick={AXIS} axisLine={false} tickLine={false} allowDecimals={false} />
         <YAxis type="category" dataKey="label" tick={{ fontSize: 10, fill: '#5c7080' }} axisLine={false} tickLine={false} width={66} />
         <Tooltip {...TOOLTIP_STYLE} cursor={{ fill: 'rgba(19,124,189,0.06)' }} />
-        <Bar dataKey="value" fill="#137cbd" radius={[0, 2, 2, 0]} barSize={12} />
+        <Bar dataKey="value" fill="#3b7fb0" radius={[0, 2, 2, 0]} barSize={12} />
       </BarChart>
     </ResponsiveContainer>
   )
@@ -219,9 +219,9 @@ export function DashboardCharts({ genderStats, statusStats, classStats, ageStats
       {activityTypeData && (
         <PanelCard title="활동 유형 분포" subtitle="프로그램 유형별 구성"
           detailTitle="활동 유형 분포 상세" detail={
-            <div className="space-y-4"><Donut data={activityTypeData} colors={['#137cbd', '#8b5cf6', '#0f9960', '#d9822b', '#5c7080']} h={260} /><DataTable cols={['유형', '건수']} rows={activityTypeData.map((d) => [d.name, d.value])} /></div>
+            <div className="space-y-4"><Donut data={activityTypeData} colors={['#3b7fb0', '#6b6fae', '#3f9e7c', '#c08a3e', '#5c7080']} h={260} /><DataTable cols={['유형', '건수']} rows={activityTypeData.map((d) => [d.name, d.value])} /></div>
           }>
-          <Donut data={activityTypeData} colors={['#137cbd', '#8b5cf6', '#0f9960', '#d9822b', '#5c7080']} h={150} />
+          <Donut data={activityTypeData} colors={['#3b7fb0', '#6b6fae', '#3f9e7c', '#c08a3e', '#5c7080']} h={150} />
         </PanelCard>
       )}
 
@@ -243,8 +243,8 @@ export function DashboardCharts({ genderStats, statusStats, classStats, ageStats
       </PanelCard>
 
       <PanelCard title="연령 분포" subtitle="재원 아동 연령 구성"
-        detailTitle="연령 분포 상세" detail={<div className="space-y-4"><VBar data={ageStats} color="#14b8a6" h={300} /><DataTable cols={['연령', '인원']} rows={ageStats.map((s) => [s.name, s.value])} /></div>}>
-        <VBar data={ageStats} color="#14b8a6" h={170} />
+        detailTitle="연령 분포 상세" detail={<div className="space-y-4"><VBar data={ageStats} color="#2f8f9d" h={300} /><DataTable cols={['연령', '인원']} rows={ageStats.map((s) => [s.name, s.value])} /></div>}>
+        <VBar data={ageStats} color="#2f8f9d" h={170} />
       </PanelCard>
 
       <PanelCard title="성별 현황"
@@ -258,8 +258,8 @@ export function DashboardCharts({ genderStats, statusStats, classStats, ageStats
       </PanelCard>
 
       <PanelCard title="반별 아동 수"
-        detailTitle="반별 아동 수 상세" detail={<div className="space-y-4"><VBar data={classStats} color="#137cbd" h={300} /><DataTable cols={['반', '인원']} rows={classStats.map((s) => [s.name, s.value])} /></div>}>
-        <VBar data={classStats} color="#137cbd" h={170} />
+        detailTitle="반별 아동 수 상세" detail={<div className="space-y-4"><VBar data={classStats} color="#3b7fb0" h={300} /><DataTable cols={['반', '인원']} rows={classStats.map((s) => [s.name, s.value])} /></div>}>
+        <VBar data={classStats} color="#3b7fb0" h={170} />
       </PanelCard>
     </div>
   )

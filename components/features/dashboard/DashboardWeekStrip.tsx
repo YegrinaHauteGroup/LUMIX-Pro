@@ -50,7 +50,7 @@ export function DashboardWeekStrip({ activities, careNotes }: { activities: ActE
             <button onClick={() => { setOpen(null); setWeekOffset((o) => o - 1) }} title="전주"
               className="w-6 h-6 flex items-center justify-center rounded-[3px] text-ink-faint hover:text-ink hover:bg-fill"><ChevronLeft size={14} /></button>
             <button onClick={() => { setOpen(null); setWeekOffset(0) }}
-              className={`text-[10px] font-data w-[78px] text-center ${weekOffset === 0 ? 'text-accent' : 'text-ink-faint hover:text-ink'}`}>
+              className={`text-[10.5px] tabular-nums w-[80px] text-center ${weekOffset === 0 ? 'text-accent' : 'text-ink-faint hover:text-ink'}`}>
               {weekOffset === 0 ? '이번 주' : rangeLabel}
             </button>
             <button onClick={() => { setOpen(null); setWeekOffset((o) => o + 1) }} title="다음 주"
