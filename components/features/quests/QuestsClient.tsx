@@ -146,36 +146,38 @@ export function QuestsClient({ centerId, initialQuests, insights, classes, staff
   ]
 
   return (
-    <div className="flex-1 min-h-0 p-4 w-full flex gap-4 overflow-hidden">
+    <div className="flex-1 min-h-0 p-3 w-full flex gap-3 overflow-hidden">
       {/* LEFT — interactive pipeline canvas + configuration */}
-      <div className="flex-1 min-w-0 flex flex-col gap-3 min-h-0 overflow-y-auto pr-1">
+      <div className="flex-1 min-w-0 flex flex-col gap-2.5 min-h-0 overflow-y-auto pr-1">
         <PipelineCanvas
           centerId={centerId} classes={classes} insights={insights}
           staffCount={staffCount} entityCount={entityCount}
+          questType={type} scope={scope}
+          onQuestType={(v) => { setType(v); setSim(null) }} onScope={(v) => { setScope(v); setSim(null) }}
           onResult={(q) => setQuests((prev) => [q as unknown as Quest, ...prev.filter((x) => x.id !== q.id)])}
         />
 
-        {/* Pipeline summary strip */}
-        <div className="flex items-stretch gap-0 overflow-x-auto pb-1 shrink-0">
+        {/* Pipeline summary strip — compact */}
+        <div className="flex items-stretch gap-0 overflow-x-auto pb-0.5 shrink-0">
           {STAGES.map((s, i) => (
             <div key={s.title} className="flex items-center shrink-0">
-              <div className="w-[200px] bg-surface border border-line rounded-[3px] shadow-[var(--shadow-card)] px-3.5 py-2.5">
-                <div className="flex items-center gap-2 mb-1">
-                  <s.icon size={14} className="text-accent" />
-                  <span className="text-[11px] font-semibold text-ink uppercase tracking-wider">{s.title}</span>
+              <div className="w-[150px] bg-surface border border-line rounded-[3px] shadow-[var(--shadow-card)] px-2.5 py-1.5">
+                <div className="flex items-center gap-1.5 mb-0.5">
+                  <s.icon size={12} className="text-accent" />
+                  <span className="text-[10px] font-semibold text-ink uppercase tracking-wider truncate">{s.title}</span>
                 </div>
-                <p className="text-[11px] text-ink-soft leading-snug">{s.body}</p>
+                <p className="text-[10px] text-ink-soft leading-snug line-clamp-2">{s.body}</p>
               </div>
-              {i < STAGES.length - 1 && <ChevronRight size={16} className="text-ink-ghost mx-1 shrink-0" />}
+              {i < STAGES.length - 1 && <ChevronRight size={14} className="text-ink-ghost mx-0.5 shrink-0" />}
             </div>
           ))}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-          {/* Config */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-2.5">
+          {/* Config — synced with the canvas analysis/filter nodes */}
           <Card>
-            <CardHeader><CardTitle>퀘스트 구성</CardTitle></CardHeader>
-            <CardContent className="space-y-3">
+            <CardHeader><CardTitle>퀘스트 구성 · 캔버스 연동</CardTitle></CardHeader>
+            <CardContent className="space-y-2.5">
               <div>
                 <label className="block text-[11px] text-ink-faint mb-1.5">분석 유형</label>
                 <select value={type} onChange={(e) => { setType(e.target.value); setSim(null) }}

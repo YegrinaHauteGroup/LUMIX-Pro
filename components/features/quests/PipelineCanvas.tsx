@@ -4,7 +4,7 @@ import { createClient } from '@/utils/supabase/client'
 import { withTimeout } from '@/lib/utils'
 import { Button } from '@/components/ui/Button'
 import { Database, Filter, FlaskConical, GitBranch, Play, Plus, Trash2, BarChart3, Link2, Move } from 'lucide-react'
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 type NType = 'source' | 'filter' | 'analysis' | 'sim' | 'output'
 interface PNode {
@@ -41,18 +41,31 @@ interface Props {
   centerId: string; classes: ClassOpt[]; insights: Insights | null
   staffCount: number; entityCount: number
   onResult: (quest: { id: string; title: string; quest_type: string; params: Record<string, unknown> | null; status: 'pending' | 'running' | 'done' | 'error'; result: never; error: string | null; created_at: string; updated_at: string }) => void
+  // shared, two-way config so the canvas and the "퀘스트 구성" form stay in sync
+  questType?: string; scope?: string
+  onQuestType?: (v: string) => void; onScope?: (v: string) => void
 }
 
-export function PipelineCanvas({ centerId, classes, insights, staffCount, entityCount, onResult }: Props) {
+export function PipelineCanvas({ centerId, classes, insights, staffCount, entityCount, onResult, questType, scope: scopeProp, onQuestType, onScope }: Props) {
   const supabase = useMemo(() => createClient(), [])
   const canvasRef = useRef<HTMLDivElement>(null)
   const [nodes, setNodes] = useState<PNode[]>([
-    { id: 'src', type: 'source', x: 30, y: 40 },
-    { id: 'flt', type: 'filter', x: 250, y: 40, scope: 'ALL' },
-    { id: 'ana', type: 'analysis', x: 470, y: 40, questType: 'isolation_risk' },
-    { id: 'sim', type: 'sim', x: 690, y: 150, sim: null },
-    { id: 'out', type: 'output', x: 690, y: 40, result: null },
+    { id: 'src', type: 'source', x: 30, y: 48 },
+    { id: 'flt', type: 'filter', x: 250, y: 48, scope: scopeProp ?? 'ALL' },
+    { id: 'ana', type: 'analysis', x: 470, y: 48, questType: questType ?? 'isolation_risk' },
+    { id: 'sim', type: 'sim', x: 690, y: 168, sim: null },
+    { id: 'out', type: 'output', x: 690, y: 48, result: null },
   ])
+
+  // keep the canvas analysis/filter nodes synced with the shared config form
+  useEffect(() => {
+    if (questType == null) return
+    setNodes((ns) => ns.map((n) => (n.type === 'analysis' && n.questType !== questType ? { ...n, questType } : n)))
+  }, [questType])
+  useEffect(() => {
+    if (scopeProp == null) return
+    setNodes((ns) => ns.map((n) => (n.type === 'filter' && n.scope !== scopeProp ? { ...n, scope: scopeProp } : n)))
+  }, [scopeProp])
   const [edges, setEdges] = useState<Edge[]>([
     { from: 'src', to: 'flt' }, { from: 'flt', to: 'ana' }, { from: 'ana', to: 'out' }, { from: 'ana', to: 'sim' },
   ])
@@ -202,7 +215,7 @@ export function PipelineCanvas({ centerId, classes, insights, staffCount, entity
       <div className="flex">
         {/* canvas */}
         <div ref={canvasRef} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerLeave={onPointerUp}
-          className="relative flex-1 h-[340px] overflow-hidden bg-fill-2"
+          className="relative flex-1 h-[460px] overflow-hidden bg-fill-2"
           style={{ backgroundImage: 'radial-gradient(circle, #d4dde4 1px, transparent 1px)', backgroundSize: '18px 18px' }}>
           {/* edges */}
           <svg className="absolute inset-0 w-full h-full pointer-events-none">
@@ -258,7 +271,7 @@ export function PipelineCanvas({ centerId, classes, insights, staffCount, entity
               {sel.type === 'filter' && (
                 <div>
                   <label className="block text-[10px] text-ink-faint mb-1">분석 범위</label>
-                  <select value={sel.scope} onChange={(e) => patchNode(sel.id, { scope: e.target.value })}
+                  <select value={sel.scope} onChange={(e) => { patchNode(sel.id, { scope: e.target.value }); onScope?.(e.target.value) }}
                     className="w-full h-8 px-2 bg-surface border border-line rounded-[3px] text-[12px] text-ink">
                     <option value="ALL">전체 센터</option>
                     {classes.map((c) => <option key={c.id} value={c.id}>{c.name} ({c.count})</option>)}
@@ -268,7 +281,7 @@ export function PipelineCanvas({ centerId, classes, insights, staffCount, entity
               {sel.type === 'analysis' && (
                 <div>
                   <label className="block text-[10px] text-ink-faint mb-1">분석 유형</label>
-                  <select value={sel.questType} onChange={(e) => patchNode(sel.id, { questType: e.target.value })}
+                  <select value={sel.questType} onChange={(e) => { patchNode(sel.id, { questType: e.target.value }); onQuestType?.(e.target.value) }}
                     className="w-full h-8 px-2 bg-surface border border-line rounded-[3px] text-[12px] text-ink">
                     {QUEST_TYPES.map((q) => <option key={q.v} value={q.v}>{q.t}</option>)}
                   </select>
