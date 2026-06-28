@@ -1,4 +1,3 @@
-import { Header } from '@/components/layout/Header'
 import { getCenterId } from '@/lib/center'
 import { createClient } from '@/utils/supabase/server'
 import { cookies } from 'next/headers'
@@ -20,7 +19,6 @@ export default async function ActivitiesPage() {
 
   return (
     <>
-      <Header title="활동 관리" subtitle="프로그램·현장학습·이벤트 · SNA 연계 참여 관리" />
       <ActivitiesClient
         initialActivities={activitiesRes.data ?? []}
         classes={classesRes.data ?? []}

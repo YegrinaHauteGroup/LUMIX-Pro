@@ -1,4 +1,3 @@
-import { Header } from '@/components/layout/Header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { getCenterId } from '@/lib/center'
@@ -131,7 +130,6 @@ export default async function DashboardPage() {
 
   return (
     <>
-      <Header title="대시보드" subtitle="작전 지도 · 시설 현황 · 운영 분석 통합" />
       <div className="flex-1 min-h-0 p-2.5 overflow-hidden flex gap-2.5">
         {/* LEFT — operational map (hero) over a bottom bar */}
         <div className="flex-1 min-w-0 flex flex-col gap-2.5 min-h-0">

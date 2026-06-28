@@ -104,10 +104,10 @@ export function Header({ subtitle, actions }: HeaderProps) {
       </div>
 
       <div className="flex-1" />
-      <HeaderTools />
-      <div className="flex-1" />
 
       <div ref={wrapRef} className="flex items-center gap-1.5">
+        {actions}
+        <HeaderTools />
         {actions}
 
         {/* global search */}

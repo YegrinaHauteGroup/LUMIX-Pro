@@ -1,4 +1,3 @@
-import { Header } from '@/components/layout/Header'
 import { getCenterInfo } from '@/lib/center'
 import { createClient } from '@/utils/supabase/server'
 import { cookies } from 'next/headers'
@@ -15,7 +14,6 @@ export default async function SettingsPage() {
 
   return (
     <>
-      <Header title="설정" subtitle="계정 및 시설 설정" />
       <SettingsClient user={user} center={center} />
     </>
   )

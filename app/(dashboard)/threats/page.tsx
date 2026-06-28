@@ -1,4 +1,3 @@
-import { Header } from '@/components/layout/Header'
 import { getCenterId } from '@/lib/center'
 import { createClient } from '@/utils/supabase/server'
 import { cookies } from 'next/headers'
@@ -14,7 +13,6 @@ export default async function ThreatsPage() {
 
   return (
     <>
-      <Header title="위협 탐지 시스템" subtitle="SNA · 보건 · 위치 기반 실시간 위협 감지" />
       <ThreatsClient centerId={cid} initial={data ?? null} />
     </>
   )

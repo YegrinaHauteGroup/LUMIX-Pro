@@ -1,4 +1,3 @@
-import { Header } from '@/components/layout/Header'
 import { getCenterId } from '@/lib/center'
 import { createClient } from '@/utils/supabase/server'
 import { cookies } from 'next/headers'
@@ -30,7 +29,6 @@ export default async function SnaPage() {
 
   return (
     <>
-      <Header title="객체 그래프 · Vertex" subtitle="온톨로지 Object Graph · 위협 탐지 · 가중치 입력 통합" />
       <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
         <div className="flex-1 min-h-0">
           <SnaClient

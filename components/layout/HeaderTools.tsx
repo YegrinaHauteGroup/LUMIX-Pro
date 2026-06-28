@@ -39,16 +39,16 @@ export function HeaderTools() {
 
   return (
     <div className="flex items-center gap-2">
-      {/* live clock — single line */}
+      {/* live clock — single line, default UI font */}
       <div className="hidden md:flex items-center gap-1.5 leading-none">
-        <span className="text-[10px] text-ink-faint">{date}</span>
-        <span className="text-[13px] font-data tabular-nums text-ink tracking-tight">{hhmm}</span>
+        <span className="text-[11px] text-ink-faint tabular-nums">{date}</span>
+        <span className="text-[12.5px] tabular-nums text-ink tracking-tight">{hhmm}</span>
       </div>
 
-      {/* emergency */}
+      {/* emergency — same height as the other header buttons */}
       <div ref={wrap} className="relative">
         <button onClick={() => setOpen((v) => !v)} title="응급 상황"
-          className="flex items-center h-7 px-2 rounded-[3px] bg-danger text-white text-[9.5px] font-bold tracking-[0.06em] hover:opacity-90 transition-opacity">
+          className="flex items-center h-8 px-2.5 rounded-[3px] bg-danger text-white text-[10px] font-bold tracking-[0.06em] hover:opacity-90 transition-opacity">
           EMERGENCY
         </button>
         {open && (

@@ -1,4 +1,3 @@
-import { Header } from '@/components/layout/Header'
 import { createClient } from '@/utils/supabase/server'
 import { getCenterId } from '@/lib/center'
 import { cookies } from 'next/headers'
@@ -28,7 +27,6 @@ export default async function ChildrenPage() {
 
   return (
     <>
-      <Header title="아동·반 통합 관리" subtitle="시설 스키마 그래프 · 명단 조회" />
       <div className="flex-1 min-h-0 p-3 w-full overflow-hidden flex flex-col gap-3">
         {/* Schema graph hero — facility → classes → children */}
         <div className="flex-1 min-h-0">
