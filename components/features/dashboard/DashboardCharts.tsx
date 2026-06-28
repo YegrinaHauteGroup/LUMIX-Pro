@@ -18,7 +18,7 @@ const GRID = '#e3e9ee'
 const AXIS = { fontSize: 10, fill: '#8a9ba8' }
 
 interface Datum { name: string; value: number }
-interface TrendDatum { date: string; 출석: number; 지각: number; 결석: number }
+interface TrendDatum { date: string; 출석: number; 지각: number; 조퇴: number; 결석: number }
 interface MonthlyDatum { month: string; 등록: number }
 interface ChartProps {
   genderStats: Datum[]; statusStats: Datum[]; classStats: Datum[]; ageStats: Datum[]
@@ -91,6 +91,7 @@ function TrendChart({ data, h, compact }: { data: TrendDatum[]; h: number | `${n
         <Area type="monotone" dataKey="출석" stroke="#137cbd" strokeWidth={2} fill="url(#gPres)" dot={false} activeDot={{ r: 3 }} />
         <Bar dataKey="결석" barSize={7} fill="#db3737" radius={[2, 2, 0, 0]} />
         <Line type="monotone" dataKey="지각" stroke="#d9822b" strokeWidth={1.5} dot={false} />
+        <Line type="monotone" dataKey="조퇴" stroke="#8b5cf6" strokeWidth={1.5} strokeDasharray="4 3" dot={false} />
       </ComposedChart>
     </ResponsiveContainer>
   )
@@ -107,6 +108,7 @@ function CompositionChart({ data, h }: { data: TrendDatum[]; h: number }) {
         <Legend wrapperStyle={{ fontSize: 11 }} iconType="circle" iconSize={7} />
         <Bar dataKey="출석" stackId="a" fill="#0f9960" />
         <Bar dataKey="지각" stackId="a" fill="#d9822b" />
+        <Bar dataKey="조퇴" stackId="a" fill="#8b5cf6" />
         <Bar dataKey="결석" stackId="a" fill="#db3737" />
       </BarChart>
     </ResponsiveContainer>
@@ -171,7 +173,7 @@ function SnaBars({ data, h = 160 }: { data: { label: string; value: number }[]; 
 
 /** Stand-alone wide panel: the 14-day attendance trend (kept full-width on the dashboard). */
 export function AttendanceTrendPanel({ attendanceTrend, compact }: { attendanceTrend: TrendDatum[]; compact?: boolean }) {
-  const trendRows = attendanceTrend.map((d) => [d.date, d.출석, d.지각, d.결석])
+  const trendRows = attendanceTrend.map((d) => [d.date, d.출석, d.지각, d.조퇴, d.결석])
   const scrollRef = useRef<HTMLDivElement>(null)
   const nudge = (dx: number) => scrollRef.current?.scrollBy({ left: dx, behavior: 'smooth' })
   return (
@@ -187,7 +189,7 @@ export function AttendanceTrendPanel({ attendanceTrend, compact }: { attendanceT
       detailTitle="출결 추이 상세" detail={
         <div className="space-y-4">
           <TrendChart data={attendanceTrend} h={320} />
-          <DataTable cols={['날짜', '출석', '지각', '결석']} rows={trendRows} />
+          <DataTable cols={['날짜', '출석', '지각', '조퇴', '결석']} rows={trendRows} />
         </div>
       }>
       {compact
@@ -202,7 +204,7 @@ export function AttendanceTrendPanel({ attendanceTrend, compact }: { attendanceT
 }
 
 export function DashboardCharts({ genderStats, statusStats, classStats, ageStats, attendanceTrend, snaStats, monthlyData, activityTypeData, layout = 'grid' }: ChartProps & { layout?: 'grid' | 'stack' }) {
-  const trendRows = attendanceTrend.map((d) => [d.date, d.출석, d.지각, d.결석])
+  const trendRows = attendanceTrend.map((d) => [d.date, d.출석, d.지각, d.조퇴, d.결석])
   return (
     <div className={layout === 'stack' ? 'grid grid-cols-1 gap-2.5' : 'grid grid-cols-1 sm:grid-cols-2 gap-3'}>
       {monthlyData && (
@@ -225,7 +227,7 @@ export function DashboardCharts({ genderStats, statusStats, classStats, ageStats
 
       <PanelCard title="출결 구성 비율" subtitle="일별 100% 정규화 구성"
         detailTitle="출결 구성 상세" detail={
-          <div className="space-y-4"><CompositionChart data={attendanceTrend} h={320} /><DataTable cols={['날짜', '출석', '지각', '결석']} rows={trendRows} /></div>
+          <div className="space-y-4"><CompositionChart data={attendanceTrend} h={320} /><DataTable cols={['날짜', '출석', '지각', '조퇴', '결석']} rows={trendRows} /></div>
         }>
         <CompositionChart data={attendanceTrend} h={170} />
       </PanelCard>

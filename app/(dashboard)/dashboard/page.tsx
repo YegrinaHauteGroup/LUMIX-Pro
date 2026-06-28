@@ -48,6 +48,7 @@ export default async function DashboardPage() {
       date: d.slice(5),
       출석: day.filter((r) => r.status === 'present').length,
       지각: day.filter((r) => r.status === 'late').length,
+      조퇴: day.filter((r) => r.status === 'early_leave').length,
       결석: day.filter((r) => r.status === 'absent').length,
     }
   })

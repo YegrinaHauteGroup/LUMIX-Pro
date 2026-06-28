@@ -99,12 +99,12 @@ export const ATTENDANCE_STATUS_LABELS = {
   present: '출석',
   absent: '결석',
   late: '지각',
-  leave: '조퇴',
+  early_leave: '조퇴',
 }
 
 export const ATTENDANCE_STATUS_COLORS = {
   present: 'text-emerald-700 bg-emerald-50',
   absent: 'text-rose-700 bg-rose-50',
   late: 'text-amber-700 bg-amber-50',
-  leave: 'text-orange-700 bg-orange-50',
+  early_leave: 'text-orange-700 bg-orange-50',
 }
