@@ -6,7 +6,7 @@ import { useState } from 'react'
 /** Collapsible bottom dock holding the detailed roster lists; expands upward
  *  into a scrollable region. */
 export function RosterDock({ children }: { children: React.ReactNode }) {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(true)
   return (
     <div className="shrink-0 border border-line rounded-[3px] bg-surface shadow-[var(--shadow-card)] overflow-hidden flex flex-col">
       <button onClick={() => setOpen((o) => !o)}

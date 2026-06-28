@@ -33,10 +33,13 @@ export function Drawer({ open, onClose, title, subtitle, children, footer, width
         onClick={onClose}
       />
       <aside
-        style={{ width, right: 'var(--workspace-w, 0px)' }}
+        // When OPEN, sit to the left of the workspace (right offset). When CLOSED,
+        // pin to the viewport's right edge so translate-x-full hides it fully —
+        // otherwise the offset pushes the closed panel on top of the workspace.
+        style={{ width, right: open ? 'var(--workspace-w, 0px)' : 0 }}
         className={cn(
           'fixed top-0 h-screen z-50 bg-surface border-l border-line shadow-[var(--shadow-pop)] flex flex-col transition-transform duration-200 ease-out',
-          open ? 'translate-x-0' : 'translate-x-full',
+          open ? 'translate-x-0' : 'translate-x-full pointer-events-none',
         )}
       >
         <div className="h-12 shrink-0 flex items-center justify-between px-4 border-b border-line bg-fill-2">

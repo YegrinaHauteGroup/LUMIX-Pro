@@ -4,7 +4,10 @@ import { CHILD_STATUS_COLORS, CHILD_STATUS_LABELS } from '@/lib/utils'
 import { Badge } from '@/components/ui/Badge'
 import { Building2, Users, BookOpen, ChevronRight, Search } from 'lucide-react'
 import Link from 'next/link'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+
+const MIN_ZOOM = 0.6, MAX_ZOOM = 1.8
+const clampZoom = (z: number) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z))
 
 interface GChild { id: string; name: string; gender?: string | null; status: string }
 interface GClass { id: string; name: string; children: GChild[] }
@@ -16,6 +19,17 @@ const COL_F = 16, COL_C = 220, COL_K = 432
 export function FacilitySchemaGraph({ facilityName, classes, unassigned }: Props) {
   const [sel, setSel] = useState<string>('facility') // 'facility' | classId | 'unassigned'
   const [q, setQ] = useState('')
+  const [zoom, setZoom] = useState(1)
+  const scrollRef = useRef<HTMLDivElement>(null)
+
+  // wheel zoom (with limits); preventDefault so it zooms instead of scrolling
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    const onWheel = (e: WheelEvent) => { e.preventDefault(); setZoom((z) => clampZoom(z * (e.deltaY < 0 ? 1.1 : 1 / 1.1))) }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
+  }, [])
 
   // group nodes: real classes + a synthetic "미배정" group when needed
   const groups = useMemo(() => {
@@ -55,13 +69,21 @@ export function FacilitySchemaGraph({ facilityName, classes, unassigned }: Props
       <div className="flex-1 min-w-0 border border-line rounded-[3px] bg-surface shadow-[var(--shadow-card)] overflow-hidden flex flex-col">
         <div className="h-9 px-3 flex items-center justify-between border-b border-line bg-fill-2 shrink-0">
           <span className="text-[11px] font-semibold text-ink-faint uppercase tracking-wider">시설 · 반 · 아동 스키마 그래프</span>
-          <div className="flex items-center gap-1.5 px-2 h-7 w-[180px] bg-surface border border-line rounded-[3px]">
-            <Search size={12} className="text-ink-faint shrink-0" />
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="반·아동 검색" className="flex-1 min-w-0 bg-transparent text-[11px] text-ink placeholder:text-ink-ghost outline-none" />
+          <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 px-2 h-7 w-[160px] bg-surface border border-line rounded-[3px]">
+              <Search size={12} className="text-ink-faint shrink-0" />
+              <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="반·아동 검색" className="flex-1 min-w-0 bg-transparent text-[11px] text-ink placeholder:text-ink-ghost outline-none" />
+            </div>
+            <div className="flex items-center border border-line rounded-[3px] overflow-hidden">
+              <button onClick={() => setZoom((z) => clampZoom(z / 1.1))} className="w-6 h-7 text-ink-soft hover:bg-fill text-[13px]">−</button>
+              <span className="w-9 text-center text-[10px] font-data text-ink-faint tabular-nums">{Math.round(zoom * 100)}%</span>
+              <button onClick={() => setZoom((z) => clampZoom(z * 1.1))} className="w-6 h-7 text-ink-soft hover:bg-fill text-[13px]">+</button>
+            </div>
           </div>
         </div>
-        <div className="flex-1 min-h-0 overflow-auto bg-fill-2" style={{ backgroundImage: 'radial-gradient(circle, #d4dde4 1px, transparent 1px)', backgroundSize: '18px 18px' }}>
-          <div className="relative" style={{ width: canvasW, height: canvasH, minWidth: '100%' }}>
+        <div ref={scrollRef} className="flex-1 min-h-0 overflow-auto bg-fill-2" style={{ backgroundImage: 'radial-gradient(circle, #d4dde4 1px, transparent 1px)', backgroundSize: '18px 18px' }}>
+          <div style={{ width: canvasW * zoom, height: canvasH * zoom }}>
+          <div className="relative origin-top-left" style={{ width: canvasW, height: canvasH, transform: `scale(${zoom})` }}>
             <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ width: canvasW, height: canvasH }}>
               {/* facility → classes */}
               {filteredGroups.map((c, i) => (
@@ -107,6 +129,7 @@ export function FacilitySchemaGraph({ facilityName, classes, unassigned }: Props
                 <span className="text-[9px] text-ink-ghost shrink-0">{k.gender === 'male' ? '남' : k.gender === 'female' ? '여' : ''}</span>
               </Link>
             ))}
+          </div>
           </div>
         </div>
       </div>

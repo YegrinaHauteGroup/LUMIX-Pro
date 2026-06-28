@@ -236,6 +236,15 @@ export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) 
         else resetView()
       })
 
+      // clamp wheel zoom (vis-network has no native min/max); re-clamping inside
+      // the handler settles immediately since the corrected scale is in-range.
+      const Z_MIN = 0.3, Z_MAX = 2.4
+      network.on('zoom', () => {
+        const s = network.getScale()
+        if (s < Z_MIN) network.moveTo({ scale: Z_MIN })
+        else if (s > Z_MAX) network.moveTo({ scale: Z_MAX })
+      })
+
       cleanup = () => network.destroy()
     })()
 
