@@ -8,6 +8,7 @@ import Link from 'next/link'
 import { DashboardCharts, AttendanceTrendPanel } from '@/components/features/dashboard/DashboardCharts'
 import { DashboardFeed } from '@/components/features/dashboard/DashboardFeed'
 import { DashboardWeekStrip } from '@/components/features/dashboard/DashboardWeekStrip'
+import { DashboardExport, type ExportSection } from '@/components/features/dashboard/DashboardExport'
 import { OperationalMap } from '@/components/features/dashboard/OperationalMap'
 import { AddToWorkspaceButton } from '@/components/workspace/AddToWorkspaceButton'
 import { CHILD_STATUS_COLORS, CHILD_STATUS_LABELS, ACTIVITY_TYPE_LABELS, ACTIVITY_TYPE_COLORS } from '@/lib/utils'
@@ -132,6 +133,18 @@ export default async function DashboardPage() {
   actTypeRows.forEach((a) => actTypeMap.set(a.type, (actTypeMap.get(a.type) ?? 0) + 1))
   const activityTypeData = [...actTypeMap.entries()].map(([k, v]) => ({ name: ACT_LABEL[k] ?? k, value: v }))
 
+  // exportable report sections (M6)
+  const exportSections: ExportSection[] = [
+    { title: '운영 현황', cols: ['지표', '값'], rows: stats.map((s) => [s.label, String(s.value)]) },
+    { title: '관계망 분석', cols: ['지표', '값'], rows: [['분석 아동', snaTotal], ...snaStats.map((s) => [s.label, s.value])] },
+    { title: '최근 14일 출결 추이', cols: ['날짜', '출석', '지각', '조퇴', '결석'], rows: attendanceTrend.map((d) => [d.date, d.출석, d.지각, d.조퇴, d.결석]) },
+    { title: '연령 분포', cols: ['연령', '인원'], rows: ageStats.map((s) => [s.name, s.value]) },
+    { title: '성별 현황', cols: ['성별', '인원'], rows: genderStats.map((s) => [s.name, s.value]) },
+    { title: '재원 상태', cols: ['상태', '인원'], rows: statusStats.map((s) => [s.name, s.value]) },
+    { title: '반별 아동 수', cols: ['반', '인원'], rows: classStats.map((s) => [s.name, s.value]) },
+    { title: '월별 등록 추이', cols: ['월', '등록'], rows: monthlyData.map((d) => [d.month, d.등록]) },
+  ]
+
   return (
     <>
       <div className="flex-1 min-h-0 p-2.5 overflow-hidden flex gap-2.5">
@@ -164,6 +177,8 @@ export default async function DashboardPage() {
           {/* KPI mini-tiles */}
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-semibold text-ink-faint uppercase tracking-[0.1em]">운영 현황 요약</span>
+            <div className="flex items-center gap-1.5">
+            <DashboardExport sections={exportSections} facilityName={centerRes.data?.name ?? null} />
             <AddToWorkspaceButton source="대시보드" title="운영 현황 요약" subtitle={`${new Date().toLocaleDateString('ko-KR')} 기준`}
               fields={[
                 ...stats.map((s) => ({ label: s.label, value: String(s.value) })),
@@ -172,6 +187,7 @@ export default async function DashboardPage() {
               ]}
               body={`운영 현황 — ${stats.map((s) => `${s.label} ${s.value}`).join(', ')}\n관계망 — 분석 아동 ${snaTotal}, ${snaStats.map((s) => `${s.label} ${s.value}`).join(', ')}`}
               href="/dashboard" accent="#137cbd" />
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-2">
             {stats.map((stat) => (
