@@ -8,31 +8,45 @@
 //
 // Body: { center_id: string }
 // ============================================================
-import { createClient } from 'npm:@supabase/supabase-js@2.47.1'
+import { assertCenterMember } from '../_shared/auth.ts'
+import { CORS, json } from '../_shared/http.ts'
+import { serviceClient } from '../_shared/client.ts'
+import { weightToDistance } from '../_shared/sna.ts'
 
 type Body = { center_id?: string }
 
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-}
-
-function weightToDistance(w: number): number { return 1 / Math.max(w, 1e-6) }
-
-function serviceClient() {
-  const url = Deno.env.get('SUPABASE_URL')
-  let key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
-  if (!key) {
-    const raw = Deno.env.get('SUPABASE_SECRET_KEYS')
-    if (raw) { try { key = JSON.parse(raw)['sb_secret_5x67m'] } catch { /* ignore */ } }
+// Binary min-heap keyed by distance — replaces the O(V) linear scan in
+// Dijkstra so Brandes runs in O(V·E·logV) instead of O(V³) (H1). Stale entries
+// (a node re-pushed at a shorter distance) are skipped via the caller's `done`.
+class MinHeap {
+  private d: number[] = []
+  private v: number[] = []
+  get size() { return this.v.length }
+  push(dist: number, node: number) {
+    this.d.push(dist); this.v.push(node)
+    let i = this.v.length - 1
+    while (i > 0) { const p = (i - 1) >> 1; if (this.d[p] <= this.d[i]) break; this.swap(i, p); i = p }
   }
-  if (!url || !key) throw new Error('SUPABASE_URL / service role key required')
-  return createClient(url, key, { auth: { persistSession: false } })
-}
-
-function json(obj: unknown, status = 200) {
-  return new Response(JSON.stringify(obj), { status, headers: { 'content-type': 'application/json', ...CORS } })
+  pop(): [number, number] {
+    const td = this.d[0], tv = this.v[0]
+    const ld = this.d.pop()!, lv = this.v.pop()!
+    if (this.v.length) { this.d[0] = ld; this.v[0] = lv; this.down(0) }
+    return [td, tv]
+  }
+  private down(i: number) {
+    const n = this.v.length
+    for (;;) {
+      let s = i; const l = 2 * i + 1, r = 2 * i + 2
+      if (l < n && this.d[l] < this.d[s]) s = l
+      if (r < n && this.d[r] < this.d[s]) s = r
+      if (s === i) break
+      this.swap(i, s); i = s
+    }
+  }
+  private swap(i: number, j: number) {
+    const td = this.d[i]; this.d[i] = this.d[j]; this.d[j] = td
+    const tv = this.v[i]; this.v[i] = this.v[j]; this.v[j] = tv
+  }
 }
 
 Deno.serve(async (req) => {
@@ -44,7 +58,8 @@ Deno.serve(async (req) => {
   const center_id = body.center_id
 
   try {
-    const sb = serviceClient()
+    const { sb } = serviceClient()
+    if (!(await assertCenterMember(req, sb, center_id))) return json({ ok: false, error: 'forbidden' }, 403)
     const { data: children } = await sb.from('children').select('id')
       .eq('center_id', center_id).eq('status', 'active').is('deleted_at', null)
     const childSet = new Set((children ?? []).map((c: any) => c.id))
@@ -85,14 +100,14 @@ Deno.serve(async (req) => {
       const dist = new Array<number>(n).fill(Infinity)
       const done = new Array<boolean>(n).fill(false)
       sigma[s] = 1; dist[s] = 0
-      for (;;) {
-        let x = -1, best = Infinity
-        for (let i = 0; i < n; i++) if (!done[i] && dist[i] < best) { best = dist[i]; x = i }
-        if (x === -1) break
+      const heap = new MinHeap(); heap.push(0, s)
+      while (heap.size) {
+        const [, x] = heap.pop()
+        if (done[x]) continue // stale (already finalized at a shorter distance)
         done[x] = true; stack.push(x)
         for (const e of adj[x]) {
           const nd = dist[x] + e.w, eps = 1e-12
-          if (nd < dist[e.v] - eps) { dist[e.v] = nd; sigma[e.v] = sigma[x]; pred[e.v] = [x] }
+          if (nd < dist[e.v] - eps) { dist[e.v] = nd; sigma[e.v] = sigma[x]; pred[e.v] = [x]; heap.push(nd, e.v) }
           else if (Math.abs(nd - dist[e.v]) <= eps) { sigma[e.v] += sigma[x]; pred[e.v].push(x) }
         }
       }

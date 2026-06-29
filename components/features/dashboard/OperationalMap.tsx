@@ -3,7 +3,8 @@
 import 'leaflet/dist/leaflet.css'
 import Link from 'next/link'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Crosshair, Layers, Locate, MapPin, Navigation, RefreshCw, Satellite, ShieldAlert } from 'lucide-react'
+import { Crosshair, Layers, Locate, MapPin, Minus, Navigation, Phone, Plus, RefreshCw, Satellite, Search, ShieldAlert, Star, X, Clock, Globe, Footprints, Car, Route } from 'lucide-react'
+import { useWorkspaceOptional } from '@/lib/workspace'
 
 interface Props {
   lat: number | null
@@ -28,9 +29,12 @@ const CATS: Record<string, { label: string; color: string; q: string[] }> = {
   gov: { label: '관공서', color: '#64748b', q: ['amenity=townhall', 'office=government'] },
 }
 type CatKey = keyof typeof CATS
-interface Poi { id: number; lat: number; lon: number; name: string; cat: CatKey }
+interface Place {
+  lat: number; lon: number; name: string; cat?: CatKey
+  phone?: string; website?: string; hours?: string; operator?: string; addr?: string
+}
+interface Poi extends Place { id: number; cat: CatKey }
 
-// great-circle distance (m) + initial bearing (°) facility → asset
 function haversine(aLat: number, aLng: number, bLat: number, bLng: number): number {
   const R = 6371000, toRad = (d: number) => (d * Math.PI) / 180
   const dLat = toRad(bLat - aLat), dLng = toRad(bLng - aLng)
@@ -47,22 +51,23 @@ function bearing(aLat: number, aLng: number, bLat: number, bLng: number): number
 const COMPASS = ['북', '북동', '동', '남동', '남', '남서', '서', '북서']
 const dirOf = (deg: number) => COMPASS[Math.round(deg / 45) % 8]
 const fmtD = (m: number) => (m < 1000 ? `${Math.round(m)}m` : `${(m / 1000).toFixed(1)}km`)
-const walkMin = (m: number) => Math.max(1, Math.round(m / 75)) // ≈75 m/min
+const walkMin = (m: number) => Math.max(1, Math.round(m / 75))
+const fmtDur = (s: number) => (s < 60 ? '1분 미만' : s < 3600 ? `약 ${Math.round(s / 60)}분` : `약 ${Math.floor(s / 3600)}시간 ${Math.round((s % 3600) / 60)}분`)
+const telHref = (p: string) => `tel:${p.replace(/[^0-9+]/g, '')}`
 
-// Korea-only viewport so the map never drifts into foreign territory.
 const KR_BOUNDS: [[number, number], [number, number]] = [[32.8, 124.4], [39.2, 132.2]]
-
-// VWorld (국토교통부) WMTS — domain-locked client key (exposed in tile URLs by
-// design). Override per-deployment with NEXT_PUBLIC_VWORLD_KEY.
 const VWORLD_KEY = process.env.NEXT_PUBLIC_VWORLD_KEY || 'CD86EFCF-2317-3FDC-B9F1-EDFB72661516'
 const vworld = (layer: string, ext: 'png' | 'jpeg' = 'png') =>
   `https://api.vworld.kr/req/wmts/1.0.0/${VWORLD_KEY}/${layer}/{z}/{y}/{x}.${ext}`
+
+type RouteInfo = { coords: [number, number][]; dist: number; dur: number; mode: 'foot' | 'car' }
 
 export function OperationalMap({ lat, lng, label, airPm25, airGrade }: Props) {
   const elRef = useRef<HTMLDivElement>(null)
   // deno-lint-ignore no-explicit-any
   const mapRef = useRef<any>(null)
-  const layerRef = useRef<{ base?: any; sat?: any; markers?: any; rings?: any; line?: any; L?: any }>({})
+  const layerRef = useRef<{ base?: any; sat?: any; markers?: any; rings?: any; selMarker?: any; routeLine?: any; saved?: any; L?: any }>({})
+  const ws = useWorkspaceOptional()
   const [view, setView] = useState<'light' | 'sat'>('light')
   const [pois, setPois] = useState<Poi[]>([])
   const [active, setActive] = useState<Record<CatKey, boolean>>({
@@ -71,9 +76,35 @@ export function OperationalMap({ lat, lng, label, airPm25, airGrade }: Props) {
   })
   const [loadingPois, setLoadingPois] = useState(false)
   const [poiErr, setPoiErr] = useState(false)
-  const [selected, setSelected] = useState<Poi | null>(null)
+  const [selected, setSelected] = useState<Place | null>(null)
+  const [addr, setAddr] = useState<string | null>(null)
+  const [route, setRoute] = useState<RouteInfo | null>(null)
+  const [routeMode, setRouteMode] = useState<'foot' | 'car'>('foot')
+  const [routeLoading, setRouteLoading] = useState(false)
   const [briefTime, setBriefTime] = useState<Date | null>(null)
+  const [searchQ, setSearchQ] = useState('')
+  const [remoteResults, setRemoteResults] = useState<Place[]>([])
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [savedPlaces, setSavedPlaces] = useState<Place[]>([])
+  const [showSaved, setShowSaved] = useState(true)
+  const [mapReady, setMapReady] = useState(false)
   const hasLoc = lat != null && lng != null
+
+  // ── my saved places ("내 장소") — persisted per browser ───────────────────
+  useEffect(() => { try { const r = localStorage.getItem('lumix_places_v1'); if (r) setSavedPlaces(JSON.parse(r)) } catch { /* ignore */ } }, [])
+  const placeKey = (p: Place) => `${p.name}@${p.lat.toFixed(5)},${p.lon.toFixed(5)}`
+  const isSaved = (p: Place) => savedPlaces.some((s) => placeKey(s) === placeKey(p))
+  function persistPlaces(next: Place[]) { setSavedPlaces(next); try { localStorage.setItem('lumix_places_v1', JSON.stringify(next)) } catch { /* ignore */ } }
+  function toggleSave(p: Place) {
+    if (isSaved(p)) persistPlaces(savedPlaces.filter((s) => placeKey(s) !== placeKey(p)))
+    else persistPlaces([{ lat: p.lat, lon: p.lon, name: p.name, cat: p.cat, phone: p.phone, addr: p.addr, website: p.website, hours: p.hours }, ...savedPlaces])
+  }
+  // route to workspace (in-app) instead of an external window
+  function routeToWorkspace(p: Place) {
+    const url = `https://map.kakao.com/link/to/${encodeURIComponent(p.name)},${p.lat},${p.lon}`
+    if (ws) ws.addLink(url, `${p.name} 길찾기`, '카카오맵 길찾기 · 작업창에서 확대하거나 외부에서 열기', '#fee500')
+    else window.open(url, '_blank')
+  }
 
   const risk = useMemo(() => {
     const p = airPm25 ?? null
@@ -87,7 +118,6 @@ export function OperationalMap({ lat, lng, label, airPm25, airGrade }: Props) {
     }
   }, [airPm25, airGrade])
 
-  // nearest asset per category (name + distance + bearing)
   const nearest = useMemo(() => {
     const find = (cat: CatKey) => {
       if (!hasLoc) return null
@@ -102,26 +132,25 @@ export function OperationalMap({ lat, lng, label, airPm25, airGrade }: Props) {
     return { medical: find('medical'), police: find('police'), fire: find('fire'), pharmacy: find('pharmacy') } as Record<CatKey, { name: string; d: number; dir: string } | null>
   }, [pois, hasLoc, lat, lng])
 
-  const detail = useMemo(() => {
-    if (!selected || !hasLoc) return null
-    const d = haversine(lat!, lng!, selected.lat, selected.lon)
-    return { name: selected.name, cat: selected.cat, d, dir: dirOf(bearing(lat!, lng!, selected.lat, selected.lon)), walk: walkMin(d) }
-  }, [selected, hasLoc, lat, lng])
-
-  // live situational briefing (derived alerts)
   const brief = useMemo(() => {
     const items: { tone: 'red' | 'amber' | 'green' | 'blue'; text: string }[] = []
+    const cnt = (k: CatKey) => pois.filter((p) => p.cat === k).length
     if (risk) items.push({ tone: risk.level === 'high' ? 'red' : risk.level === 'mid' ? 'amber' : 'green', text: risk.msg })
+    if (hasLoc) items.push({ tone: 'blue', text: `작전권 좌표 ${lat!.toFixed(4)}, ${lng!.toFixed(4)} · 반경 1.5km 감시` })
     const m = nearest.medical
     if (m) items.push({ tone: m.d <= 800 ? 'green' : m.d <= 1500 ? 'amber' : 'red', text: `응급의료 ${m.name} · ${fmtD(m.d)} ${m.dir}쪽 · 도보 ~${walkMin(m.d)}분` })
-    const pol = nearest.police
-    if (pol) items.push({ tone: 'blue', text: `치안 거점 ${pol.name} · ${fmtD(pol.d)} ${pol.dir}쪽` })
+    else items.push({ tone: 'red', text: '반경 내 응급의료시설 미탐지 — 비상 후송 경로 사전 확보 권고' })
+    const pol = nearest.police; if (pol) items.push({ tone: 'blue', text: `치안 거점 ${pol.name} · ${fmtD(pol.d)} ${pol.dir}쪽` })
+    const fire = nearest.fire; if (fire) items.push({ tone: 'amber', text: `소방 거점 ${fire.name} · ${fmtD(fire.d)} ${fire.dir}쪽` })
     const total = pois.filter((p) => active[p.cat]).length
-    items.push({ tone: 'blue', text: `반경 1.5km 대응자산 ${total}곳 실시간 탐지` })
+    items.push({ tone: 'blue', text: `대응자산 ${total}곳 실시간 탐지` })
+    items.push({ tone: 'blue', text: `의료 ${cnt('medical')} · 약국 ${cnt('pharmacy')} · 경찰 ${cnt('police')} · 소방 ${cnt('fire')} · 보육 ${cnt('childcare')} · 역 ${cnt('subway')}` })
     return items
-  }, [risk, nearest, pois, active])
+  }, [risk, nearest, pois, active, hasLoc, lat, lng])
 
-  // init map once we have coordinates
+  const straight = useMemo(() => (selected && hasLoc ? haversine(lat!, lng!, selected.lat, selected.lon) : 0), [selected, hasLoc, lat, lng])
+
+  // ── map init ──────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!hasLoc || !elRef.current || mapRef.current) return
     let disposed = false
@@ -129,53 +158,45 @@ export function OperationalMap({ lat, lng, label, airPm25, airGrade }: Props) {
       const L = (await import('leaflet')).default as any
       if (disposed || !elRef.current) return
       const map = L.map(elRef.current, {
-        center: [lat, lng], zoom: 16, zoomControl: false, attributionControl: true,
+        center: [lat, lng], zoom: 16, zoomControl: false, attributionControl: false,
         minZoom: 7, maxBounds: KR_BOUNDS, maxBoundsViscosity: 0.7,
       })
-      L.control.zoom({ position: 'bottomright' }).addTo(map)
-      // 2D — VWorld 일반지도 (국토부): 한국 도로/건물/상호까지 상세한 화이트 베이스맵.
-      // Falls back to CartoDB Positron if VWorld tiles fail (e.g. domain not registered).
       const base = L.tileLayer(vworld('Base'), {
         maxZoom: 19, attribution: '&copy; <a href="https://www.vworld.kr">VWorld</a> · 국토교통부',
       }).addTo(map)
-      // 위성 — VWorld 항공영상 + Hybrid 라벨 오버레이
       const sat = L.layerGroup([
         L.tileLayer(vworld('Satellite', 'jpeg'), { maxZoom: 19, attribution: '&copy; VWorld · 국토교통부' }),
         L.tileLayer(vworld('Hybrid'), { maxZoom: 19, opacity: 0.9 }),
       ])
       const rings = L.layerGroup([
-        L.circle([lat, lng], { radius: 300, color: '#137cbd', weight: 1, opacity: 0.55, fill: false, dashArray: '4 5' }),
-        L.circle([lat, lng], { radius: 700, color: '#137cbd', weight: 1, opacity: 0.34, fill: false, dashArray: '4 5' }),
-        L.circle([lat, lng], { radius: 1500, color: '#137cbd', weight: 1, opacity: 0.2, fill: false, dashArray: '4 5' }),
+        L.circle([lat, lng], { radius: 300, color: '#137cbd', weight: 1, opacity: 0.5, fill: false, dashArray: '4 5' }),
+        L.circle([lat, lng], { radius: 700, color: '#137cbd', weight: 1, opacity: 0.3, fill: false, dashArray: '4 5' }),
+        L.circle([lat, lng], { radius: 1500, color: '#137cbd', weight: 1, opacity: 0.18, fill: false, dashArray: '4 5' }),
       ]).addTo(map)
       const pin = L.divIcon({ className: '', iconSize: [20, 20], iconAnchor: [10, 10], html:
-        `<div style="position:relative"><span style="position:absolute;inset:-7px;border-radius:999px;background:#137cbd33;animation:lmpulse 2s ease-out infinite"></span><span style="position:absolute;inset:0;border-radius:999px;background:#137cbd;border:2px solid #fff;box-shadow:0 0 0 2px #137cbd,0 1px 4px rgba(0,0,0,.4)"></span></div>` })
+        `<div style="position:relative"><span style="position:absolute;inset:-7px;border-radius:999px;background:#137cbd2b;animation:lmpulse 2.4s ease-out infinite"></span><span style="position:absolute;inset:0;border-radius:999px;background:#137cbd;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.35)"></span></div>` })
       L.marker([lat, lng], { icon: pin, zIndexOffset: 1000 }).addTo(map).bindTooltip(label ?? '우리 시설', { direction: 'top', offset: [0, -10] })
       const markers = L.layerGroup().addTo(map)
-      map.on('click', () => setSelected(null))
+      map.on('click', () => { setSelected(null); setSearchOpen(false) })
       layerRef.current = { base, sat, markers, rings, L }
       mapRef.current = map
-
-      // Graceful degradation: if VWorld tiles fail (unregistered domain / key),
-      // swap the 2D base to keyless CartoDB Positron so the map still renders.
+      setMapReady(true)
       let swapped = false
       base.on('tileerror', () => {
         if (swapped) return
         swapped = true
-        const fallback = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+        const fb = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
           maxZoom: 19, subdomains: 'abcd', attribution: '&copy; OpenStreetMap &copy; CARTO',
         })
-        if (map.hasLayer(base)) { map.removeLayer(base); fallback.addTo(map) }
-        layerRef.current.base = fallback
+        if (map.hasLayer(base)) { map.removeLayer(base); fb.addTo(map) }
+        layerRef.current.base = fb
       })
-
       setTimeout(() => map.invalidateSize(), 60)
     })()
-    return () => { disposed = true; mapRef.current?.remove?.(); mapRef.current = null }
+    return () => { disposed = true; mapRef.current?.remove?.(); mapRef.current = null; setMapReady(false) }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasLoc])
 
-  // base layer toggle
   useEffect(() => {
     const { base, sat } = layerRef.current
     const map = mapRef.current
@@ -183,13 +204,10 @@ export function OperationalMap({ lat, lng, label, airPm25, airGrade }: Props) {
     if (view === 'sat') { map.removeLayer(base); sat.addTo(map) } else { map.removeLayer(sat); base.addTo(map) }
   }, [view])
 
-  // fetch nearby POIs (Overpass / OpenStreetMap) — race mirrors for speed
+  // ── nearby POIs (Overpass) — race mirrors, refresh every 5 minutes ─────────
   async function loadPois() {
     if (!hasLoc) return
     setLoadingPois(true); setPoiErr(false)
-    // `nwr` = node + way + relation. Most Korean facilities are mapped as
-    // ways/relations, so a node-only query returns almost nothing; `out center`
-    // collapses each area to a representative point.
     const filters = Object.values(CATS).flatMap((c) => c.q.map((q) => `nwr[${q.replace('=', '="')}"](around:1500,${lat},${lng});`)).join('')
     const query = `[out:json][timeout:15];(${filters});out center 250;`
     const body = 'data=' + encodeURIComponent(query)
@@ -206,7 +224,6 @@ export function OperationalMap({ lat, lng, label, airPm25, airGrade }: Props) {
     }
     const ctrl = new AbortController()
     try {
-      // first mirror to respond wins; the rest are aborted
       const data: any = await Promise.any(endpoints.map(async (url) => {
         const r = await fetch(url, { method: 'POST', body, signal: ctrl.signal })
         if (!r.ok) throw new Error(String(r.status))
@@ -221,14 +238,28 @@ export function OperationalMap({ lat, lng, label, airPm25, airGrade }: Props) {
         const plon = el.lon ?? el.center?.lon
         if (!cat || plat == null || plon == null || seen.has(el.id)) continue
         seen.add(el.id)
-        out.push({ id: el.id, lat: plat, lon: plon, name: el.tags?.name ?? CATS[cat].label, cat })
+        const t = el.tags ?? {}
+        const addrParts = [t['addr:province'], t['addr:city'], t['addr:district'], t['addr:borough'], t['addr:street'], t['addr:housenumber']].filter(Boolean)
+        out.push({
+          id: el.id, lat: plat, lon: plon, cat, name: t.name ?? CATS[cat].label,
+          phone: t.phone ?? t['contact:phone'] ?? t['phone:KR'],
+          website: t.website ?? t['contact:website'],
+          hours: t.opening_hours, operator: t.operator,
+          addr: t['addr:full'] ?? (addrParts.length ? addrParts.join(' ') : undefined),
+        })
       }
       setPois(out)
     } catch { setPoiErr(true) } finally { setLoadingPois(false); setBriefTime(new Date()) }
   }
   useEffect(() => { if (hasLoc) loadPois() /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [hasLoc])
+  useEffect(() => {
+    if (!hasLoc) return
+    const id = setInterval(() => loadPois(), 5 * 60 * 1000)
+    return () => clearInterval(id)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasLoc, lat, lng])
 
-  // render filtered markers (circular Gotham-style nodes)
+  // ── markers (simple round dots, subtle shadow) ─────────────────────────────
   useEffect(() => {
     const { markers, L } = layerRef.current
     if (!markers || !L || !hasLoc) return
@@ -236,31 +267,127 @@ export function OperationalMap({ lat, lng, label, airPm25, airGrade }: Props) {
     for (const p of pois) {
       if (!active[p.cat]) continue
       const c = CATS[p.cat].color
-      const icon = L.divIcon({ className: '', iconSize: [14, 14], iconAnchor: [7, 7], html:
-        `<span class="lm-poi" style="background:${c}26;border-color:${c};box-shadow:0 0 0 1.5px rgba(255,255,255,.55),0 0 8px ${c}99"><i style="background:${c}"></i></span>` })
-      const d = haversine(lat!, lng!, p.lat, p.lon)
-      const dir = dirOf(bearing(lat!, lng!, p.lat, p.lon))
+      const icon = L.divIcon({ className: '', iconSize: [11, 11], iconAnchor: [5.5, 5.5], html:
+        `<span class="lm-dot" style="background:${c}"></span>` })
       L.marker([p.lat, p.lon], { icon }).addTo(markers)
         .bindTooltip(`<b style="color:${c}">${CATS[p.cat].label}</b> · ${p.name}`, { direction: 'top' })
-        .bindPopup(`<div style="min-width:130px"><b style="color:${c}">${CATS[p.cat].label}</b> · ${p.name}<br><span style="color:#8b949e">직선 ${fmtD(d)} · ${dir}쪽 · 도보 ~${walkMin(d)}분</span></div>`)
-        .on('click', () => setSelected(p))
+        .on('click', (e: any) => { if (e?.originalEvent) e.originalEvent.stopPropagation?.(); setSelected(p) })
     }
-  }, [pois, active, hasLoc, lat, lng])
+  }, [pois, active, hasLoc, lat, lng, mapReady])
 
-  // draw direction line facility → selected asset
+  // ── saved-place star markers ───────────────────────────────────────────────
+  useEffect(() => {
+    const { L } = layerRef.current
+    const map = mapRef.current
+    if (!map || !L) return
+    if (layerRef.current.saved) { map.removeLayer(layerRef.current.saved); layerRef.current.saved = undefined }
+    if (!showSaved || savedPlaces.length === 0) return
+    const grp = L.layerGroup().addTo(map)
+    for (const p of savedPlaces) {
+      const icon = L.divIcon({ className: '', iconSize: [16, 16], iconAnchor: [8, 8], html: `<span class="lm-star">★</span>` })
+      L.marker([p.lat, p.lon], { icon, zIndexOffset: 1100 }).addTo(grp).bindTooltip(`★ ${p.name}`, { direction: 'top' })
+        .on('click', (e: any) => { if (e?.originalEvent) e.originalEvent.stopPropagation?.(); setSelected(p) })
+    }
+    layerRef.current.saved = grp
+  }, [savedPlaces, showSaved, mapReady])
+
+  // ── selected place: highlight + fit + reverse-geocode ──────────────────────
   useEffect(() => {
     const { L } = layerRef.current
     const map = mapRef.current
     if (!map || !L || !hasLoc) return
-    if (layerRef.current.line) { map.removeLayer(layerRef.current.line); layerRef.current.line = undefined }
-    if (selected) {
-      layerRef.current.line = L.polyline([[lat, lng], [selected.lat, selected.lon]], {
-        color: '#137cbd', weight: 2, opacity: 0.85, dashArray: '6 6',
-      }).addTo(map)
+    if (layerRef.current.selMarker) { map.removeLayer(layerRef.current.selMarker); layerRef.current.selMarker = undefined }
+    setAddr(null)
+    if (!selected) return
+    const c = selected.cat ? CATS[selected.cat].color : '#137cbd'
+    const icon = L.divIcon({ className: '', iconSize: [22, 22], iconAnchor: [11, 11], html:
+      `<span class="lm-sel" style="color:${c};box-shadow:0 0 0 2px #fff,0 1px 6px ${c}88"></span>` })
+    layerRef.current.selMarker = L.marker([selected.lat, selected.lon], { icon, zIndexOffset: 1200 }).addTo(map)
+    try { map.fitBounds(L.latLngBounds([[lat, lng], [selected.lat, selected.lon]]).pad(0.5), { maxZoom: 17 }) }
+    catch { map.setView([selected.lat, selected.lon], 16) }
+    if (!selected.addr) {
+      fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&accept-language=ko&lat=${selected.lat}&lon=${selected.lon}`)
+        .then((r) => r.json()).then((d) => setAddr(d?.display_name ?? null)).catch(() => {})
     }
-  }, [selected, hasLoc, lat, lng])
+  }, [selected, hasLoc, lat, lng, mapReady])
 
+  // ── routing (public OSRM) ──────────────────────────────────────────────────
+  useEffect(() => {
+    if (!selected || !hasLoc) { setRoute(null); return }
+    let cancel = false
+    setRouteLoading(true)
+    const base = routeMode === 'car' ? 'routed-car/route/v1/driving' : 'routed-foot/route/v1/foot'
+    const url = `https://routing.openstreetmap.de/${base}/${lng},${lat};${selected.lon},${selected.lat}?overview=full&geometries=geojson`
+    fetch(url).then((r) => { if (!r.ok) throw new Error('route'); return r.json() })
+      .then((d) => {
+        const rt = d.routes?.[0]; if (!rt) throw new Error('noroute')
+        if (!cancel) setRoute({ coords: rt.geometry.coordinates.map((p: number[]) => [p[1], p[0]]), dist: rt.distance, dur: rt.duration, mode: routeMode })
+      })
+      .catch(() => { if (!cancel) setRoute(null) })
+      .finally(() => { if (!cancel) setRouteLoading(false) })
+    return () => { cancel = true }
+  }, [selected, routeMode, hasLoc, lat, lng])
+
+  useEffect(() => {
+    const { L } = layerRef.current
+    const map = mapRef.current
+    if (!map || !L) return
+    if (layerRef.current.routeLine) { map.removeLayer(layerRef.current.routeLine); layerRef.current.routeLine = undefined }
+    if (route && route.coords.length) {
+      layerRef.current.routeLine = L.polyline(route.coords, { color: route.mode === 'car' ? '#d9822b' : '#137cbd', weight: 4, opacity: 0.85, lineCap: 'round' }).addTo(map)
+    } else if (selected && hasLoc) {
+      layerRef.current.routeLine = L.polyline([[lat, lng], [selected.lat, selected.lon]], { color: '#8a9ba8', weight: 2, opacity: 0.7, dashArray: '6 6' }).addTo(map)
+    }
+  }, [route, selected, hasLoc, lat, lng, mapReady])
+
+  // ── search (local + Nominatim) ─────────────────────────────────────────────
+  useEffect(() => {
+    const q = searchQ.trim()
+    if (q.length < 2 || !hasLoc) { setRemoteResults([]); return }
+    const id = setTimeout(async () => {
+      try {
+        const vb = `${lng! - 0.06},${lat! + 0.05},${lng! + 0.06},${lat! - 0.05}`
+        const r = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&accept-language=ko&countrycodes=kr&limit=6&q=${encodeURIComponent(q)}&viewbox=${vb}&bounded=0`)
+        const d = await r.json()
+        setRemoteResults((d ?? []).map((x: any) => ({ lat: +x.lat, lon: +x.lon, name: (x.display_name as string).split(',').slice(0, 2).join(', '), addr: x.display_name })))
+      } catch { setRemoteResults([]) }
+    }, 350)
+    return () => clearTimeout(id)
+  }, [searchQ, hasLoc, lat, lng])
+
+  const searchResults = useMemo(() => {
+    const q = searchQ.trim().toLowerCase()
+    if (q.length < 1) return [] as Place[]
+    const local = pois.filter((p) => p.name.toLowerCase().includes(q)).slice(0, 6)
+    const seen = new Set(local.map((p) => p.name))
+    return [...local, ...remoteResults.filter((r) => !seen.has(r.name))].slice(0, 10)
+  }, [searchQ, pois, remoteResults])
+
+  function pick(p: Place) { setSelected(p); setSearchOpen(false); setSearchQ(p.name) }
   function recenter() { const m = mapRef.current; if (m && hasLoc) m.setView([lat, lng], 16, { animate: true }) }
+  function zoom(delta: number) { const m = mapRef.current; if (m) (delta > 0 ? m.zoomIn() : m.zoomOut()) }
+
+  // add the selected place / facility to the workspace
+  function addSelectedToWorkspace() {
+    if (!ws || !selected) return
+    const fields = [
+      { label: '분류', value: selected.cat ? CATS[selected.cat].label : '검색 위치' },
+      { label: '주소', value: selected.addr ?? addr ?? '—' },
+      ...(selected.phone ? [{ label: '전화', value: selected.phone }] : []),
+      { label: '거리', value: route ? `${route.mode === 'car' ? '차량' : '도보'} ${fmtD(route.dist)} · ${fmtDur(route.dur)}` : `직선 ${fmtD(straight)}` },
+    ]
+    ws.addInfo({ source: '작전지도', title: selected.name, subtitle: '주변 대응 자산', fields, accent: selected.cat ? CATS[selected.cat].color : '#137cbd' })
+  }
+  function addFacilityToWorkspace() {
+    if (!ws || !hasLoc) return
+    const fields = [
+      { label: '좌표', value: `${lat!.toFixed(5)}, ${lng!.toFixed(5)}` },
+      ...(nearest.medical ? [{ label: '최근접 의료', value: `${nearest.medical.name} ${fmtD(nearest.medical.d)}` }] : []),
+      ...(risk ? [{ label: '대기질', value: risk.text }] : []),
+      { label: '대응자산', value: `${pois.length}곳` },
+    ]
+    ws.addInfo({ source: '작전지도', title: label ?? '우리 시설', subtitle: '시설 작전 현황', fields, accent: '#137cbd' })
+  }
 
   if (!hasLoc) {
     return (
@@ -274,122 +401,195 @@ export function OperationalMap({ lat, lng, label, airPm25, airGrade }: Props) {
   }
 
   const toneColor = { red: '#e5484d', amber: '#d97706', green: '#16a34a', blue: '#137cbd' } as const
+  const panel = 'bg-white/92 backdrop-blur-sm border border-[#ced9e0] rounded-[3px] shadow-[0_2px_10px_rgba(16,22,26,0.10)]'
+  const ctrlBtn = 'inline-flex items-center justify-center gap-1 px-2 py-1.5 text-[10.5px] font-medium rounded-[2px] transition-colors'
 
   return (
-    <div className="relative isolate h-full w-full rounded-[3px] border border-line overflow-hidden bg-[#e9edf2]">
-      <style>{`@keyframes lmpulse{0%{transform:scale(1);opacity:.6}100%{transform:scale(2.4);opacity:0}}
+    <div className={`relative isolate h-full w-full rounded-[3px] border border-line overflow-hidden bg-[#f3f6f9] ${view === 'light' ? 'lm-pastel' : ''}`}>
+      <style>{`@keyframes lmpulse{0%{transform:scale(1);opacity:.55}100%{transform:scale(2.4);opacity:0}}
         @keyframes lmlive{0%,100%{opacity:1}50%{opacity:.25}}
-        .leaflet-container{background:#e9edf2;font-family:inherit}
-        .lm-poi{display:block;width:14px;height:14px;border-radius:50%;border:1.7px solid;position:relative;transition:transform .12s ease;cursor:pointer}
-        .lm-poi>i{position:absolute;inset:3.5px;border-radius:50%;display:block}
-        .leaflet-marker-icon:hover .lm-poi{transform:scale(1.32)}
-        .leaflet-tooltip{background:#0f1620;border:1px solid #30363d;color:#e6edf3;font-size:11px;box-shadow:0 4px 12px rgba(0,0,0,.35)}
-        .leaflet-tooltip-top:before{border-top-color:#30363d}
-        .leaflet-popup-content-wrapper{background:#0f1620;color:#e6edf3;border:1px solid #30363d;border-radius:4px;font-size:11px}
-        .leaflet-popup-tip{background:#0f1620;border:1px solid #30363d}
-        .leaflet-popup-content{margin:8px 10px}
-        .leaflet-control-zoom a{background:#0f1620;color:#c9d1d9;border-color:#30363d}
-        .leaflet-control-attribution{background:rgba(255,255,255,.7);color:#5c7080;font-size:9px}
+        .leaflet-container{background:#f3f6f9;font-family:inherit}
+        /* softer, whiter base map (2D view only) */
+        .lm-pastel .leaflet-tile-pane{filter:saturate(.52) brightness(1.13) contrast(.88)}
+        .lm-dot{display:block;width:11px;height:11px;border-radius:50%;border:1.5px solid #fff;box-shadow:0 1px 3px rgba(16,22,26,.28);transition:transform .12s ease;cursor:pointer}
+        .leaflet-marker-icon:hover .lm-dot{transform:scale(1.3)}
+        .lm-sel{display:block;width:22px;height:22px;border-radius:50%;border:3px solid currentColor;background:transparent}
+        .lm-star{display:flex;align-items:center;justify-content:center;width:16px;height:16px;color:#f5a623;font-size:15px;line-height:1;text-shadow:0 1px 2px rgba(0,0,0,.4);cursor:pointer}
+        .leaflet-tooltip{background:#fff;border:1px solid #ced9e0;color:#182026;font-size:11px;box-shadow:0 4px 12px rgba(16,22,26,.15)}
+        .leaflet-tooltip-top:before{border-top-color:#ced9e0}
+        .leaflet-control-attribution{background:rgba(255,255,255,.82);color:#8a9ba8;font-size:9px}
         .leaflet-control-attribution a{color:#137cbd}`}</style>
       <div ref={elRef} className="absolute inset-0" />
 
-      {/* Title + live briefing (left stack) */}
-      <div className="absolute top-2.5 left-2.5 z-[500] flex flex-col gap-1.5 w-[224px]">
-        <div className="bg-[#0b0e14]/88 backdrop-blur border border-[#30363d] rounded-[3px] px-3 py-2">
+      {/* Title + briefing + 주변 현황 + 대응 자산 — one left stack, unified width */}
+      <div className="absolute top-2.5 left-2.5 bottom-2.5 z-[500] flex flex-col gap-1.5 w-[230px] overflow-y-auto no-scrollbar">
+        <div className={`${panel} px-3 py-2`}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5">
-              <Crosshair size={12} className="text-[#58a6ff]" />
-              <span className="text-[11px] font-semibold text-[#c9d1d9] tracking-wide uppercase">작전 지도 · Vertex</span>
+              <Crosshair size={12} className="text-accent" />
+              <span className="text-[11px] font-semibold text-ink tracking-wide uppercase">작전 지도 · Vertex</span>
             </div>
-            <span className="flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#16a34a]" style={{ animation: 'lmlive 1.6s ease-in-out infinite' }} />
-              <span className="text-[8.5px] font-semibold text-[#16a34a] tracking-widest">LIVE</span>
-            </span>
+            <div className="flex items-center gap-1.5">
+              {ws && <button onClick={addFacilityToWorkspace} title="시설 현황을 작업창에 추가" className="text-ink-faint hover:text-accent"><Plus size={13} /></button>}
+              <span className="flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#16a34a]" style={{ animation: 'lmlive 1.6s ease-in-out infinite' }} />
+                <span className="text-[8.5px] font-semibold text-[#16a34a] tracking-widest">LIVE</span>
+              </span>
+            </div>
           </div>
-          <p className="text-[10px] text-[#8b949e] font-mono mt-0.5 truncate">{label ?? '우리 시설'} · {lat!.toFixed(5)}, {lng!.toFixed(5)}</p>
+          <p className="text-[10px] text-ink-faint font-mono mt-0.5 truncate">{label ?? '우리 시설'} · {lat!.toFixed(5)}, {lng!.toFixed(5)}</p>
         </div>
 
-        <div className="bg-[#0b0e14]/88 backdrop-blur border border-[#30363d] rounded-[3px] overflow-hidden">
-          <div className="px-2.5 py-1.5 border-b border-[#30363d] flex items-center justify-between">
-            <span className="text-[9.5px] font-semibold text-[#8b949e] uppercase tracking-wider">실시간 상황 브리핑</span>
-            <span className="text-[8.5px] font-mono text-[#545d68]">{briefTime ? briefTime.toLocaleTimeString('ko-KR', { hour12: false }) : '--:--:--'}</span>
+        <div className={`${panel} overflow-hidden`}>
+          <div className="px-2.5 py-1.5 border-b border-line flex items-center justify-between">
+            <span className="text-[9.5px] font-semibold text-ink-faint uppercase tracking-wider">실시간 상황 브리핑</span>
+            <span className="text-[8.5px] font-mono text-ink-ghost">{briefTime ? briefTime.toLocaleTimeString('ko-KR', { hour12: false }) : '--:--:--'}</span>
           </div>
-          <div className="px-2.5 py-1.5 space-y-1.5 max-h-[148px] overflow-y-auto">
+          <div className="px-2.5 py-2 space-y-1.5 max-h-[214px] overflow-y-auto">
             {brief.map((b, i) => (
               <div key={i} className="flex items-start gap-1.5">
                 <span className="w-1 h-1 rounded-full mt-1.5 shrink-0" style={{ background: toneColor[b.tone] }} />
-                <span className="text-[10px] leading-snug text-[#c9d1d9]">{b.text}</span>
+                <span className="text-[10px] leading-snug text-ink-soft">{b.text}</span>
               </div>
             ))}
-            {detail && (
-              <div className="mt-1 pt-1.5 border-t border-[#30363d]/70 flex items-start gap-1.5">
-                <Navigation size={11} className="text-[#58a6ff] mt-0.5 shrink-0" />
-                <span className="text-[10px] leading-snug text-[#e6edf3]">
-                  <b style={{ color: CATS[detail.cat].color }}>{CATS[detail.cat].label}</b> {detail.name} —
-                  <span className="font-mono"> {fmtD(detail.d)}</span> · {detail.dir}쪽 · 도보 ~{detail.walk}분
-                </span>
-              </div>
-            )}
+            <div className="pt-1 mt-0.5 border-t border-line/70 flex items-center gap-1 text-[9px] text-ink-ghost">
+              <span className="w-1 h-1 rounded-full bg-[#16a34a]" style={{ animation: 'lmlive 1.6s ease-in-out infinite' }} /> 5분 주기 자동 갱신
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Situational summary — air quality + nearest emergency/response assets */}
-      <div className="absolute top-2.5 right-2.5 z-[500] w-[182px] bg-[#0b0e14]/88 backdrop-blur border border-[#30363d] rounded-[3px] overflow-hidden">
-        <div className="px-2.5 py-1.5 border-b border-[#30363d] flex items-center gap-1.5">
-          <ShieldAlert size={11} className="text-[#58a6ff]" />
-          <span className="text-[9.5px] font-semibold text-[#8b949e] uppercase tracking-wider">주변 현황 · 대응 자산</span>
-        </div>
-        <div className="px-2.5 py-1.5 space-y-1">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-[10px] text-[#8b949e]">대기질</span>
-            <span className="text-[10px] font-medium" style={{ color: risk?.color ?? '#6e7681' }}>{risk?.text ?? '데이터 없음'}</span>
+        {/* 주변 현황 — moved under the briefing, unified width */}
+        <div className={`${panel} overflow-hidden`}>
+          <div className="px-2.5 py-1.5 border-b border-line flex items-center gap-1.5">
+            <ShieldAlert size={11} className="text-accent" />
+            <span className="text-[9.5px] font-semibold text-ink-faint uppercase tracking-wider">주변 현황</span>
           </div>
-          {(([['medical', '최근접 의료'], ['police', '최근접 경찰'], ['fire', '최근접 소방'], ['pharmacy', '최근접 약국']]) as [CatKey, string][]).map(([k, lbl]) => {
-            const nx = nearest[k]
-            return (
-              <div key={k} className="flex items-center justify-between gap-2">
-                <span className="flex items-center gap-1.5 min-w-0">
-                  <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: CATS[k].color }} />
-                  <span className="text-[10px] text-[#8b949e] truncate" title={nx?.name}>{nx ? nx.name : lbl}</span>
+          <div className="px-2.5 py-1.5 space-y-1">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[10px] text-ink-faint">대기질</span>
+              <span className="text-[10px] font-medium" style={{ color: risk?.color ?? '#8a9ba8' }}>{risk?.text ?? '데이터 없음'}</span>
+            </div>
+            {(([['medical', '최근접 의료'], ['police', '최근접 경찰'], ['fire', '최근접 소방'], ['pharmacy', '최근접 약국']]) as [CatKey, string][]).map(([k, lbl]) => {
+              const nx = nearest[k]
+              return (
+                <div key={k} className="flex items-center justify-between gap-2">
+                  <span className="flex items-center gap-1.5 min-w-0">
+                    <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: CATS[k].color }} />
+                    <span className="text-[10px] text-ink-faint truncate" title={nx?.name}>{nx ? nx.name : lbl}</span>
+                  </span>
+                  <span className="text-[10px] font-mono text-ink-soft tabular-nums shrink-0">{nx ? `${fmtD(nx.d)} ${nx.dir}` : '—'}</span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* 대응 자산 레이어 — moved under 주변 현황, unified width */}
+        <div className={`${panel} overflow-hidden`}>
+          <div className="px-2.5 py-1.5 border-b border-line flex items-center justify-between">
+            <span className="text-[9.5px] font-semibold text-ink-faint uppercase tracking-wider">대응 자산 레이어</span>
+            <button onClick={loadPois} title="새로고침" className="text-ink-ghost hover:text-ink"><RefreshCw size={11} className={loadingPois ? 'animate-spin' : ''} /></button>
+          </div>
+          <div className="p-1.5 grid grid-cols-2 gap-1">
+            {(Object.keys(CATS) as CatKey[]).map((k) => {
+              const on = active[k]; const n = pois.filter((p) => p.cat === k).length
+              return (
+                <button key={k} onClick={() => setActive((a) => ({ ...a, [k]: !a[k] }))}
+                  className={`flex items-center justify-between gap-1 px-1.5 py-1 rounded-[3px] border text-[10px] transition-colors ${on ? 'bg-fill border-line text-ink' : 'border-transparent text-ink-ghost hover:bg-fill/60'}`}>
+                  <span className="flex items-center gap-1.5 min-w-0">
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{ background: on ? CATS[k].color : '#c1ccd6' }} />
+                    <span className="truncate">{CATS[k].label}</span>
+                  </span>
+                  <span className="font-mono tabular-nums text-ink-faint shrink-0">{n}</span>
+                </button>
+              )
+            })}
+          </div>
+          {poiErr && <p className="px-2 pb-1.5 text-[9px] text-danger">주변 정보를 불러오지 못했습니다.</p>}
+        </div>
+      </div>
+
+      {/* Merged control + search panel (top-right, where search was) — map/view
+          controls on top, facility/place search below (stacked) */}
+      <div className="absolute top-2.5 right-2.5 z-[600] w-[250px] flex flex-col gap-1.5">
+        <div className={`${panel} overflow-hidden`}>
+          <div className="flex items-center p-0.5 border-b border-line">
+            <button onClick={() => setView('light')} className={`${ctrlBtn} ${view === 'light' ? 'bg-accent text-white' : 'text-ink-soft hover:bg-fill'}`}><Layers size={11} /> 2D</button>
+            <button onClick={() => setView('sat')} className={`${ctrlBtn} ${view === 'sat' ? 'bg-accent text-white' : 'text-ink-soft hover:bg-fill'}`}><Satellite size={11} /> 위성</button>
+            <span className="w-px h-4 bg-line mx-0.5" />
+            <button onClick={recenter} title="위치 초기화" className={`${ctrlBtn} text-ink-soft hover:bg-fill`}><Locate size={12} /></button>
+            <button onClick={() => zoom(-1)} title="축소" className={`${ctrlBtn} text-ink-soft hover:bg-fill`}><Minus size={13} /></button>
+            <button onClick={() => zoom(1)} title="확대" className={`${ctrlBtn} text-ink-soft hover:bg-fill`}><Plus size={13} /></button>
+            <span className="w-px h-4 bg-line mx-0.5" />
+            <button onClick={() => setShowSaved((v) => !v)} title="내 장소 표시" className={`${ctrlBtn} ${showSaved ? 'text-[#d98a00]' : 'text-ink-soft hover:bg-fill'}`}><Star size={12} className={showSaved ? 'fill-[#f5a623]' : ''} /> {savedPlaces.length}</button>
+          </div>
+          <div className="flex items-center gap-1.5 px-2.5 py-1.5">
+            <Search size={13} className="text-ink-faint shrink-0" />
+            <input value={searchQ} onChange={(e) => { setSearchQ(e.target.value); setSearchOpen(true) }} onFocus={() => setSearchOpen(true)}
+              placeholder="시설·기관·장소 검색" className="flex-1 min-w-0 bg-transparent text-[11.5px] text-ink placeholder:text-ink-ghost outline-none" />
+            {searchQ && <button onClick={() => { setSearchQ(''); setRemoteResults([]) }} className="text-ink-faint hover:text-ink shrink-0"><X size={12} /></button>}
+          </div>
+        </div>
+
+        {searchOpen && searchResults.length > 0 && (
+          <div className={`${panel} overflow-hidden max-h-[208px] overflow-y-auto`}>
+            {searchResults.map((p, i) => (
+              <button key={i} onClick={() => pick(p)} className="w-full text-left px-2.5 py-1.5 hover:bg-fill border-b border-line/70 last:border-0 flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: p.cat ? CATS[p.cat].color : '#8a9ba8' }} />
+                <span className="min-w-0">
+                  <span className="block text-[11px] text-ink truncate">{p.name}</span>
+                  {p.cat && <span className="block text-[9px] text-ink-faint">{CATS[p.cat].label}</span>}
                 </span>
-                <span className="text-[10px] font-mono text-[#c9d1d9] tabular-nums shrink-0">{nx ? `${fmtD(nx.d)} ${nx.dir}` : '—'}</span>
-              </div>
-            )
-          })}
-        </div>
-      </div>
-
-      {/* View + recenter controls */}
-      <div className="absolute bottom-2.5 left-2.5 z-[500] flex flex-col gap-1.5">
-        <div className="flex bg-[#0b0e14]/88 backdrop-blur border border-[#30363d] rounded-[3px] overflow-hidden">
-          <button onClick={() => setView('light')} className={`px-2.5 py-1.5 text-[10.5px] font-medium inline-flex items-center gap-1 ${view === 'light' ? 'bg-[#137cbd] text-white' : 'text-[#8b949e] hover:text-[#c9d1d9]'}`}><Layers size={11} /> 2D</button>
-          <button onClick={() => setView('sat')} className={`px-2.5 py-1.5 text-[10.5px] font-medium inline-flex items-center gap-1 ${view === 'sat' ? 'bg-[#137cbd] text-white' : 'text-[#8b949e] hover:text-[#c9d1d9]'}`}><Satellite size={11} /> 위성</button>
-        </div>
-        <button onClick={recenter} title="시설 중심으로" className="self-start bg-[#0b0e14]/88 backdrop-blur border border-[#30363d] rounded-[3px] p-1.5 text-[#8b949e] hover:text-[#c9d1d9]"><Locate size={13} /></button>
-      </div>
-
-      {/* POI category filters */}
-      <div className="absolute bottom-2.5 right-12 z-[500] bg-[#0b0e14]/88 backdrop-blur border border-[#30363d] rounded-[3px] p-2 max-w-[228px]">
-        <div className="flex items-center justify-between mb-1.5">
-          <span className="text-[9.5px] font-semibold text-[#8b949e] uppercase tracking-wider">주변 대응 자산</span>
-          <button onClick={loadPois} title="새로고침" className="text-[#6e7681] hover:text-[#c9d1d9]"><RefreshCw size={11} className={loadingPois ? 'animate-spin' : ''} /></button>
-        </div>
-        <div className="flex flex-wrap gap-1">
-          {(Object.keys(CATS) as CatKey[]).map((k) => {
-            const on = active[k]; const n = pois.filter((p) => p.cat === k).length
-            return (
-              <button key={k} onClick={() => setActive((a) => ({ ...a, [k]: !a[k] }))}
-                className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] border transition-colors ${on ? 'text-[#c9d1d9]' : 'text-[#545d68] border-transparent'}`}
-                style={on ? { borderColor: CATS[k].color + '88', background: CATS[k].color + '22' } : {}}>
-                <span className="w-1.5 h-1.5 rounded-full" style={{ background: on ? CATS[k].color : '#545d68' }} />
-                {CATS[k].label}<span className="font-mono tabular-nums opacity-70">{n}</span>
               </button>
-            )
-          })}
-        </div>
-        {loadingPois && <p className="text-[9px] text-[#8b949e] mt-1">주변 자산 탐지 중…</p>}
-        {poiErr && <p className="text-[9px] text-[#e5484d] mt-1">주변 정보를 불러오지 못했습니다.</p>}
+            ))}
+          </div>
+        )}
+
+        {selected && (
+          <div className={`${panel} overflow-hidden`}>
+            <div className="px-2.5 py-2 border-b border-line flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5">
+                  {selected.cat && <span className="w-2 h-2 rounded-full shrink-0" style={{ background: CATS[selected.cat].color }} />}
+                  <span className="text-[12px] font-semibold text-ink truncate">{selected.name}</span>
+                </div>
+                <p className="text-[9.5px] text-ink-faint mt-0.5">{selected.cat ? CATS[selected.cat].label : '검색 위치'}{selected.operator ? ` · ${selected.operator}` : ''}</p>
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                <button onClick={() => toggleSave(selected)} title={isSaved(selected) ? '내 장소에서 제거' : '내 장소로 저장'} className={isSaved(selected) ? 'text-[#f5a623]' : 'text-ink-faint hover:text-[#f5a623]'}><Star size={14} className={isSaved(selected) ? 'fill-[#f5a623]' : ''} /></button>
+                {ws && <button onClick={addSelectedToWorkspace} title="작업창에 추가" className="text-ink-faint hover:text-accent"><Plus size={14} /></button>}
+                <button onClick={() => { setSelected(null); setSearchQ('') }} className="text-ink-faint hover:text-ink"><X size={13} /></button>
+              </div>
+            </div>
+            <div className="px-2.5 py-2 space-y-1.5">
+              <p className="flex items-start gap-1.5 text-[10.5px] text-ink-soft">
+                <MapPin size={11} className="text-ink-faint mt-0.5 shrink-0" />
+                <span className="leading-snug">{selected.addr ?? addr ?? '주소 조회 중…'}</span>
+              </p>
+              {selected.hours && (
+                <p className="flex items-center gap-1.5 text-[10.5px] text-ink-soft"><Clock size={11} className="text-ink-faint shrink-0" /><span className="truncate">{selected.hours}</span></p>
+              )}
+              <p className="flex items-center gap-1.5 text-[10.5px] text-ink-soft">
+                <Navigation size={11} className="text-accent shrink-0" />
+                <span>{routeLoading ? '경로 계산 중…' : route ? `${route.mode === 'car' ? '차량' : '도보'} ${fmtD(route.dist)} · ${fmtDur(route.dur)}` : `직선 ${fmtD(straight)} (도로 경로 없음)`}</span>
+              </p>
+              <div className="flex items-center gap-1">
+                <button onClick={() => setRouteMode('foot')} className={`flex-1 inline-flex items-center justify-center gap-1 px-2 py-1 rounded-[3px] text-[10px] border transition-colors ${routeMode === 'foot' ? 'bg-accent text-white border-accent' : 'text-ink-soft border-line hover:bg-fill'}`}><Footprints size={11} /> 도보</button>
+                <button onClick={() => setRouteMode('car')} className={`flex-1 inline-flex items-center justify-center gap-1 px-2 py-1 rounded-[3px] text-[10px] border transition-colors ${routeMode === 'car' ? 'bg-accent text-white border-accent' : 'text-ink-soft border-line hover:bg-fill'}`}><Car size={11} /> 차량</button>
+              </div>
+              <div className="flex items-center gap-1 pt-0.5">
+                {selected.phone
+                  ? <a href={telHref(selected.phone)} className="flex-1 inline-flex items-center justify-center gap-1 px-2 py-1 rounded-[3px] text-[10px] bg-[#0f9960] text-white hover:opacity-90"><Phone size={11} /> {selected.phone}</a>
+                  : <span className="flex-1 inline-flex items-center justify-center gap-1 px-2 py-1 rounded-[3px] text-[10px] text-ink-ghost border border-line"><Phone size={11} /> 번호 없음</span>}
+                <button onClick={() => routeToWorkspace(selected)} title="길찾기를 작업창에 추가"
+                  className="inline-flex items-center justify-center gap-1 px-2 py-1 rounded-[3px] text-[10px] bg-[#fee500] text-[#3c1e1e] hover:opacity-90"><Route size={11} /> 길찾기</button>
+              </div>
+              {selected.website && (
+                <a href={selected.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-[10px] text-accent hover:text-accent-hover truncate"><Globe size={11} className="shrink-0" /> <span className="truncate">{selected.website}</span></a>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

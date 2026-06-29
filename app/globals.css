@@ -123,6 +123,20 @@ select.select-bare { padding-right: 1.25rem !important; background-position: rig
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
+/* Vertically resizable workspace cards — visible grab affordance */
+.ws-resizable { position: relative; }
+.ws-resizable::-webkit-resizer { background: transparent; }
+.ws-resizable::after {
+  content: ""; position: absolute; bottom: 2px; right: 3px; width: 9px; height: 9px;
+  pointer-events: none; opacity: 0.45;
+  background:
+    linear-gradient(135deg, transparent 46%, var(--color-ink-faint) 46%, var(--color-ink-faint) 58%, transparent 58%),
+    linear-gradient(135deg, transparent 72%, var(--color-ink-faint) 72%, var(--color-ink-faint) 84%, transparent 84%);
+}
+
+/* Timer-completion toast entrance */
+@keyframes slideIn { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: translateX(0); } }
+
 /* Recharts — light theme */
 .recharts-cartesian-axis-tick-value { fill: #8a93a6 !important; }
 .recharts-legend-item-text { color: #667085 !important; }

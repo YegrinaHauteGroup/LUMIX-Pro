@@ -6,12 +6,15 @@ import { Card } from '@/components/ui/Card'
 import { Input, Select, Textarea } from '@/components/ui/Input'
 import { Drawer } from '@/components/ui/Drawer'
 import { CHILD_STATUS_COLORS, CHILD_STATUS_LABELS, GENDER_LABELS, calculateAge } from '@/lib/utils'
+import { childFormSchema, parseOr } from '@/lib/validation'
+import { useRealtimeRefresh } from '@/lib/useRealtimeRefresh'
 import type { Child, Class } from '@/lib/types'
 import { createClient } from '@/utils/supabase/client'
 import { ExternalLink, Pencil, Plus, Search, Trash2, Users } from 'lucide-react'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 
 interface Props {
   initialChildren: Child[]
@@ -37,8 +40,17 @@ export function ChildrenClient({ initialChildren, classes, centerId }: Props) {
   const [search, setSearch] = useState('')
   const [filterStatus, setFilterStatus] = useState<Child['status'] | 'all'>('all')
   const [filterClass, setFilterClass] = useState('all')
+  const [filterGender, setFilterGender] = useState<'all' | 'male' | 'female'>('all')
+  const [groupBy, setGroupBy] = useState<'none' | 'gender' | 'age' | 'class'>('none')
+  const [page, setPage] = useState(1)
+  const PAGE_SIZE = 50
+
+  // live-refresh when children change elsewhere (H6)
+  useRealtimeRefresh('children', centerId)
   // drawer: add (editId === 'new') / edit (editId === child.id) / closed (null)
   const [editId, setEditId] = useState<string | null>(null)
+  const [pendingDel, setPendingDel] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState(false)
   const [form, setForm] = useState(emptyForm)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -47,8 +59,36 @@ export function ChildrenClient({ initialChildren, classes, centerId }: Props) {
     if (search && !c.name.toLowerCase().includes(search.toLowerCase())) return false
     if (filterStatus !== 'all' && c.status !== filterStatus) return false
     if (filterClass !== 'all' && c.class_id !== filterClass) return false
+    if (filterGender !== 'all' && c.gender !== filterGender) return false
     return true
   })
+
+  // colorful gender index (item 5)
+  const genderColor = (g: string) => g === 'male' ? '#3b7fb0' : g === 'female' ? '#d6669a' : '#94a3b8'
+  const genderChip = (g: string) => g === 'male' ? 'bg-[#e8f1f8] text-[#2b6ca3] border-[#bcd9ef]' : g === 'female' ? 'bg-[#fbe9f1] text-[#b03b6e] border-[#f3c2d8]' : 'bg-fill text-ink-faint border-line'
+  const ageBand = (b: string | null) => {
+    if (!b) return '나이 미상'
+    const a = calculateAge(b)
+    if (a <= 2) return '영아 (만 0–2세)'
+    if (a <= 5) return '유아 (만 3–5세)'
+    return '학령 (만 6세+)'
+  }
+  const groupKeyOf = (c: Child) =>
+    groupBy === 'gender' ? GENDER_LABELS[c.gender]
+      : groupBy === 'age' ? ageBand(c.birth_date)
+        : groupBy === 'class' ? ((c.classes as Class | undefined)?.name ?? '미배정')
+          : ''
+  // ordered groups for the grouped view
+  const grouped = (() => {
+    if (groupBy === 'none') return null
+    const m = new Map<string, Child[]>()
+    filtered.forEach((c) => { const k = groupKeyOf(c); (m.get(k) ?? m.set(k, []).get(k)!).push(c) })
+    return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0], 'ko'))
+  })()
+  // pagination applies to the flat (ungrouped) view (C4)
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const safePage = Math.min(page, totalPages)
+  const pageRows = grouped ? null : filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
 
   function openAdd() { setForm(emptyForm); setError(''); setEditId('new') }
   function openEdit(c: Child) {
@@ -64,9 +104,11 @@ export function ChildrenClient({ initialChildren, classes, centerId }: Props) {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!centerId) { setError('센터 정보를 찾을 수 없습니다.'); return }
+    const valid = parseOr(childFormSchema, form)
+    if (!valid.ok) { setError(valid.error); return }
     setLoading(true); setError('')
     const payload = {
-      name: form.name,
+      name: form.name.trim(),
       birth_date: form.birth_date || null,
       gender: form.gender,
       class_id: form.class_id || null,
@@ -91,15 +133,45 @@ export function ChildrenClient({ initialChildren, classes, centerId }: Props) {
   }
 
   const handleDelete = async (id: string) => {
-    if (!confirm('이 아동을 삭제하시겠습니까?')) return
-    const { error } = await supabase.from('children').update({ deleted_at: new Date().toISOString() }).eq('id', id)
+    setDeleting(true)
+    const { data, error } = await supabase.from('children').update({ deleted_at: new Date().toISOString() }).eq('id', id).select('id')
+    setDeleting(false)
     if (error) { alert(`삭제 실패: ${error.message}`); return }
+    if (!data || data.length === 0) { alert('삭제 권한이 없거나 대상을 찾을 수 없습니다.'); return }
     setChildren((prev) => prev.filter((c) => c.id !== id))
     if (editId === id) setEditId(null)
+    setPendingDel(null)
     router.refresh()
   }
 
   const editing = editId && editId !== 'new' ? children.find((c) => c.id === editId) ?? null : null
+
+  const renderRow = (child: Child) => (
+    <tr key={child.id} className="border-b border-line last:border-0 hover:bg-fill transition-colors">
+      <td className="px-3.5 py-2.5">
+        <button onClick={() => openEdit(child)} className="flex items-center gap-2.5 group text-left">
+          <div className="w-6 h-6 flex items-center justify-center shrink-0 rounded-[2px] border font-semibold text-[10px]"
+            style={{ background: genderColor(child.gender) + '1a', color: genderColor(child.gender), borderColor: genderColor(child.gender) + '55' }}>
+            {child.name[0]}
+          </div>
+          <span className="text-[12px] font-medium text-ink group-hover:text-accent transition-colors">{child.name}</span>
+        </button>
+      </td>
+      <td className="px-3.5 py-2.5">
+        <span className={`text-[10px] px-1.5 py-0.5 rounded-[2px] border ${genderChip(child.gender)}`}>{GENDER_LABELS[child.gender]}</span>
+      </td>
+      <td className="px-3.5 py-2.5 text-[12px] text-ink-soft font-data">{child.birth_date ? `${calculateAge(child.birth_date)}세` : '—'}</td>
+      <td className="px-3.5 py-2.5 text-[12px] text-ink-soft">{(child.classes as Class | undefined)?.name ?? '—'}</td>
+      <td className="px-3.5 py-2.5"><Badge className={CHILD_STATUS_COLORS[child.status]}>{CHILD_STATUS_LABELS[child.status]}</Badge></td>
+      <td className="px-3.5 py-2.5">
+        <div className="flex items-center gap-0.5 justify-end">
+          <Link href={`/children/${child.id}`} title="상세 보기" className="text-ink-ghost hover:text-accent transition-colors p-1"><ExternalLink size={13} /></Link>
+          <button onClick={() => openEdit(child)} title="편집" className="text-ink-ghost hover:text-ink transition-colors p-1"><Pencil size={13} /></button>
+          <button onClick={() => setPendingDel(child.id)} title="삭제" className="text-ink-ghost hover:text-danger transition-colors p-1"><Trash2 size={13} /></button>
+        </div>
+      </td>
+    </tr>
+  )
 
   return (
     <div className="flex flex-col min-h-0 flex-1 gap-3">
@@ -111,13 +183,13 @@ export function ChildrenClient({ initialChildren, classes, centerId }: Props) {
             type="text"
             placeholder="이름 검색"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => { setSearch(e.target.value); setPage(1) }}
             className="w-44 bg-fill-2 border border-line pl-8 pr-3 py-1.5 text-[12px] text-ink placeholder-ink-ghost focus:outline-none focus:border-accent h-8 rounded-[3px]"
           />
         </div>
         <select
           value={filterStatus}
-          onChange={(e) => setFilterStatus(e.target.value as typeof filterStatus)}
+          onChange={(e) => { setFilterStatus(e.target.value as typeof filterStatus); setPage(1) }}
           className="bg-fill-2 border border-line px-3 py-1.5 text-[12px] text-ink-soft focus:outline-none focus:border-accent h-8 rounded-[3px] cursor-pointer"
         >
           <option value="all">전체 상태</option>
@@ -127,11 +199,31 @@ export function ChildrenClient({ initialChildren, classes, centerId }: Props) {
         </select>
         <select
           value={filterClass}
-          onChange={(e) => setFilterClass(e.target.value)}
+          onChange={(e) => { setFilterClass(e.target.value); setPage(1) }}
           className="bg-fill-2 border border-line px-3 py-1.5 text-[12px] text-ink-soft focus:outline-none focus:border-accent h-8 rounded-[3px] cursor-pointer"
         >
           <option value="all">전체 반</option>
           {classes.map((cls) => <option key={cls.id} value={cls.id}>{cls.name}</option>)}
+        </select>
+        <select
+          value={filterGender}
+          onChange={(e) => { setFilterGender(e.target.value as typeof filterGender); setPage(1) }}
+          className="bg-fill-2 border border-line px-3 py-1.5 text-[12px] text-ink-soft focus:outline-none focus:border-accent h-8 rounded-[3px] cursor-pointer"
+        >
+          <option value="all">전체 성별</option>
+          <option value="male">남아</option>
+          <option value="female">여아</option>
+        </select>
+        <select
+          value={groupBy}
+          onChange={(e) => setGroupBy(e.target.value as typeof groupBy)}
+          title="분류 기준"
+          className="bg-fill-2 border border-line px-3 py-1.5 text-[12px] text-ink-soft focus:outline-none focus:border-accent h-8 rounded-[3px] cursor-pointer"
+        >
+          <option value="none">분류 없음</option>
+          <option value="age">나이대별</option>
+          <option value="gender">성별</option>
+          <option value="class">반별</option>
         </select>
         <div className="flex-1" />
         <span className="text-[11px] text-ink-faint font-data">{filtered.length}명</span>
@@ -159,47 +251,33 @@ export function ChildrenClient({ initialChildren, classes, centerId }: Props) {
                     <p className="text-[12px] text-ink-ghost">등록된 아동이 없습니다</p>
                   </td>
                 </tr>
-              ) : filtered.map((child) => (
-                <tr key={child.id} className="border-b border-line last:border-0 hover:bg-fill transition-colors">
-                  <td className="px-3.5 py-2.5">
-                    <button onClick={() => openEdit(child)} className="flex items-center gap-2.5 group text-left">
-                      <div className="w-6 h-6 bg-fill-2 border border-line flex items-center justify-center shrink-0 rounded-[2px]">
-                        <span className="text-[10px] text-ink-soft">{child.name[0]}</span>
-                      </div>
-                      <span className="text-[12px] font-medium text-ink group-hover:text-accent transition-colors">
-                        {child.name}
-                      </span>
-                    </button>
-                  </td>
-                  <td className="px-3.5 py-2.5 text-[12px] text-ink-soft">{GENDER_LABELS[child.gender]}</td>
-                  <td className="px-3.5 py-2.5 text-[12px] text-ink-soft font-data">
-                    {child.birth_date ? `${calculateAge(child.birth_date)}세` : '—'}
-                  </td>
-                  <td className="px-3.5 py-2.5 text-[12px] text-ink-soft">
-                    {(child.classes as Class | undefined)?.name ?? '—'}
-                  </td>
-                  <td className="px-3.5 py-2.5">
-                    <Badge className={CHILD_STATUS_COLORS[child.status]}>{CHILD_STATUS_LABELS[child.status]}</Badge>
-                  </td>
-                  <td className="px-3.5 py-2.5">
-                    <div className="flex items-center gap-0.5 justify-end">
-                      <Link href={`/children/${child.id}`} title="상세 보기" className="text-ink-ghost hover:text-accent transition-colors p-1">
-                        <ExternalLink size={13} />
-                      </Link>
-                      <button onClick={() => openEdit(child)} title="편집" className="text-ink-ghost hover:text-ink transition-colors p-1">
-                        <Pencil size={13} />
-                      </button>
-                      <button onClick={() => handleDelete(child.id)} title="삭제" className="text-ink-ghost hover:text-danger transition-colors p-1">
-                        <Trash2 size={13} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              ) : grouped ? (
+                grouped.map(([label, rows]) => (
+                  <Fragment key={label}>
+                    <tr className="bg-fill-2/70 border-b border-line">
+                      <td colSpan={6} className="px-3.5 py-1.5 text-[10.5px] font-semibold text-ink-faint uppercase tracking-wider sticky">
+                        {label} <span className="text-ink-ghost font-data ml-1">{rows.length}명</span>
+                      </td>
+                    </tr>
+                    {rows.map(renderRow)}
+                  </Fragment>
+                ))
+              ) : (pageRows ?? filtered).map(renderRow)}
             </tbody>
           </table>
         </div>
       </Card>
+
+      {/* pagination (flat view only) */}
+      {!grouped && totalPages > 1 && (
+        <div className="shrink-0 flex items-center justify-end gap-2 text-[11px] text-ink-faint">
+          <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={safePage <= 1}
+            className="h-7 px-2.5 rounded-[3px] border border-line text-ink-soft hover:bg-fill disabled:opacity-40">이전</button>
+          <span className="font-data tabular-nums">{safePage} / {totalPages}</span>
+          <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={safePage >= totalPages}
+            className="h-7 px-2.5 rounded-[3px] border border-line text-ink-soft hover:bg-fill disabled:opacity-40">다음</button>
+        </div>
+      )}
 
       {/* Add / Edit drawer (right side, Foundry-style) */}
       <Drawer
@@ -211,7 +289,7 @@ export function ChildrenClient({ initialChildren, classes, centerId }: Props) {
         footer={
           <div className="flex items-center justify-between">
             {editing
-              ? <Button variant="danger" size="sm" onClick={() => handleDelete(editing.id)}><Trash2 size={12} /> 삭제</Button>
+              ? <Button variant="danger" size="sm" onClick={() => setPendingDel(editing.id)}><Trash2 size={12} /> 삭제</Button>
               : <span />}
             <Button size="sm" form="child-form" type="submit" loading={loading}>{editId === 'new' ? '등록' : '저장'}</Button>
           </div>
@@ -229,7 +307,6 @@ export function ChildrenClient({ initialChildren, classes, centerId }: Props) {
               onChange={(e) => setForm({ ...form, gender: e.target.value as Child['gender'] })}>
               <option value="male">남</option>
               <option value="female">여</option>
-              <option value="other">기타</option>
             </Select>
             <Select label="반" value={form.class_id}
               onChange={(e) => setForm({ ...form, class_id: e.target.value })}>
@@ -293,6 +370,10 @@ export function ChildrenClient({ initialChildren, classes, centerId }: Props) {
           )}
         </form>
       </Drawer>
+
+      <ConfirmDialog open={!!pendingDel} title="아동 삭제" danger loading={deleting}
+        message={<><span className="font-semibold text-ink">{children.find((c) => c.id === pendingDel)?.name}</span> 아동을 삭제하시겠습니까?</>}
+        confirmLabel="삭제" onConfirm={() => pendingDel && handleDelete(pendingDel)} onCancel={() => setPendingDel(null)} />
     </div>
   )
 }

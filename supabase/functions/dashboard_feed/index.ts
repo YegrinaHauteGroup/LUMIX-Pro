@@ -15,22 +15,9 @@
 //
 // Body: { center_id: string }
 // ============================================================
-import { createClient } from 'npm:@supabase/supabase-js@2.47.1'
-
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-}
-const json = (o: unknown, s = 200) => new Response(JSON.stringify(o), { status: s, headers: { 'content-type': 'application/json', ...CORS } })
-
-function serviceClient() {
-  const url = Deno.env.get('SUPABASE_URL')
-  let key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
-  if (!key) { const raw = Deno.env.get('SUPABASE_SECRET_KEYS'); if (raw) { try { key = JSON.parse(raw)['sb_secret_5x67m'] } catch { /* ignore */ } } }
-  if (!url || !key) throw new Error('SUPABASE_URL / service role key required')
-  return createClient(url, key, { auth: { persistSession: false } })
-}
+import { assertCenterMember } from '../_shared/auth.ts'
+import { CORS, json } from '../_shared/http.ts'
+import { serviceClient } from '../_shared/client.ts'
 
 const WMO: Record<number, string> = {
   0: '맑음', 1: '대체로 맑음', 2: '구름 조금', 3: '흐림', 45: '안개', 48: '서리 안개',
@@ -112,7 +99,8 @@ Deno.serve(async (req) => {
   const { center_id } = body as { center_id?: string }
   if (!center_id) return json({ ok: false, error: 'center_id required' }, 400)
 
-  const sb = serviceClient()
+  const { sb } = serviceClient()
+  if (!(await assertCenterMember(req, sb, center_id))) return json({ ok: false, error: 'forbidden' }, 403)
   const { data: center, error: cErr } = await sb.from('centers')
     .select('id, name, address, latitude, longitude, region_name').eq('id', center_id).single()
   if (cErr || !center) return json({ ok: false, error: 'center not found' }, 404)

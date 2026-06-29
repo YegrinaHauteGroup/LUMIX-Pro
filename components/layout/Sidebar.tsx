@@ -50,17 +50,6 @@ export function Sidebar({ centerName }: { centerName?: string | null }) {
         </span>
       </button>
 
-      {/* Active center (expanded only) */}
-      {open && centerName && (
-        <div className="px-4 py-3 border-b border-line/60">
-          <p className="text-[10px] font-semibold text-ink-soft uppercase tracking-widest mb-1.5">접속 시설 정보</p>
-          <div className="flex items-center gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-accent shrink-0" />
-            <p className="text-[13px] font-medium text-ink truncate">{centerName}</p>
-          </div>
-        </div>
-      )}
-
       {/* Nav */}
       <nav className="flex-1 py-3 overflow-y-auto overflow-x-hidden space-y-4 no-scrollbar">
         {NAV_GROUPS.map((group) => (
@@ -72,8 +61,21 @@ export function Sidebar({ centerName }: { centerName?: string | null }) {
         ))}
       </nav>
 
-      <div className="p-2 border-t border-line/60 mt-auto">
-        <NavLink item={SETTINGS_ITEM} />
+      <div className="border-t border-line/60 mt-auto">
+        {/* Active center (expanded only) — placed above settings so it never
+            overlaps the nav targets */}
+        {open && centerName && (
+          <div className="px-4 py-2.5 border-b border-line/60">
+            <p className="text-[10px] font-semibold text-ink-soft uppercase tracking-widest mb-1">접속 시설 정보</p>
+            <div className="flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-accent shrink-0" />
+              <p className="text-[13px] font-medium text-ink truncate">{centerName}</p>
+            </div>
+          </div>
+        )}
+        <div className="p-2">
+          <NavLink item={SETTINGS_ITEM} />
+        </div>
       </div>
     </aside>
   )

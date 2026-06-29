@@ -4,9 +4,10 @@ import { createClient } from '@/utils/supabase/client'
 import { withTimeout } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
-import { Database, Filter, FlaskConical, Play, BarChart3, ChevronRight, Trash2 } from 'lucide-react'
+import { FlaskConical, Play, Trash2, Sparkles } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { PipelineCanvas } from './PipelineCanvas'
+import { AddToWorkspaceButton } from '@/components/workspace/AddToWorkspaceButton'
 
 interface QuestRow { primary: string; secondary?: string; tag?: string }
 interface QuestResult { headline: string; stats: { label: string; value: string | number }[]; rows: QuestRow[] }
@@ -42,6 +43,35 @@ const CATALOG: { type: string; title: string; desc: string }[] = [
 const SENS: Record<string, { label: string; factor: number }> = {
   low: { label: '보수적', factor: 0.7 }, normal: { label: '표준', factor: 1 }, high: { label: '민감', factor: 1.3 },
 }
+// Data keys / variables each analysis pulls from the database — the user can
+// toggle which signals feed the pipeline toward their goal.
+const KEYS: Record<string, string[]> = {
+  isolation_risk: ['관계망 고립', '연결 수(degree)', '최근 30일 결석', '커뮤니티 단절'],
+  tutor_matching: ['영향력(eigenvector)', '고립도', '같은 반', '학습 수준'],
+  conflict_watch: ['갈등 엣지', '좌석/활동 인접', '반복 빈도'],
+  attendance_summary: ['결석 횟수', '지각 횟수', '조퇴', '결석률'],
+  allergy_diet: ['알레르기 프로필', '급식 식재료 엣지'],
+  achievement_gap: ['성취 영역', '보충 신호', '우수 신호'],
+  space_preference: ['공간 선호', '공간 기피'],
+  health_contagion: ['전염성 증상(IMCI)', '동일 반', '근접 접촉', '7일 잠복'],
+  allergy_safety: ['알레르겐 코드(Codex)', '급식 연결', '투약 충돌'],
+  developmental_support: ['ICF-CY 영역', '선별 등급'],
+  hub_collapse: ['매개 중심성', '컴포넌트 분열', '고립 위험도', '결속 퀘스트'],
+}
+// Natural-language goal → quest type
+const GOAL_RULES: { re: RegExp; type: string }[] = [
+  { re: /허브|중재자|붕괴|결속|네트워크.*분열/, type: 'hub_collapse' },
+  { re: /멘토|튜터|또래.*도움|짝꿍|짝/, type: 'tutor_matching' },
+  { re: /고립|외톨이|혼자|친구\s*없|소외/, type: 'isolation_risk' },
+  { re: /갈등|다툼|싸움|분쟁|괴롭/, type: 'conflict_watch' },
+  { re: /전염|감염|질병|확산|독감|유행/, type: 'health_contagion' },
+  { re: /알레르|알러지|식단|급식/, type: 'allergy_safety' },
+  { re: /발달|지연|선별|ICF/, type: 'developmental_support' },
+  { re: /성취|학습|보충|학력|성적/, type: 'achievement_gap' },
+  { re: /공간|교실|놀이방|환경/, type: 'space_preference' },
+  { re: /결석|출결|지각|조퇴/, type: 'attendance_summary' },
+]
+const inferType = (goal: string) => GOAL_RULES.find((r) => r.re.test(goal))?.type ?? 'isolation_risk'
 const STATUS_STYLE: Record<string, string> = {
   pending: 'text-ink-faint bg-fill', running: 'text-info bg-info-soft', done: 'text-success bg-success-soft', error: 'text-danger bg-danger-soft',
 }
@@ -64,6 +94,23 @@ export function QuestsClient({ centerId, initialQuests, insights, classes, staff
   const [running, setRunning] = useState(false)
   const [sim, setSim] = useState<{ pool: number; estimate: number; label: string; note: string } | null>(null)
   const [msg, setMsg] = useState<{ type: 'error' | 'success'; text: string } | null>(null)
+  const [goal, setGoal] = useState('')
+  const [keys, setKeys] = useState<string[]>(KEYS[CATALOG[0].type])
+  const [goalMsg, setGoalMsg] = useState<string | null>(null)
+
+  // Switching quest type resets the selected data keys to that type's full set.
+  function changeType(v: string) { setType(v); setKeys(KEYS[v] ?? []); setSim(null) }
+  function applyGoal(e: React.FormEvent) {
+    e.preventDefault()
+    const g = goal.trim()
+    if (!g) return
+    const t = inferType(g)
+    changeType(t)
+    setTitle(g)
+    const label = CATALOG.find((c) => c.type === t)?.title ?? t
+    setGoalMsg(`목표를 분석해 "${label}" 파이프라인을 구성했습니다. 변수와 범위를 조정한 뒤 시뮬레이션·실행하세요.`)
+  }
+  const toggleKey = (k: string) => setKeys((cur) => (cur.includes(k) ? cur.filter((x) => x !== k) : [...cur, k]))
 
   const selected = CATALOG.find((c) => c.type === type)!
   const totalChildren = insights?.summary?.children ?? 0
@@ -107,7 +154,7 @@ export function QuestsClient({ centerId, initialQuests, insights, classes, staff
     if (!centerId || running) return
     setRunning(true); setMsg(null)
     const finalTitle = title.trim() || `${selected.title} · ${scopeName}`
-    const params = { class_id: scope === 'ALL' ? null : scope, scope_name: scopeName, sensitivity }
+    const params = { class_id: scope === 'ALL' ? null : scope, scope_name: scopeName, sensitivity, keys, goal: goal.trim() || null }
     try {
       const { data: { user } } = await withTimeout(supabase.auth.getUser(), 15000)
       const { data: inserted, error: insErr } = await withTimeout(supabase.from('analysis_quests')
@@ -136,53 +183,56 @@ export function QuestsClient({ centerId, initialQuests, insights, classes, staff
     setQuests((q) => q.filter((x) => x.id !== id))
   }
 
-  const STAGES = [
-    { icon: Database, title: '데이터 소스', body: `아동 ${totalChildren} · 교사 ${staffCount} · SNA노드 ${entityCount} · 환경` },
-    { icon: Filter, title: '조건 설정', body: `${selected.title} · ${scopeName} · ${SENS[sensitivity].label}` },
-    { icon: FlaskConical, title: '시뮬레이션', body: sim ? `${sim.label} ${sim.estimate} / ${sim.pool}명` : '미실행' },
-    { icon: Play, title: '실행 엔진', body: running ? '실행 중…' : 'Edge Function' },
-    { icon: BarChart3, title: '결과', body: `${quests.filter((q) => q.status === 'done').length}건 저장` },
-  ]
-
   return (
-    <div className="flex-1 min-h-0 p-4 w-full flex gap-4 overflow-hidden">
+    <div className="flex-1 min-h-0 p-3 w-full flex flex-col gap-2.5 overflow-hidden">
+      {/* GOAL BAR — natural-language goal seeds the pipeline */}
+      <form onSubmit={applyGoal} className="shrink-0 bg-surface border border-line rounded-[3px] px-3 py-2 flex items-center gap-2.5">
+        <Sparkles size={16} className="text-accent shrink-0" />
+        <input value={goal} onChange={(e) => setGoal(e.target.value)}
+          placeholder="분석 목표를 입력하세요 — 예: 고립 위험 아동을 찾아줘 · 갈등 관계를 줄이고 싶어 · 전염병 확산을 막고 싶어"
+          className="flex-1 min-w-0 bg-transparent text-[13px] text-ink placeholder-ink-ghost focus:outline-none" />
+        <Button type="submit" size="sm"><Sparkles size={13} /> 목표로 파이프라인 구성</Button>
+      </form>
+      {goalMsg && <div className="shrink-0 text-[11.5px] text-accent bg-accent-soft px-3 py-2 rounded-[3px]">{goalMsg}</div>}
+
+      <div className="flex-1 min-h-0 flex gap-3 overflow-hidden">
       {/* LEFT — interactive pipeline canvas + configuration */}
-      <div className="flex-1 min-w-0 flex flex-col gap-3 min-h-0 overflow-y-auto pr-1">
+      <div className="flex-1 min-w-0 flex flex-col gap-2.5 min-h-0 overflow-y-auto pr-1">
         <PipelineCanvas
           centerId={centerId} classes={classes} insights={insights}
           staffCount={staffCount} entityCount={entityCount}
+          questType={type} scope={scope}
+          onQuestType={(v) => changeType(v)} onScope={(v) => { setScope(v); setSim(null) }}
           onResult={(q) => setQuests((prev) => [q as unknown as Quest, ...prev.filter((x) => x.id !== q.id)])}
         />
 
-        {/* Pipeline summary strip */}
-        <div className="flex items-stretch gap-0 overflow-x-auto pb-1 shrink-0">
-          {STAGES.map((s, i) => (
-            <div key={s.title} className="flex items-center shrink-0">
-              <div className="w-[200px] bg-surface border border-line rounded-[3px] shadow-[var(--shadow-card)] px-3.5 py-2.5">
-                <div className="flex items-center gap-2 mb-1">
-                  <s.icon size={14} className="text-accent" />
-                  <span className="text-[11px] font-semibold text-ink uppercase tracking-wider">{s.title}</span>
-                </div>
-                <p className="text-[11px] text-ink-soft leading-snug">{s.body}</p>
-              </div>
-              {i < STAGES.length - 1 && <ChevronRight size={16} className="text-ink-ghost mx-1 shrink-0" />}
-            </div>
-          ))}
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-          {/* Config */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-2.5">
+          {/* Config — synced with the canvas analysis/filter nodes */}
           <Card>
-            <CardHeader><CardTitle>퀘스트 구성</CardTitle></CardHeader>
-            <CardContent className="space-y-3">
+            <CardHeader><CardTitle>퀘스트 구성 · 캔버스 연동</CardTitle></CardHeader>
+            <CardContent className="space-y-2.5">
               <div>
                 <label className="block text-[11px] text-ink-faint mb-1.5">분석 유형</label>
-                <select value={type} onChange={(e) => { setType(e.target.value); setSim(null) }}
+                <select value={type} onChange={(e) => changeType(e.target.value)}
                   className="w-full h-9 px-3 bg-fill-2 border border-line rounded-[3px] text-[13px] text-ink focus:outline-none focus:border-accent">
                   {CATALOG.map((c) => <option key={c.type} value={c.type}>{c.title}</option>)}
                 </select>
               </div>
               <p className="text-[12px] text-ink-soft leading-relaxed border-l-[3px] pl-3 py-0.5 border-l-accent/50">{selected.desc}</p>
+              <div>
+                <label className="block text-[11px] text-ink-faint mb-1.5">분석 변수 · 사용할 데이터 키 <span className="text-ink-ghost">({keys.length}/{(KEYS[type] ?? []).length})</span></label>
+                <div className="flex flex-wrap gap-1">
+                  {(KEYS[type] ?? []).map((k) => {
+                    const on = keys.includes(k)
+                    return (
+                      <button key={k} type="button" onClick={() => toggleKey(k)}
+                        className={`px-2 py-1 rounded-[3px] text-[11px] border transition-colors ${on ? 'bg-accent-soft text-accent border-accent/40' : 'text-ink-faint border-line hover:bg-fill'}`}>
+                        {on ? '✓ ' : ''}{k}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] text-ink-faint mb-1.5">분석 범위</label>
@@ -213,28 +263,44 @@ export function QuestsClient({ centerId, initialQuests, insights, classes, staff
             </CardContent>
           </Card>
 
-          {/* Simulation preview */}
-          {sim && (
-            <Card>
-              <CardHeader><CardTitle>시뮬레이션 미리보기</CardTitle></CardHeader>
-              <CardContent>
-                <div className="flex items-end gap-3 mb-2">
-                  <p className="text-3xl font-semibold text-accent leading-none">{sim.estimate}</p>
-                  <p className="text-[12px] text-ink-faint pb-1">{sim.label} · 모집단 {sim.pool}명</p>
+          {/* Simulation preview + decision support */}
+          <Card>
+            <CardHeader><CardTitle>시뮬레이션 · 의사결정 지원</CardTitle></CardHeader>
+            <CardContent>
+              {sim ? (
+                <>
+                  <div className="flex items-end gap-3 mb-2">
+                    <p className="text-3xl font-semibold text-accent leading-none">{sim.estimate}</p>
+                    <p className="text-[12px] text-ink-faint pb-1">{sim.label} · 모집단 {sim.pool}명</p>
+                  </div>
+                  <div className="h-2 bg-fill rounded-full overflow-hidden mb-2">
+                    <div className="h-full bg-accent" style={{ width: `${sim.pool ? Math.min(100, (sim.estimate / sim.pool) * 100) : 0}%` }} />
+                  </div>
+                  <p className="text-[11px] text-ink-soft">{sim.note}</p>
+                  <div className="mt-2.5 border-t border-line pt-2.5 space-y-1.5">
+                    <p className="text-[10px] font-semibold text-ink-faint uppercase tracking-wider">의사결정 권고</p>
+                    <p className="text-[12px] text-ink-soft leading-relaxed">
+                      {sim.pool === 0 ? '대상 데이터가 부족합니다. 평가·관계 입력을 먼저 보강하세요.'
+                        : sim.estimate === 0 ? `${scopeName}에서 ${selected.title} 신호가 감지되지 않았습니다. 민감도를 높여 재시뮬레이션하거나 범위를 넓혀보세요.`
+                        : sim.estimate / Math.max(1, sim.pool) >= 0.3 ? `모집단의 ${Math.round((sim.estimate / sim.pool) * 100)}%가 해당됩니다. 우선 개입이 권장됩니다 — 실행 후 보고서의 상위 대상부터 조치하세요.`
+                        : `모집단의 ${Math.round((sim.estimate / sim.pool) * 100)}% 수준입니다. 실행하여 개별 대상을 확정하세요.`}
+                    </p>
+                    <p className="text-[10px] text-ink-ghost">사용 변수: {keys.join(' · ') || '없음'}</p>
+                  </div>
+                </>
+              ) : (
+                <div className="py-6 text-center">
+                  <FlaskConical size={24} className="text-ink-ghost mx-auto mb-2" />
+                  <p className="text-[12px] text-ink-faint">목표를 입력하거나 유형·변수를 조정한 뒤 <span className="text-accent font-medium">시뮬레이션</span>을 실행하면, 예상 결과와 의사결정 권고가 표시됩니다.</p>
                 </div>
-                <div className="h-2 bg-fill rounded-full overflow-hidden mb-2">
-                  <div className="h-full bg-accent" style={{ width: `${sim.pool ? Math.min(100, (sim.estimate / sim.pool) * 100) : 0}%` }} />
-                </div>
-                <p className="text-[11px] text-ink-soft">{sim.note}</p>
-                <p className="text-[10.5px] text-ink-ghost mt-1.5">실제 실행 시 SNA·보건·출결·환경 데이터를 종합해 정밀 산출됩니다.</p>
-              </CardContent>
-            </Card>
-          )}
+              )}
+            </CardContent>
+          </Card>
         </div>
       </div>
 
       {/* RIGHT — analysis reports (section scrolls internally, page does not) */}
-      <div className="w-[400px] xl:w-[440px] shrink-0 flex flex-col min-h-0">
+      <div className="w-[300px] xl:w-[340px] shrink-0 flex flex-col min-h-0">
         <div className="flex items-center justify-between mb-2.5 shrink-0">
           <h2 className="text-[12px] font-semibold text-ink uppercase tracking-[0.1em]">분석 보고서</h2>
           <span className="text-[11px] text-ink-faint font-data tabular-nums">{quests.length}건</span>
@@ -244,13 +310,21 @@ export function QuestsClient({ centerId, initialQuests, insights, classes, staff
             <Card><CardContent><p className="text-[13px] text-ink-faint py-8 text-center">아직 실행된 퀘스트가 없습니다. 좌측에서 구성 후 시뮬레이션·실행하세요.</p></CardContent></Card>
           ) : quests.map((q) => (
             <Card key={q.id}>
-              <CardHeader className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <span className="text-[13px] font-semibold text-ink truncate">{q.title}</span>
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded-[2px] ${STATUS_STYLE[q.status]}`}>{STATUS_LABEL[q.status]}</span>
+              <CardHeader className="flex items-start justify-between gap-2 flex-wrap">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-[13px] font-semibold text-ink break-keep line-clamp-2 leading-snug">{q.title}</span>
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded-[2px] whitespace-nowrap shrink-0 ${STATUS_STYLE[q.status]}`}>{STATUS_LABEL[q.status]}</span>
                 </div>
-                <div className="flex items-center gap-3 shrink-0">
-                  <span className="text-[11px] text-ink-ghost">{new Date(q.created_at).toLocaleString('ko-KR')}</span>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-[11px] text-ink-ghost whitespace-nowrap">{new Date(q.created_at).toLocaleString('ko-KR')}</span>
+                  {q.result && (
+                    <AddToWorkspaceButton source="퀘스트 분석" title={q.title} subtitle={q.result.headline}
+                      fields={[
+                        ...q.result.stats.map((s) => ({ label: String(s.label), value: String(s.value) })),
+                        ...q.result.rows.slice(0, 5).map((r) => ({ label: r.primary, value: r.secondary ?? r.tag ?? '' })),
+                      ]}
+                      href="/quests" accent="#137cbd" />
+                  )}
                   <button onClick={() => removeQuest(q.id)} className="text-ink-ghost hover:text-danger"><Trash2 size={13} /></button>
                 </div>
               </CardHeader>
@@ -291,6 +365,7 @@ export function QuestsClient({ centerId, initialQuests, insights, classes, staff
             </Card>
           ))}
         </div>
+      </div>
       </div>
     </div>
   )

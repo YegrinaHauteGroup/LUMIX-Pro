@@ -1,4 +1,3 @@
-import { Header } from '@/components/layout/Header'
 import { getCenterId } from '@/lib/center'
 import { createClient } from '@/utils/supabase/server'
 import { cookies } from 'next/headers'
@@ -18,7 +17,6 @@ export default async function AttendancePage() {
 
   return (
     <>
-      <Header title="출석 관리" subtitle="일별 출석 현황 기록 및 조회" />
       <AttendanceClient
         children={(childrenRes.data ?? []) as any}
         classes={classesRes.data ?? []}

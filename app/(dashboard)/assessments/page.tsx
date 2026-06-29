@@ -1,4 +1,3 @@
-import { Header } from '@/components/layout/Header'
 import { getCenterId } from '@/lib/center'
 import { createClient } from '@/utils/supabase/server'
 import { cookies } from 'next/headers'
@@ -23,7 +22,6 @@ export default async function AssessmentsPage() {
 
   return (
     <>
-      <Header title="평가 · 관계 입력" subtitle="온톨로지 SNA를 위한 평가 데이터 관리" />
       <AssessmentsClient
         centerId={cid}
         children={childrenRes.data ?? []}

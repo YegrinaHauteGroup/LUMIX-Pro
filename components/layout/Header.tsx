@@ -6,6 +6,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { Bug, ChevronRight, History, LogOut, Search } from 'lucide-react'
 import { ACTION_LABELS, TABLE_LABELS, auditTablesFor, resolveBreadcrumb } from '@/lib/nav'
+import { clearWorkspaceStorage } from '@/lib/workspace'
+import { HeaderTools } from './HeaderTools'
 
 interface HeaderProps {
   title?: string
@@ -23,6 +25,7 @@ export function Header({ subtitle, actions }: HeaderProps) {
   const crumb = useMemo(() => resolveBreadcrumb(pathname), [pathname])
 
   const handleLogout = async () => {
+    clearWorkspaceStorage()
     await supabase.auth.signOut()
     router.push('/login')
     router.refresh()
@@ -104,10 +107,12 @@ export function Header({ subtitle, actions }: HeaderProps) {
 
       <div ref={wrapRef} className="flex items-center gap-1.5">
         {actions}
+        <HeaderTools />
+        {actions}
 
         {/* global search */}
         <div className="relative">
-          <div className="flex items-center h-8 w-[260px] bg-fill border border-line rounded-[3px] px-2.5 focus-within:border-accent transition-colors">
+          <div className="flex items-center h-8 w-[150px] lg:w-[210px] xl:w-[260px] bg-fill border border-line rounded-[3px] px-2.5 focus-within:border-accent transition-colors">
             <Search size={13} className="text-ink-faint shrink-0" />
             <input value={q} onChange={(e) => setQ(e.target.value)} onFocus={() => q && setSearchOpen(true)}
               placeholder="객체·온톨로지·데이터 통합 검색…"

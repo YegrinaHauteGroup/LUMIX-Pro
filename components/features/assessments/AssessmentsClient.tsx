@@ -57,7 +57,7 @@ const TABS: { key: Tab; label: string }[] = [
 
 const today = () => new Date().toISOString().slice(0, 10)
 
-export function AssessmentsClient(props: Props) {
+export function AssessmentsClient({ embedded, ...props }: Props & { embedded?: boolean }) {
   const { centerId } = props
   const router = useRouter()
   const supabase = useMemo(() => createClient(), [])
@@ -86,7 +86,7 @@ export function AssessmentsClient(props: Props) {
   }
 
   return (
-    <div className="flex-1 min-h-0 p-5 w-full flex flex-col gap-5 overflow-hidden">
+    <div className={embedded ? 'p-4 flex flex-col gap-4' : 'flex-1 min-h-0 p-5 w-full flex flex-col gap-5 overflow-hidden'}>
       {/* Action bar */}
       <div className="flex items-center gap-3 flex-wrap shrink-0">
         <div className="flex items-center gap-1 p-1 bg-fill rounded-[3px] border border-line">
@@ -120,7 +120,7 @@ export function AssessmentsClient(props: Props) {
         </div>
       )}
 
-      <div className="flex-1 min-h-0 overflow-y-auto pr-0.5 space-y-5">
+      <div className={embedded ? 'space-y-5' : 'flex-1 min-h-0 overflow-y-auto pr-0.5 space-y-5'}>
         {tab === 'peer' && <PeerTab {...props} supabase={supabase} childName={childName} setMsg={setMsg} />}
         {tab === 'staff' && <StaffTab {...props} supabase={supabase} childName={childName} staffName={staffName} setMsg={setMsg} />}
         {tab === 'guardian' && <GuardianTab {...props} supabase={supabase} childName={childName} setMsg={setMsg} />}

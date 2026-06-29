@@ -1,4 +1,3 @@
-import { Header } from '@/components/layout/Header'
 import { getCenterId } from '@/lib/center'
 import { createClient } from '@/utils/supabase/server'
 import { cookies } from 'next/headers'
@@ -31,7 +30,6 @@ export default async function ChildDetailPage({ params }: Props) {
 
   return (
     <>
-      <Header title={childRes.data.name} subtitle="아동 온톨로지 프로필" />
       <ChildDetailClient
         child={childRes.data}
         centerId={cid}

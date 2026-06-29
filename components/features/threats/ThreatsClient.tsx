@@ -30,31 +30,42 @@ export function ThreatsClient({ centerId, initial }: Props) {
   const [data, setData] = useState<ThreatData | null>(initial)
   const [loading, setLoading] = useState(false)
   const [refreshedAt, setRefreshedAt] = useState<Date>(new Date())
+  const [msg, setMsg] = useState<string | null>(null)
 
   async function refresh() {
-    setLoading(true)
-    const { data: d } = await supabase.rpc('get_threats', { p_center_id: centerId })
-    if (d) setData(d as ThreatData)
-    setRefreshedAt(new Date())
-    setLoading(false)
+    if (!centerId) { setMsg('센터 정보를 찾을 수 없습니다.'); return }
+    setLoading(true); setMsg(null)
+    try {
+      const { data: d, error } = await supabase.rpc('get_threats', { p_center_id: centerId })
+      if (error) { setMsg(`재탐지 실패: ${error.message}`); return }
+      setData((d ?? { threats: [], summary: { total: 0, high: 0, medium: 0, low: 0 } }) as ThreatData)
+      setRefreshedAt(new Date())
+      const total = (d as ThreatData | null)?.summary?.total ?? 0
+      setMsg(`재탐지 완료 · 위협 ${total}건`)
+      setTimeout(() => setMsg(null), 2500)
+    } catch (e) {
+      setMsg(`재탐지 오류: ${(e as Error).message}`)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const s = data?.summary ?? { total: 0, high: 0, medium: 0, low: 0 }
 
   return (
-    <div className="flex-1 min-h-0 p-5 w-full flex flex-col gap-4 overflow-hidden">
+    <div className="flex-1 min-h-0 p-4 w-full flex flex-col gap-3 overflow-hidden">
       {/* Summary bar */}
-      <div className="flex items-center gap-3 shrink-0">
-        <div className="grid grid-cols-4 gap-3 flex-1">
+      <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
+        <div className="grid grid-cols-2 xl:grid-cols-4 gap-2.5 flex-1 min-w-[180px]">
           {[
             { label: '총 위협', value: s.total, color: 'text-ink' },
             { label: '높음', value: s.high, color: 'text-[#db3737]' },
             { label: '중간', value: s.medium, color: 'text-[#d9822b]' },
             { label: '낮음', value: s.low, color: 'text-[#0f9960]' },
           ].map((m) => (
-            <div key={m.label} className="bg-surface border border-line rounded-[3px] shadow-[var(--shadow-card)] px-4 py-3">
+            <div key={m.label} className="bg-surface border border-line rounded-[3px] shadow-[var(--shadow-card)] px-3 py-2">
               <p className="text-[10px] text-ink-faint uppercase tracking-widest">{m.label}</p>
-              <p className={`text-2xl font-semibold mt-0.5 ${m.color}`}>{m.value}</p>
+              <p className={`text-xl font-semibold mt-0.5 ${m.color}`}>{m.value}</p>
             </div>
           ))}
         </div>
@@ -63,7 +74,10 @@ export function ThreatsClient({ centerId, initial }: Props) {
           <RefreshCw size={13} className={loading ? 'animate-spin' : ''} /> 재탐지
         </button>
       </div>
-      <p className="text-[11px] text-ink-ghost shrink-0">최종 탐지 {refreshedAt.toLocaleTimeString('ko-KR')} · SNA·보건·출결·위치 데이터 종합</p>
+      <p className="text-[11px] text-ink-ghost shrink-0">
+        최종 탐지 {refreshedAt.toLocaleTimeString('ko-KR')} · SNA·보건·출결·위치 데이터 종합
+        {msg && <span className="ml-2 text-accent font-medium">{msg}</span>}
+      </p>
 
       {/* Threat list (scrolls inside the panel) */}
       <div className="flex-1 min-h-0 overflow-y-auto pr-0.5">

@@ -1,8 +1,26 @@
-import { cn } from '@/lib/utils'
+'use client'
 
-export function Card({ children, className }: { children: React.ReactNode; className?: string }) {
+import { cn } from '@/lib/utils'
+import { cardDragStart } from '@/lib/cardDrag'
+
+/**
+ * Card. Draggable by default so its content can be dropped into the workspace
+ * (the "organic connection" affordance). Pass `noDrag` to opt out (forms,
+ * modal bodies), or `dragSource` to label where the dropped content came from.
+ */
+export function Card({ children, className, dragSource = '카드', noDrag }: { children: React.ReactNode; className?: string; dragSource?: string; noDrag?: boolean }) {
   return (
-    <div className={cn('bg-surface border border-line rounded-[3px] shadow-[var(--shadow-card)]', className)}>
+    <div
+      className={cn('bg-surface border border-line rounded-[3px] shadow-[var(--shadow-card)]', className)}
+      draggable={!noDrag}
+      // Disable the card drag when the gesture starts on an interactive element
+      // so selecting/dragging text inside inputs works normally.
+      onMouseDown={noDrag ? undefined : (e) => {
+        const interactive = (e.target as HTMLElement).closest('input,textarea,select,button,a,label,[contenteditable="true"]')
+        ;(e.currentTarget as HTMLDivElement).draggable = !interactive
+      }}
+      onDragStart={noDrag ? undefined : (e) => cardDragStart(e, dragSource)}
+    >
       {children}
     </div>
   )
@@ -14,7 +32,7 @@ export function CardHeader({ children, className }: { children: React.ReactNode;
 
 export function CardTitle({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <h3 className={cn('text-[11px] font-semibold text-ink-faint uppercase tracking-[0.1em]', className)}>
+    <h3 data-card-title className={cn('text-[11px] font-semibold text-ink-faint uppercase tracking-[0.1em]', className)}>
       {children}
     </h3>
   )

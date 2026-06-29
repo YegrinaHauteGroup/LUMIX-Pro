@@ -1,4 +1,3 @@
-import { Header } from '@/components/layout/Header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { getCenterId } from '@/lib/center'
@@ -9,7 +8,9 @@ import Link from 'next/link'
 import { DashboardCharts, AttendanceTrendPanel } from '@/components/features/dashboard/DashboardCharts'
 import { DashboardFeed } from '@/components/features/dashboard/DashboardFeed'
 import { DashboardWeekStrip } from '@/components/features/dashboard/DashboardWeekStrip'
+import { DashboardExport, type ExportSection } from '@/components/features/dashboard/DashboardExport'
 import { OperationalMap } from '@/components/features/dashboard/OperationalMap'
+import { AddToWorkspaceButton } from '@/components/workspace/AddToWorkspaceButton'
 import { CHILD_STATUS_COLORS, CHILD_STATUS_LABELS, ACTIVITY_TYPE_LABELS, ACTIVITY_TYPE_COLORS } from '@/lib/utils'
 import type { Child, Activity, Class } from '@/lib/types'
 
@@ -24,7 +25,9 @@ export default async function DashboardPage() {
     supabase.from('activities').select('*, classes(name)').eq('center_id', centerId ?? '').order('created_at', { ascending: false }).limit(10),
     supabase.from('classes').select('*, children(id)').eq('center_id', centerId ?? ''),
     supabase.from('centers').select('latitude, longitude, region_name, address, name').eq('id', centerId ?? '').maybeSingle(),
-    supabase.from('attendances').select('attendance_date, status').eq('center_id', centerId ?? '').gte('attendance_date', since).is('deleted_at', null),
+    // raise the default 1000-row cap: 14 days × N children can exceed it and
+    // silently truncate the trend (corrupts the daily counts)
+    supabase.from('attendances').select('attendance_date, status').eq('center_id', centerId ?? '').gte('attendance_date', since).is('deleted_at', null).limit(20000),
     supabase.rpc('get_sna_insights', { p_center_id: centerId ?? '' }),
     supabase.from('activities').select('id, title, type, status, activity_date, activity_time').eq('center_id', centerId ?? '').is('deleted_at', null).not('activity_date', 'is', null),
     supabase.from('care_notes').select('id, child_id, content, noted_on, note_type, children(name)').eq('center_id', centerId ?? '').is('deleted_at', null).order('noted_on', { ascending: false }).limit(120),
@@ -47,6 +50,7 @@ export default async function DashboardPage() {
       date: d.slice(5),
       출석: day.filter((r) => r.status === 'present').length,
       지각: day.filter((r) => r.status === 'late').length,
+      조퇴: day.filter((r) => r.status === 'early_leave').length,
       결석: day.filter((r) => r.status === 'absent').length,
     }
   })
@@ -68,8 +72,10 @@ export default async function DashboardPage() {
     summary?: { children: number; isolated: number; communities: number; avg_betweenness: number }
     allergy_children?: unknown[]; conflict_children?: unknown[]; health_alerts?: unknown[]
   }
+  // analyzed-child count is kept separate from the event signals so it doesn't
+  // dwarf them on the shared bar scale (item 3)
+  const snaTotal = ins.summary?.children ?? 0
   const snaStats = [
-    { label: '분석 아동', value: ins.summary?.children ?? 0 },
     { label: '고립 신호', value: ins.summary?.isolated ?? 0 },
     { label: '갈등 관계', value: ins.conflict_children?.length ?? 0 },
     { label: '보건 경보', value: ins.health_alerts?.length ?? 0 },
@@ -98,7 +104,6 @@ export default async function DashboardPage() {
   const genderStats = [
     { name: '남아', value: children.filter((c) => c.gender === 'male').length },
     { name: '여아', value: children.filter((c) => c.gender === 'female').length },
-    { name: '기타', value: children.filter((c) => c.gender === 'other').length },
   ].filter((s) => s.value > 0)
 
   const statusStats = [
@@ -127,9 +132,20 @@ export default async function DashboardPage() {
   actTypeRows.forEach((a) => actTypeMap.set(a.type, (actTypeMap.get(a.type) ?? 0) + 1))
   const activityTypeData = [...actTypeMap.entries()].map(([k, v]) => ({ name: ACT_LABEL[k] ?? k, value: v }))
 
+  // exportable report sections (M6)
+  const exportSections: ExportSection[] = [
+    { title: '운영 현황', cols: ['지표', '값'], rows: stats.map((s) => [s.label, String(s.value)]) },
+    { title: '관계망 분석', cols: ['지표', '값'], rows: [['분석 아동', snaTotal], ...snaStats.map((s) => [s.label, s.value])] },
+    { title: '최근 14일 출결 추이', cols: ['날짜', '출석', '지각', '조퇴', '결석'], rows: attendanceTrend.map((d) => [d.date, d.출석, d.지각, d.조퇴, d.결석]) },
+    { title: '연령 분포', cols: ['연령', '인원'], rows: ageStats.map((s) => [s.name, s.value]) },
+    { title: '성별 현황', cols: ['성별', '인원'], rows: genderStats.map((s) => [s.name, s.value]) },
+    { title: '재원 상태', cols: ['상태', '인원'], rows: statusStats.map((s) => [s.name, s.value]) },
+    { title: '반별 아동 수', cols: ['반', '인원'], rows: classStats.map((s) => [s.name, s.value]) },
+    { title: '월별 등록 추이', cols: ['월', '등록'], rows: monthlyData.map((d) => [d.month, d.등록]) },
+  ]
+
   return (
     <>
-      <Header title="대시보드" subtitle="작전 지도 · 시설 현황 · 운영 분석 통합" />
       <div className="flex-1 min-h-0 p-2.5 overflow-hidden flex gap-2.5">
         {/* LEFT — operational map (hero) over a bottom bar */}
         <div className="flex-1 min-w-0 flex flex-col gap-2.5 min-h-0">
@@ -153,11 +169,25 @@ export default async function DashboardPage() {
           </div>
         </div>
 
-        {/* RIGHT — fixed ~1/3 section, internal vertical scroll: weather, then graphs/cards */}
-        <div className="w-[33%] max-w-[460px] shrink-0 min-h-0 overflow-y-auto pr-0.5 space-y-2.5">
+        {/* RIGHT — fixed section, internal vertical scroll: weather, then graphs/cards */}
+        <div className="w-[300px] xl:w-[340px] shrink-0 min-h-0 overflow-y-auto pr-0.5 space-y-2.5">
           <DashboardFeed centerId={centerId ?? ''} hasLocation={hasLocation} />
 
           {/* KPI mini-tiles */}
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-semibold text-ink-faint uppercase tracking-[0.1em]">운영 현황 요약</span>
+            <div className="flex items-center gap-1.5">
+            <DashboardExport sections={exportSections} facilityName={centerRes.data?.name ?? null} />
+            <AddToWorkspaceButton source="대시보드" title="운영 현황 요약" subtitle={`${new Date().toLocaleDateString('ko-KR')} 기준`}
+              fields={[
+                ...stats.map((s) => ({ label: s.label, value: String(s.value) })),
+                { label: '분석 아동', value: String(snaTotal) },
+                ...snaStats.map((s) => ({ label: s.label, value: String(s.value) })),
+              ]}
+              body={`운영 현황 — ${stats.map((s) => `${s.label} ${s.value}`).join(', ')}\n관계망 — 분석 아동 ${snaTotal}, ${snaStats.map((s) => `${s.label} ${s.value}`).join(', ')}`}
+              href="/dashboard" accent="#137cbd" />
+            </div>
+          </div>
           <div className="grid grid-cols-2 gap-2">
             {stats.map((stat) => (
               <div key={stat.label} className="bg-surface border border-line rounded-[3px] shadow-[var(--shadow-card)] px-2.5 py-2 flex items-center gap-2" title={stat.sub}>
@@ -180,6 +210,7 @@ export default async function DashboardPage() {
             ageStats={ageStats}
             attendanceTrend={attendanceTrend}
             snaStats={snaStats}
+            snaTotal={snaTotal}
             monthlyData={monthlyData}
             activityTypeData={activityTypeData}
           />

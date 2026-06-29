@@ -1,4 +1,3 @@
-import { Header } from '@/components/layout/Header'
 import { getCenterId } from '@/lib/center'
 import { createClient } from '@/utils/supabase/server'
 import { cookies } from 'next/headers'
@@ -25,7 +24,6 @@ export default async function QuestsPage() {
 
   return (
     <>
-      <Header title="퀘스트 분석 엔진" subtitle="파이프라인 분석 · 시뮬레이션 · 실행" />
       <QuestsClient
         centerId={cid}
         initialQuests={questsRes.data ?? []}

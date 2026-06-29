@@ -3,6 +3,7 @@
 import { createClient } from '@/utils/supabase/client'
 import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useWorkspaceOptional } from '@/lib/workspace'
 
 // ----- data shapes (from get_sna_graph / get_sna_insights) ------------------
 type Kind = 'child' | 'staff' | 'guardian' | 'space' | 'skill' | 'food' | 'achievement' | 'ecosystem'
@@ -159,6 +160,8 @@ function childActions(group: Group, hasAllergy: boolean, hasConflict: boolean, b
 
 export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
+  const reportBodyRef = useRef<HTMLDivElement>(null)
+  const ws = useWorkspaceOptional()
   const router = useRouter()
   const supabase = useMemo(() => createClient(), [])
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -167,10 +170,13 @@ export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) 
   const dsRef = useRef<{ nodes: any; edges: any } | null>(null)
 
   const [scope, setScope] = useState<string>('ALL')
+  const scopeRef = useRef('ALL')
   const [recomputing, setRecomputing] = useState(false)
   const [searchValue, setSearchValue] = useState('')
   const [searchError, setSearchError] = useState(false)
   const [report, setReport] = useState<Report | null>(null)
+  const [analysisQuery, setAnalysisQuery] = useState('')
+  const [analysisError, setAnalysisError] = useState(false)
 
   const nodeById = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes])
   const maxBetw = useMemo(() => Math.max(1, ...nodes.map((n) => n.betweenness || 0)), [nodes])
@@ -215,6 +221,9 @@ export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) 
       )
       dsRef.current = { nodes: visNodes, edges: visEdges }
 
+      // scale stabilization down as the graph grows, and freeze physics once
+      // settled so a 400+ node graph doesn't simulate every frame (idle CPU).
+      const iterations = Math.max(110, Math.min(220, Math.round(9000 / Math.max(1, nodes.length))))
       const network = new vis.Network(containerRef.current, { nodes: visNodes, edges: visEdges }, {
         nodes: { borderWidth: 1.5, shadow: { enabled: true, color: 'rgba(14,23,38,0.06)', size: 6, x: 0, y: 2 } },
         groups: GROUP_STYLE,
@@ -222,15 +231,27 @@ export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) 
         physics: {
           solver: 'forceAtlas2Based',
           forceAtlas2Based: { gravitationalConstant: -120, centralGravity: 0.012, springLength: 150, springConstant: 0.05, avoidOverlap: 0.6 },
-          stabilization: { iterations: 220 },
+          stabilization: { iterations },
         },
         interaction: { hover: true, tooltipDelay: 200, navigationButtons: false, keyboard: false },
       })
       netRef.current = network
+      // once the layout settles, stop the solver — interactions stay cheap and
+      // node positions are frozen (dragging one node no longer reflows the rest)
+      network.once('stabilizationIterationsDone', () => network.setOptions({ physics: false }))
 
       network.on('click', (params: { nodes: string[] }) => {
         if (params.nodes.length > 0) focusNode(params.nodes[0])
         else resetView()
+      })
+
+      // clamp wheel zoom (vis-network has no native min/max); re-clamping inside
+      // the handler settles immediately since the corrected scale is in-range.
+      const Z_MIN = 0.3, Z_MAX = 2.4
+      network.on('zoom', () => {
+        const s = network.getScale()
+        if (s < Z_MIN) network.moveTo({ scale: Z_MIN })
+        else if (s > Z_MAX) network.moveTo({ scale: Z_MAX })
       })
 
       cleanup = () => network.destroy()
@@ -240,17 +261,39 @@ export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nodes, edges])
 
+  // class-scope is the single source of truth for node `hidden`; focus only
+  // *adds* hiding (ego view) so it never undoes the scope filter.
+  function baseHidden(n: SnaNode): boolean {
+    const sc = scopeRef.current
+    if (sc === 'ALL') return false
+    if (n.kind === 'child') return n.class_id !== sc
+    if (n.kind === 'guardian') {
+      const nbrs = [...(adj.get(n.id) ?? [])]
+      if (nbrs.length === 0) return false
+      return !nbrs.some((c) => { const cn = nodeById.get(c); return cn?.kind === 'child' && cn.class_id === sc })
+    }
+    return false // shared entities + staff stay visible across scopes
+  }
+
   // ---- focus / fade engine ----------------------------------------------
-  function applyFocus(focusNodes: Set<string> | null, focusEdges: Set<string> | null) {
+  // hide=true → unrelated nodes/edges are fully hidden (clean ego-network view,
+  // used when a single node is selected). hide=false → they stay but fade back,
+  // keeping context for the multi-node scenario insights.
+  function applyFocus(focusNodes: Set<string> | null, focusEdges: Set<string> | null, hide = false) {
     const ds = dsRef.current
     if (!ds) return
-    ds.nodes.update(nodes.map((n) => ({ id: n.id, opacity: !focusNodes || focusNodes.has(n.id) ? 1 : 0.12 })))
+    ds.nodes.update(nodes.map((n) => {
+      const inFocus = !focusNodes || focusNodes.has(n.id)
+      const hidden = baseHidden(n) || (hide && !inFocus)
+      return { id: n.id, hidden, opacity: hide ? 1 : (inFocus ? 1 : 0.12) }
+    }))
     ds.edges.update(edges.map((e) => {
       const s = edgeStyle(e)
-      const on = !focusEdges
-        ? true
-        : focusEdges.has(e.id) || (!!focusNodes && focusNodes.has(e.source_id) && focusNodes.has(e.target_id))
-      return { id: e.id, color: { color: s.color, opacity: on ? 0.9 : 0.04 }, font: { color: on ? '#64748b' : 'rgba(100,116,139,0.05)' } }
+      const bothIn = !!focusNodes && focusNodes.has(e.source_id) && focusNodes.has(e.target_id)
+      const on = focusEdges ? (focusEdges.has(e.id) || bothIn) : (focusNodes ? bothIn : true)
+      return hide
+        ? { id: e.id, hidden: !on, color: { color: s.color, opacity: 0.9 }, font: { color: '#64748b' } }
+        : { id: e.id, hidden: false, color: { color: s.color, opacity: on ? 0.9 : 0.04 }, font: { color: on ? '#64748b' : 'rgba(100,116,139,0.05)' } }
     }))
     if (netRef.current && focusNodes && focusNodes.size > 0) {
       netRef.current.fit({ nodes: [...focusNodes], animation: { duration: 700, easingFunction: 'easeInOutCubic' } })
@@ -271,19 +314,10 @@ export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) 
 
   // class scope: hide children outside the class (+ their guardians)
   function applyVisibility(scopeVal: string) {
+    scopeRef.current = scopeVal
     const ds = dsRef.current
     if (!ds) return
-    const visibleChild = new Set(nodes.filter((n) => n.kind === 'child' && (scopeVal === 'ALL' || n.class_id === scopeVal)).map((n) => n.id))
-    ds.nodes.update(nodes.map((n) => {
-      let hidden = false
-      if (scopeVal !== 'ALL' && n.kind === 'child') hidden = !visibleChild.has(n.id)
-      if (scopeVal !== 'ALL' && n.kind === 'guardian') {
-        // guardian connected only to hidden children → hide
-        const nbrs = [...(adj.get(n.id) ?? [])]
-        hidden = nbrs.length > 0 && nbrs.every((c) => !visibleChild.has(c))
-      }
-      return { id: n.id, hidden }
-    }))
+    ds.nodes.update(nodes.map((n) => ({ id: n.id, hidden: baseHidden(n) })))
   }
 
   function handleScope(s: string) { setScope(s); applyVisibility(s); applyFocus(null, null); setReport(scopeReport(s)) }
@@ -325,7 +359,7 @@ export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) 
     const n = nodeById.get(id)
     if (!n) return
     const set = new Set<string>([id]); adj.get(id)?.forEach((x) => set.add(x))
-    applyFocus(set, null)
+    applyFocus(set, null, true)
     const conn = edges.filter((e) => e.source_id === id || e.target_id === id)
     const other = (e: SnaEdge) => nodeById.get(e.source_id === id ? e.target_id : e.source_id)
 
@@ -346,6 +380,27 @@ export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) 
       const statusText = n.group === 'child_sick' ? '보건 확진' : n.group === 'child_highrisk' ? '감염 고위험' : n.group === 'child_isolated' ? '고립/관찰요망' : '일반/활발'
       const statusTone = n.group === 'child_sick' ? 'text-[#db3737] bg-[#fbeaea] border-[#f5cccc]' : n.group === 'child_highrisk' ? 'text-[#bf7326] bg-[#fdf3e7] border-[#f5dcb8]' : n.group === 'child_isolated' ? 'text-ink-soft bg-fill border-line' : 'text-[#0d8050] bg-[#e8f5ef] border-[#bfe0cf]'
       const actions = childActions(n.group, n.has_allergy, edges.some((e) => e.has_conflict && (e.source_id === id || e.target_id === id)), n.betweenness > maxBetw * 0.5)
+      // live relationship summary (meaningful even before centrality recompute)
+      const liveDeg = adj.get(id)?.size ?? 0
+      const degForBar = Math.max(n.connection_count, liveDeg)
+      let cChild = 0, cConflict = 0, cStaff = 0, cGuardian = 0, cSpace = 0, cDomain = 0
+      conn.forEach((e) => {
+        const t = other(e); if (!t) return
+        const lbl = e.label ?? ''
+        if (t.kind === 'child') ((lbl.includes('갈등') || lbl.includes('분쟁')) ? cConflict++ : cChild++)
+        else if (t.kind === 'staff') cStaff++
+        else if (t.kind === 'guardian') cGuardian++
+        else if (t.kind === 'space') cSpace++
+        else cDomain++
+      })
+      const classmates = nodes.filter((x) => x.kind === 'child' && x.class_id === n.class_id)
+      const myRank = classmates.filter((x) => (adj.get(x.id)?.size ?? 0) > liveDeg).length + 1
+      const summaryChips: { label: string; value: number; tone: string }[] = [
+        { label: '또래 친구', value: cChild, tone: 'text-[#137cbd]' },
+        { label: '갈등', value: cConflict, tone: 'text-[#db3737]' },
+        { label: '활동·성취', value: cSpace + cDomain, tone: 'text-[#0d8050]' },
+        { label: '보호자·교사', value: cGuardian + cStaff, tone: 'text-ink-soft' },
+      ]
       setReport({
         title: n.name,
         body: (
@@ -355,9 +410,24 @@ export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) 
               <span className="text-[11px] text-ink-faint">{cls}{n.has_allergy ? ' · 알레르기 주의' : ''}{n.community_id != null ? ` · 그룹 ${n.community_id}` : ''}</span>
             </div>
 
+            {/* relationship summary — at-a-glance counts + class rank */}
+            <div className="grid grid-cols-4 gap-1.5">
+              {summaryChips.map((c) => (
+                <div key={c.label} className="px-1.5 py-1.5 bg-fill-2 border border-line rounded-[3px] text-center">
+                  <p className={`text-[15px] font-semibold tabular-nums ${c.tone}`}>{c.value}</p>
+                  <p className="text-[9px] text-ink-faint mt-0.5">{c.label}</p>
+                </div>
+              ))}
+            </div>
+            <p className="text-[11px] text-ink-soft -mt-1.5">
+              또래 연결 <strong className="text-ink">{liveDeg}</strong>회
+              {classmates.length > 1 && <> · 반 내 연결 순위 <strong className="text-ink">{myRank}</strong>/{classmates.length}</>}
+              {liveDeg === 0 && <span className="text-[#bf7326]"> · 관계 신호 없음(고립 관찰)</span>}
+            </p>
+
             <div className="space-y-2.5 border border-line rounded-[3px] p-3 bg-fill-2">
               <p className="text-[10px] font-semibold text-ink-faint uppercase tracking-wider">중심성 지표</p>
-              <MetricBar label="연결 (Degree)" value={String(n.connection_count)} pct={(n.connection_count / maxConn) * 100} color="#137cbd" />
+              <MetricBar label="연결 (Degree)" value={String(degForBar)} pct={(degForBar / Math.max(maxConn, 1)) * 100} color="#137cbd" />
               <MetricBar label="매개 (Betweenness)" value={n.betweenness.toFixed(1)} pct={(n.betweenness / maxBetw) * 100} color="#8b5cf6" />
               <MetricBar label="영향력 (Eigenvector)" value={n.eigenvector.toFixed(2)} pct={(n.eigenvector / maxEig) * 100} color="#0f9960" />
               <MetricBar label="근접 (Closeness)" value={n.closeness.toFixed(2)} pct={n.closeness * 100} color="#d9822b" />
@@ -407,7 +477,8 @@ export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) 
 
   // ---- scenarios (data-driven over the real graph) ----------------------
   function runScenario(type: string) {
-    if (scope !== 'ALL') { setScope('ALL'); applyVisibility('ALL') }
+    // keep the current 조회 범위 (scope) — applyFocus respects it via baseHidden,
+    // so a Vertex simulation insight is shown within the selected class scope
     const childIds = (kind: (n: SnaNode) => boolean) => nodes.filter(kind).map((n) => n.id)
 
     if (type === 'achievement') {
@@ -499,6 +570,90 @@ export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) 
     }
   }
 
+  // ---- natural-language analysis query ----------------------------------
+  // maps a free-text request to the closest scenario / focused view, like the
+  // data-pipeline goal bar, and writes a textual answer into the insight drawer.
+  function focusIsolation(q: string) {
+    const iso = nodes.filter((n) => n.group === 'child_isolated' || n.is_isolated).map((n) => n.id)
+    applyFocus(neighborhood(iso), null, true)
+    setReport({
+      title: '고립 위험 분석',
+      body: (
+        <div>
+          <p className="text-[12px] text-ink-faint mb-2">질의: “{q}”</p>
+          {list('고립·관찰요망 아동', (insights?.isolated ?? []).map((m) => `${m.name}${m.class_name ? ` · ${m.class_name}` : ''}`), 'text-slate-700')}
+          <p className="text-[12px] text-ink-soft mt-1">{iso.length === 0 ? '뚜렷한 고립 신호가 없습니다.' : '고립 아동의 선호 공간·관심사를 매개로 또래 짝 활동을 배정하고 담당 교사 관찰 빈도를 높이세요.'}</p>
+        </div>
+      ),
+    })
+  }
+  function focusConflict(q: string) {
+    const inv = edges.filter((e) => e.has_conflict || e.relation_type === 'conflict' || (e.label ?? '').includes('갈등') || (e.label ?? '').includes('분쟁'))
+    const fn = new Set<string>(); inv.forEach((e) => { fn.add(e.source_id); fn.add(e.target_id) })
+    applyFocus(fn, new Set(inv.map((e) => e.id)), true)
+    setReport({
+      title: '갈등 관계 분석',
+      body: (
+        <div>
+          <p className="text-[12px] text-ink-faint mb-2">질의: “{q}”</p>
+          {list('갈등 쌍', inv.map((e) => `${nodeById.get(e.source_id)?.name ?? ''} ↔ ${nodeById.get(e.target_id)?.name ?? ''} · ${e.label ?? '갈등'}`), 'text-red-600')}
+          <p className="text-[12px] text-ink-soft mt-1">{inv.length === 0 ? '감지된 갈등 엣지가 없습니다.' : '갈등 쌍은 좌석·활동을 분리하고 중재 프로그램을 적용하세요.'}</p>
+        </div>
+      ),
+    })
+  }
+  function focusStructure(q: string) {
+    const ids = [...(insights?.top_brokers ?? []).map((b) => b.child_id), ...(insights?.most_influential ?? []).map((b) => b.child_id)]
+    applyFocus(neighborhood(ids), null, true)
+    setReport({
+      title: '관계망 구조 분석',
+      body: (
+        <div>
+          <p className="text-[12px] text-ink-faint mb-2">질의: “{q}”</p>
+          {list('핵심 매개자 (허브)', (insights?.top_brokers ?? []).slice(0, 5).map((b) => `${b.name} · 매개 ${b.betweenness.toFixed(1)}`), 'text-emerald-600')}
+          {list('영향력 상위', (insights?.most_influential ?? []).slice(0, 5).map((b) => `${b.name} · ${b.eigenvector.toFixed(2)}`), 'text-indigo-600')}
+          <p className="text-[12px] text-ink-soft mt-1">허브 아동에 의존이 집중되면 부재 시 관계망이 분열될 수 있습니다 — 퀘스트의 허브 붕괴 시뮬레이션으로 정밀 분석하세요.</p>
+        </div>
+      ),
+    })
+  }
+
+  const ANALYZE_RULES: { re: RegExp; scenario?: string; fn?: (q: string) => void }[] = [
+    { re: /고립|외톨이|혼자|소외|친구\s*없/, fn: focusIsolation },
+    { re: /갈등|싸움|다툼|분쟁|괴롭/, fn: focusConflict },
+    { re: /허브|중재자|매개|영향력|네트워크|구조|핵심/, fn: focusStructure },
+    { re: /전염|감염|질병|확산|독감|유행|보건|건강|아픈/, scenario: 'health' },
+    { re: /알레르|알러지|식단|급식|편식|영양/, scenario: 'diet' },
+    { re: /멘토|튜터|또래|짝꿍|짝/, scenario: 'tutor' },
+    { re: /선호|기피|공간|교실|환경/, scenario: 'preference' },
+    { re: /성취|학습|보충|학력|성적/, scenario: 'achievement' },
+    { re: /생태계|vms|콘텐츠/i, scenario: 'ecosystem' },
+  ]
+
+  function runAnalysis() {
+    const q = analysisQuery.trim()
+    if (!q) return
+    setAnalysisError(false)
+    // 1) explicit name match → focus that object
+    const named = nodes.find((n) => n.name.toLowerCase().includes(q.toLowerCase()))
+    if (named && q.length >= 2) { netRef.current?.selectNodes?.([named.id]); focusNode(named.id); return }
+    // 2) intent rules → scenario / focused view
+    const rule = ANALYZE_RULES.find((r) => r.re.test(q))
+    if (rule?.fn) { rule.fn(q); return }
+    if (rule?.scenario) { runScenario(rule.scenario); return }
+    // 3) fallback → overview answer
+    setAnalysisError(true)
+    setReport({
+      title: 'Athenae AI 리포트',
+      body: (
+        <div>
+          <p className="text-[12px] text-ink-faint mb-2">질의: “{q}”</p>
+          <p className="text-[12px] text-ink-soft">특정 분석 의도를 찾지 못했습니다. 아동 이름을 입력하거나 “고립”, “갈등”, “보건”, “알레르기”, “또래 튜터”, “공간 선호”, “학습 성취”, “허브 구조” 같은 키워드로 질의해 보세요.</p>
+        </div>
+      ),
+    })
+  }
+
   async function handleRecompute() {
     if (!centerId) return
     setRecomputing(true)
@@ -526,7 +681,7 @@ export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) 
   ]
 
   return (
-    <div className="relative flex-1 h-[calc(100vh-3rem)] overflow-hidden bg-canvas">
+    <div className="relative h-full w-full overflow-hidden bg-canvas">
       {nodes.length === 0 ? (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-ink-faint">
           <p className="text-sm">표시할 관계망 데이터가 없습니다</p>
@@ -556,6 +711,18 @@ export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) 
             <button onClick={search} className="h-9 px-3 rounded-[3px] bg-ink text-white text-[12px] hover:opacity-90">검색</button>
           </div>
           {searchError && <p className="text-[11px] text-danger mt-1.5">검색 결과가 존재하지 않습니다.</p>}
+        </div>
+
+        {/* AI analysis query — natural-language → focused insight */}
+        <div className="mb-4 pb-4 border-b border-line">
+          <p className="text-[11px] font-semibold text-ink-faint uppercase tracking-[0.1em] mb-2">AI 분석 질의</p>
+          <div className="flex gap-1.5">
+            <input value={analysisQuery} onChange={(e) => { setAnalysisQuery(e.target.value); setAnalysisError(false) }} onKeyDown={(e) => e.key === 'Enter' && runAnalysis()}
+              placeholder="예: 고립 위험 아동 · 갈등 관계 · 보건 전파 · 알레르기"
+              className="flex-1 h-9 px-3 bg-fill-2 border border-line rounded-[3px] text-[13px] text-ink placeholder-ink-ghost focus:outline-none focus:border-accent" />
+            <button onClick={runAnalysis} className="h-9 px-3 rounded-[3px] bg-accent text-white text-[12px] hover:bg-accent-hover whitespace-nowrap">분석</button>
+          </div>
+          {analysisError && <p className="text-[11px] text-warn mt-1.5">분석 의도를 찾지 못했습니다. 키워드를 바꿔 보세요.</p>}
         </div>
 
         {/* scope */}
@@ -605,11 +772,17 @@ export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) 
       {/* Insight drawer */}
       {report && (
         <div className="absolute top-6 right-6 bottom-6 z-10 w-[330px] max-w-[calc(100%-3rem)] flex flex-col rounded-[3px] border border-line bg-surface shadow-[var(--shadow-pop)] overflow-hidden">
-          <div className="px-6 py-4 border-b border-line flex items-center justify-between">
-            <span className="text-[14px] font-semibold text-ink">{report.title}</span>
-            <button onClick={() => setReport(null)} className="text-ink-faint hover:text-ink hover:bg-fill rounded-[3px] w-7 h-7 flex items-center justify-center transition-colors">✕</button>
+          <div className="px-6 py-4 border-b border-line flex items-center justify-between gap-2">
+            <span className="text-[14px] font-semibold text-ink truncate">{report.title}</span>
+            <div className="flex items-center gap-1 shrink-0">
+              {ws && (
+                <button title="작업창에 추가" onClick={() => ws.addInfo({ source: 'SNA · 객체 그래프', title: report.title, subtitle: 'Vertex 시뮬레이션 인사이트', body: reportBodyRef.current?.innerText?.trim() || undefined, href: '/sna', accent: '#8b5cf6' })}
+                  className="w-7 h-7 flex items-center justify-center rounded-[3px] text-[18px] leading-none text-ink-faint hover:text-accent hover:bg-accent-soft/50 transition-colors">+</button>
+              )}
+              <button onClick={() => setReport(null)} className="text-ink-faint hover:text-ink hover:bg-fill rounded-[3px] w-7 h-7 flex items-center justify-center transition-colors">✕</button>
+            </div>
           </div>
-          <div className="flex-1 overflow-y-auto px-6 py-5 text-[13px] text-ink-soft leading-relaxed">{report.body}</div>
+          <div ref={reportBodyRef} className="flex-1 overflow-y-auto px-6 py-5 text-[13px] text-ink-soft leading-relaxed">{report.body}</div>
         </div>
       )}
     </div>
