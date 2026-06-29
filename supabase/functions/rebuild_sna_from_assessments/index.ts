@@ -10,6 +10,7 @@
 // Body: { center_id?, record?, old_record?, skip_metrics? }
 // ============================================================
 import { createClient } from 'npm:@supabase/supabase-js@2.47.1'
+import { assertCenterMember } from '../_shared/auth.ts'
 
 type Rec = { id?: string; center_id?: string; child_id?: string; from_child_id?: string }
 type Body = { center_id?: string; record?: Rec | null; old_record?: Rec | null; skip_metrics?: boolean }
@@ -55,6 +56,8 @@ Deno.serve(async (req) => {
   try {
     const { sb, url, key } = serviceClient()
     const center_id = await resolveCenterId(sb, body)
+    // C2: trusted DB-webhook/service-role calls pass; client calls must be members
+    if (!(await assertCenterMember(req, sb, center_id))) return json({ ok: false, error: 'forbidden' }, 403)
 
     const { data: edges, error } = await sb.rpc('rebuild_sna_edges', { p_center_id: center_id })
     if (error) throw error

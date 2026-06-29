@@ -1,9 +1,9 @@
 -- ============================================================
--- LUMIX Pro — scale seed (200 children across 10 age-grouped classes)
+-- LUMIX Pro — scale seed (100 children across 10 age-grouped classes)
 -- ------------------------------------------------------------
 -- Builds on top of demo_seed.sql (the 20-child hand-crafted SNA fixture).
 -- Adds 8 age-grouped classes (만 0세 ~ 만 4세) and tops the center up to
--- exactly 200 active children, each with full detail:
+-- exactly 100 active children, each with full detail:
 --   children (body metrics, characteristics, dietary/developmental notes,
 --   emergency contact, address) · guardians · 12-day attendance histories ·
 --   health profiles · care notes · meal logs · within-class friendship/
@@ -30,13 +30,14 @@ declare
   ages text[]       := array['만 0세','만 1세','만 1세','만 2세','만 2세','만 3세','만 3세','만 4세'];
   birthyears int[]  := array[2025,2024,2024,2023,2023,2022,2022,2021];
   classids uuid[] := '{}';
-  v_need int; ci int; i int; age_y int;
+  v_need int; ci int; i int; age_y int; k int; si int; gi int;
   v_cls uuid; v_child uuid; v_guard uuid; v_gender text; v_name text; v_birth date; v_by int; v_staff uuid;
 begin
   -- re-runnable purge of any prior run of these demo classes + dependents
   delete from interactions where center_id=v_center and (
       source_id in (select id from children where center_id=v_center and class_id in (select id from classes where center_id=v_center and name=any(classnames)))
    or target_id in (select id from children where center_id=v_center and class_id in (select id from classes where center_id=v_center and name=any(classnames))));
+  delete from sna_metrics where center_id=v_center and child_id in (select id from children where class_id in (select id from classes where center_id=v_center and name=any(classnames)));
   delete from peer_assessments where center_id=v_center and (from_child_id in (select id from children where class_id in (select id from classes where center_id=v_center and name=any(classnames))) or to_child_id in (select id from children where class_id in (select id from classes where center_id=v_center and name=any(classnames))));
   delete from staff_child_assessments where center_id=v_center and child_id in (select id from children where class_id in (select id from classes where center_id=v_center and name=any(classnames)));
   delete from care_notes where center_id=v_center and child_id in (select id from children where class_id in (select id from classes where center_id=v_center and name=any(classnames)));
@@ -51,12 +52,12 @@ begin
   for ci in 1..array_length(classnames,1) loop
     v_cls := gen_random_uuid();
     insert into classes(id,center_id,name,age_group,homeroom_staff_id,capacity,description)
-      values (v_cls, v_center, classnames[ci], ages[ci], case when ci%2=0 then v_lee else v_park end, 25, ages[ci]||' 보육반 · 정원 25명');
+      values (v_cls, v_center, classnames[ci], ages[ci], case when ci%2=0 then v_lee else v_park end, 18, ages[ci]||' 보육반 · 정원 18명');
     classids := classids || v_cls;
   end loop;
 
-  -- top up to exactly 200 active children, round-robin across the new classes
-  v_need := 200 - (select count(*) from children where center_id=v_center and deleted_at is null);
+  -- top up to exactly 100 active children, round-robin across the new classes
+  v_need := 100 - (select count(*) from children where center_id=v_center and deleted_at is null);
   if v_need < 0 then v_need := 0; end if;
 
   for i in 1..v_need loop
@@ -64,8 +65,10 @@ begin
     v_cls := classids[ci]; v_by := birthyears[ci]; age_y := 2026 - v_by;
     v_staff := case when ci%2=0 then v_lee else v_park end;
     v_gender := case when i % 2 = 0 then 'female' else 'male' end;
-    v_name := surnames[1+((i*7) % array_length(surnames,1))] ||
-              case when v_gender='male' then male_g[1+((i*13)%array_length(male_g,1))] else female_g[1+((i*13)%array_length(female_g,1))] end;
+    -- unique-name scheme: surname cycles, given-name index gets a per-block
+    -- offset so (surname,given) pairs never repeat within the cohort
+    k := i-1; si := k % 30; gi := (k*7 + (k/30)) % 30;
+    v_name := surnames[1+si] || case when v_gender='male' then male_g[1+gi] else female_g[1+gi] end;
     v_birth := make_date(v_by, 1+((i*5)%12), 1+((i*11)%27));
     v_child := gen_random_uuid();
     insert into children(id,center_id,class_id,name,gender,birth_date,status,enrollment_type,

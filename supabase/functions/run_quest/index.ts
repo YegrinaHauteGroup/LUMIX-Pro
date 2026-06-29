@@ -9,6 +9,7 @@
 // Result shape: { headline, stats:[{label,value}], rows:[{primary,secondary,tag}] }
 // ============================================================
 import { createClient } from 'npm:@supabase/supabase-js@2.47.1'
+import { assertCenterMember } from '../_shared/auth.ts'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -31,13 +32,12 @@ type Result = { headline: string; stats: { label: string; value: string | number
 // deno-lint-ignore no-explicit-any
 type SB = any
 
-// Optional quest scope (set per-request from analysis_quests.params).
-let CURRENT_CLASS: string | null = null
-
-async function activeChildren(sb: SB, center: string) {
+// Quest scope is threaded per-request (NOT a module global) so concurrent
+// requests can't clobber each other's class filter. (C3)
+async function activeChildren(sb: SB, center: string, classId: string | null) {
   let qb = sb.from('children').select('id, name, class_id')
     .eq('center_id', center).eq('status', 'active').is('deleted_at', null)
-  if (CURRENT_CLASS) qb = qb.eq('class_id', CURRENT_CLASS)
+  if (classId) qb = qb.eq('class_id', classId)
   const { data } = await qb
   return (data ?? []) as { id: string; name: string; class_id: string | null }[]
 }
@@ -89,8 +89,8 @@ function valence(rt: string, label: string | null): number {
   return 1
 }
 
-async function questIsolation(sb: SB, center: string): Promise<Result> {
-  const children = await activeChildren(sb, center)
+async function questIsolation(sb: SB, center: string, classId: string | null): Promise<Result> {
+  const children = await activeChildren(sb, center, classId)
   const metrics = await latestMetrics(sb, center)
   const ids = children.map((c) => c.id)
   const since = new Date(Date.now() - 30 * 864e5).toISOString().slice(0, 10)
@@ -118,8 +118,8 @@ async function questIsolation(sb: SB, center: string): Promise<Result> {
   }
 }
 
-async function questTutor(sb: SB, center: string): Promise<Result> {
-  const children = await activeChildren(sb, center)
+async function questTutor(sb: SB, center: string, classId: string | null): Promise<Result> {
+  const children = await activeChildren(sb, center, classId)
   const metrics = await latestMetrics(sb, center)
   const enriched = children.map((c) => ({ ...c, eig: metrics.get(c.id)?.eigenvector ?? 0, deg: metrics.get(c.id)?.degree ?? 0 }))
   const mentors = [...enriched].filter((c) => c.eig > 0).sort((a, b) => b.eig - a.eig)
@@ -141,8 +141,8 @@ async function questTutor(sb: SB, center: string): Promise<Result> {
   }
 }
 
-async function questConflict(sb: SB, center: string): Promise<Result> {
-  const children = await activeChildren(sb, center)
+async function questConflict(sb: SB, center: string, classId: string | null): Promise<Result> {
+  const children = await activeChildren(sb, center, classId)
   const name = new Map(children.map((c) => [c.id, c.name]))
   const { data } = await sb.from('interactions')
     .select('source_id, target_id, weight')
@@ -164,8 +164,8 @@ async function questConflict(sb: SB, center: string): Promise<Result> {
   }
 }
 
-async function questAttendance(sb: SB, center: string): Promise<Result> {
-  const children = await activeChildren(sb, center)
+async function questAttendance(sb: SB, center: string, classId: string | null): Promise<Result> {
+  const children = await activeChildren(sb, center, classId)
   const ids = children.map((c) => c.id)
   const name = new Map(children.map((c) => [c.id, c.name]))
   const since = new Date(Date.now() - 30 * 864e5).toISOString().slice(0, 10)
@@ -197,8 +197,8 @@ async function questAttendance(sb: SB, center: string): Promise<Result> {
 }
 
 // ---- ontology-aware quests (use sna_entities + labeled edges) -------------
-async function questAllergy(sb: SB, center: string): Promise<Result> {
-  const children = await activeChildren(sb, center)
+async function questAllergy(sb: SB, center: string, classId: string | null): Promise<Result> {
+  const children = await activeChildren(sb, center, classId)
   const childIds = new Set(children.map((c) => c.id))
   const name = new Map(children.map((c) => [c.id, c.name]))
   const { data: hp } = await sb.from('health_profiles').select('child_id, allergies')
@@ -229,7 +229,7 @@ async function questAllergy(sb: SB, center: string): Promise<Result> {
   }
 }
 
-async function questAchievement(sb: SB, center: string): Promise<Result> {
+async function questAchievement(sb: SB, center: string, classId: string | null): Promise<Result> {
   const names = await nodeNames(sb, center)
   const ints = await interactions(sb, center)
   const NEG = ['부족', '보충', '저조', '거부', '요망', '어려']
@@ -255,7 +255,7 @@ async function questAchievement(sb: SB, center: string): Promise<Result> {
   }
 }
 
-async function questSpace(sb: SB, center: string): Promise<Result> {
+async function questSpace(sb: SB, center: string, classId: string | null): Promise<Result> {
   const names = await nodeNames(sb, center)
   const ints = await interactions(sb, center)
   const pref = new Map<string, { like: number; avoid: number }>()
@@ -282,8 +282,8 @@ async function questSpace(sb: SB, center: string): Promise<Result> {
 // ── ontology-aware quests (health_events + WHO vocabularies + SNA) ──────────
 // Epidemiological exposure: contagious symptom carriers propagate risk to
 // classmates and play/proximity neighbours within a 7-day window (WHO IMCI).
-async function questContagion(sb: SB, center: string): Promise<Result> {
-  const children = await activeChildren(sb, center)
+async function questContagion(sb: SB, center: string, classId: string | null): Promise<Result> {
+  const children = await activeChildren(sb, center, classId)
   const byId = new Map(children.map((c) => [c.id, c]))
   const symLabels = await refLabels(sb, 'symptom')
   const since = new Date(Date.now() - 7 * 864e5).toISOString().slice(0, 10)
@@ -324,8 +324,8 @@ async function questContagion(sb: SB, center: string): Promise<Result> {
 }
 
 // Allergen safety: coded allergens (Codex/WHO) cross-referenced with food edges.
-async function questAllergySafety(sb: SB, center: string): Promise<Result> {
-  const children = await activeChildren(sb, center)
+async function questAllergySafety(sb: SB, center: string, classId: string | null): Promise<Result> {
+  const children = await activeChildren(sb, center, classId)
   const name = new Map(children.map((c) => [c.id, c.name]))
   const allergen = await refLabels(sb, 'allergen_class')
   const { data: hp } = await sb.from('health_profiles')
@@ -358,8 +358,8 @@ async function questAllergySafety(sb: SB, center: string): Promise<Result> {
 }
 
 // Developmental support screening (WHO ICF-CY domains).
-async function questDevelopmental(sb: SB, center: string): Promise<Result> {
-  const children = await activeChildren(sb, center)
+async function questDevelopmental(sb: SB, center: string, classId: string | null): Promise<Result> {
+  const children = await activeChildren(sb, center, classId)
   const name = new Map(children.map((c) => [c.id, c.name]))
   const dom = await refLabels(sb, 'developmental_domain')
   const { data: ev } = await sb.from('health_events')
@@ -380,8 +380,8 @@ async function questDevelopmental(sb: SB, center: string): Promise<Result> {
 // Hub-node collapse simulation: remove the top betweenness "mediator", measure
 // how the positive-tie graph fragments, extract children at isolation risk, and
 // auto-issue ontology-Action-based Bridge-Building quests.
-async function questHubCollapse(sb: SB, center: string): Promise<Result> {
-  const children = await activeChildren(sb, center)
+async function questHubCollapse(sb: SB, center: string, classId: string | null): Promise<Result> {
+  const children = await activeChildren(sb, center, classId)
   const byId = new Map(children.map((c) => [c.id, c]))
   const metrics = await latestMetrics(sb, center)
   const ints = await interactions(sb, center)
@@ -463,7 +463,7 @@ async function questHubCollapse(sb: SB, center: string): Promise<Result> {
   }
 }
 
-const RUNNERS: Record<string, (sb: SB, c: string) => Promise<Result>> = {
+const RUNNERS: Record<string, (sb: SB, c: string, classId: string | null) => Promise<Result>> = {
   isolation_risk: questIsolation,
   tutor_matching: questTutor,
   conflict_watch: questConflict,
@@ -485,6 +485,8 @@ Deno.serve(async (req) => {
   if (!center_id || !quest_id) return json({ ok: false, error: 'center_id and quest_id required' }, 400)
 
   const sb = serviceClient()
+  // C2: caller must belong to the center they're acting on
+  if (!(await assertCenterMember(req, sb, center_id))) return json({ ok: false, error: 'forbidden' }, 403)
   try {
     const { data: quest, error: qErr } = await sb.from('analysis_quests')
       .select('*').eq('id', quest_id).eq('center_id', center_id).single()
@@ -492,11 +494,11 @@ Deno.serve(async (req) => {
 
     await sb.from('analysis_quests').update({ status: 'running', error: null }).eq('id', quest_id)
 
-    CURRENT_CLASS = (quest.params && typeof quest.params === 'object' && quest.params.class_id) ? quest.params.class_id : null
+    const classId = (quest.params && typeof quest.params === 'object' && quest.params.class_id) ? quest.params.class_id : null
 
     const runner = RUNNERS[quest.quest_type]
     if (!runner) throw new Error(`unknown quest_type: ${quest.quest_type}`)
-    const result = await runner(sb, center_id)
+    const result = await runner(sb, center_id, classId)
 
     await sb.from('analysis_quests').update({ status: 'done', result, error: null }).eq('id', quest_id)
     return json({ ok: true, result })

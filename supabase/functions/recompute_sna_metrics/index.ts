@@ -23,6 +23,7 @@
 // Body: { center_id: string, rebuild?: boolean, project_shared?: boolean }
 // ============================================================
 import { createClient } from 'npm:@supabase/supabase-js@2.47.1'
+import { assertCenterMember } from '../_shared/auth.ts'
 
 type Body = { center_id?: string; rebuild?: boolean; project_shared?: boolean }
 
@@ -239,6 +240,7 @@ Deno.serve(async (req) => {
 
   try {
     const sb = serviceClient()
+    if (!(await assertCenterMember(req, sb, center_id))) return json({ ok: false, error: 'forbidden' }, 403)
 
     if (body.rebuild) {
       const { error } = await sb.rpc('rebuild_sna_edges', { p_center_id: center_id })

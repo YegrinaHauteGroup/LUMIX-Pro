@@ -16,6 +16,7 @@
 // Body: { center_id: string }
 // ============================================================
 import { createClient } from 'npm:@supabase/supabase-js@2.47.1'
+import { assertCenterMember } from '../_shared/auth.ts'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -113,6 +114,7 @@ Deno.serve(async (req) => {
   if (!center_id) return json({ ok: false, error: 'center_id required' }, 400)
 
   const sb = serviceClient()
+  if (!(await assertCenterMember(req, sb, center_id))) return json({ ok: false, error: 'forbidden' }, 403)
   const { data: center, error: cErr } = await sb.from('centers')
     .select('id, name, address, latitude, longitude, region_name').eq('id', center_id).single()
   if (cErr || !center) return json({ ok: false, error: 'center not found' }, 404)

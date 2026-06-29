@@ -9,6 +9,7 @@
 // Body: { center_id: string }
 // ============================================================
 import { createClient } from 'npm:@supabase/supabase-js@2.47.1'
+import { assertCenterMember } from '../_shared/auth.ts'
 
 type Body = { center_id?: string }
 
@@ -45,6 +46,7 @@ Deno.serve(async (req) => {
 
   try {
     const sb = serviceClient()
+    if (!(await assertCenterMember(req, sb, center_id))) return json({ ok: false, error: 'forbidden' }, 403)
     const { data: children } = await sb.from('children').select('id')
       .eq('center_id', center_id).eq('status', 'active').is('deleted_at', null)
     const childSet = new Set((children ?? []).map((c: any) => c.id))
