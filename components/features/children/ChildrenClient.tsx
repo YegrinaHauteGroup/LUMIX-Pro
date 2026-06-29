@@ -12,7 +12,7 @@ import { ExternalLink, Pencil, Plus, Search, Trash2, Users } from 'lucide-react'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 
 interface Props {
   initialChildren: Child[]
@@ -38,6 +38,8 @@ export function ChildrenClient({ initialChildren, classes, centerId }: Props) {
   const [search, setSearch] = useState('')
   const [filterStatus, setFilterStatus] = useState<Child['status'] | 'all'>('all')
   const [filterClass, setFilterClass] = useState('all')
+  const [filterGender, setFilterGender] = useState<'all' | 'male' | 'female' | 'other'>('all')
+  const [groupBy, setGroupBy] = useState<'none' | 'gender' | 'age' | 'class'>('none')
   // drawer: add (editId === 'new') / edit (editId === child.id) / closed (null)
   const [editId, setEditId] = useState<string | null>(null)
   const [pendingDel, setPendingDel] = useState<string | null>(null)
@@ -50,8 +52,32 @@ export function ChildrenClient({ initialChildren, classes, centerId }: Props) {
     if (search && !c.name.toLowerCase().includes(search.toLowerCase())) return false
     if (filterStatus !== 'all' && c.status !== filterStatus) return false
     if (filterClass !== 'all' && c.class_id !== filterClass) return false
+    if (filterGender !== 'all' && c.gender !== filterGender) return false
     return true
   })
+
+  // colorful gender index (item 5)
+  const genderColor = (g: string) => g === 'male' ? '#3b7fb0' : g === 'female' ? '#d6669a' : '#94a3b8'
+  const genderChip = (g: string) => g === 'male' ? 'bg-[#e8f1f8] text-[#2b6ca3] border-[#bcd9ef]' : g === 'female' ? 'bg-[#fbe9f1] text-[#b03b6e] border-[#f3c2d8]' : 'bg-fill text-ink-faint border-line'
+  const ageBand = (b: string | null) => {
+    if (!b) return '나이 미상'
+    const a = calculateAge(b)
+    if (a <= 2) return '영아 (만 0–2세)'
+    if (a <= 5) return '유아 (만 3–5세)'
+    return '학령 (만 6세+)'
+  }
+  const groupKeyOf = (c: Child) =>
+    groupBy === 'gender' ? GENDER_LABELS[c.gender]
+      : groupBy === 'age' ? ageBand(c.birth_date)
+        : groupBy === 'class' ? ((c.classes as Class | undefined)?.name ?? '미배정')
+          : ''
+  // ordered groups for the grouped view
+  const grouped = (() => {
+    if (groupBy === 'none') return null
+    const m = new Map<string, Child[]>()
+    filtered.forEach((c) => { const k = groupKeyOf(c); (m.get(k) ?? m.set(k, []).get(k)!).push(c) })
+    return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0], 'ko'))
+  })()
 
   function openAdd() { setForm(emptyForm); setError(''); setEditId('new') }
   function openEdit(c: Child) {
@@ -107,6 +133,33 @@ export function ChildrenClient({ initialChildren, classes, centerId }: Props) {
 
   const editing = editId && editId !== 'new' ? children.find((c) => c.id === editId) ?? null : null
 
+  const renderRow = (child: Child) => (
+    <tr key={child.id} className="border-b border-line last:border-0 hover:bg-fill transition-colors">
+      <td className="px-3.5 py-2.5">
+        <button onClick={() => openEdit(child)} className="flex items-center gap-2.5 group text-left">
+          <div className="w-6 h-6 flex items-center justify-center shrink-0 rounded-[2px] border font-semibold text-[10px]"
+            style={{ background: genderColor(child.gender) + '1a', color: genderColor(child.gender), borderColor: genderColor(child.gender) + '55' }}>
+            {child.name[0]}
+          </div>
+          <span className="text-[12px] font-medium text-ink group-hover:text-accent transition-colors">{child.name}</span>
+        </button>
+      </td>
+      <td className="px-3.5 py-2.5">
+        <span className={`text-[10px] px-1.5 py-0.5 rounded-[2px] border ${genderChip(child.gender)}`}>{GENDER_LABELS[child.gender]}</span>
+      </td>
+      <td className="px-3.5 py-2.5 text-[12px] text-ink-soft font-data">{child.birth_date ? `${calculateAge(child.birth_date)}세` : '—'}</td>
+      <td className="px-3.5 py-2.5 text-[12px] text-ink-soft">{(child.classes as Class | undefined)?.name ?? '—'}</td>
+      <td className="px-3.5 py-2.5"><Badge className={CHILD_STATUS_COLORS[child.status]}>{CHILD_STATUS_LABELS[child.status]}</Badge></td>
+      <td className="px-3.5 py-2.5">
+        <div className="flex items-center gap-0.5 justify-end">
+          <Link href={`/children/${child.id}`} title="상세 보기" className="text-ink-ghost hover:text-accent transition-colors p-1"><ExternalLink size={13} /></Link>
+          <button onClick={() => openEdit(child)} title="편집" className="text-ink-ghost hover:text-ink transition-colors p-1"><Pencil size={13} /></button>
+          <button onClick={() => setPendingDel(child.id)} title="삭제" className="text-ink-ghost hover:text-danger transition-colors p-1"><Trash2 size={13} /></button>
+        </div>
+      </td>
+    </tr>
+  )
+
   return (
     <div className="flex flex-col min-h-0 flex-1 gap-3">
       {/* Toolbar */}
@@ -139,6 +192,27 @@ export function ChildrenClient({ initialChildren, classes, centerId }: Props) {
           <option value="all">전체 반</option>
           {classes.map((cls) => <option key={cls.id} value={cls.id}>{cls.name}</option>)}
         </select>
+        <select
+          value={filterGender}
+          onChange={(e) => setFilterGender(e.target.value as typeof filterGender)}
+          className="bg-fill-2 border border-line px-3 py-1.5 text-[12px] text-ink-soft focus:outline-none focus:border-accent h-8 rounded-[3px] cursor-pointer"
+        >
+          <option value="all">전체 성별</option>
+          <option value="male">남아</option>
+          <option value="female">여아</option>
+          <option value="other">기타</option>
+        </select>
+        <select
+          value={groupBy}
+          onChange={(e) => setGroupBy(e.target.value as typeof groupBy)}
+          title="분류 기준"
+          className="bg-fill-2 border border-line px-3 py-1.5 text-[12px] text-ink-soft focus:outline-none focus:border-accent h-8 rounded-[3px] cursor-pointer"
+        >
+          <option value="none">분류 없음</option>
+          <option value="age">나이대별</option>
+          <option value="gender">성별</option>
+          <option value="class">반별</option>
+        </select>
         <div className="flex-1" />
         <span className="text-[11px] text-ink-faint font-data">{filtered.length}명</span>
         <Button onClick={openAdd} size="sm"><Plus size={12} /> 아동 등록</Button>
@@ -165,43 +239,18 @@ export function ChildrenClient({ initialChildren, classes, centerId }: Props) {
                     <p className="text-[12px] text-ink-ghost">등록된 아동이 없습니다</p>
                   </td>
                 </tr>
-              ) : filtered.map((child) => (
-                <tr key={child.id} className="border-b border-line last:border-0 hover:bg-fill transition-colors">
-                  <td className="px-3.5 py-2.5">
-                    <button onClick={() => openEdit(child)} className="flex items-center gap-2.5 group text-left">
-                      <div className="w-6 h-6 bg-fill-2 border border-line flex items-center justify-center shrink-0 rounded-[2px]">
-                        <span className="text-[10px] text-ink-soft">{child.name[0]}</span>
-                      </div>
-                      <span className="text-[12px] font-medium text-ink group-hover:text-accent transition-colors">
-                        {child.name}
-                      </span>
-                    </button>
-                  </td>
-                  <td className="px-3.5 py-2.5 text-[12px] text-ink-soft">{GENDER_LABELS[child.gender]}</td>
-                  <td className="px-3.5 py-2.5 text-[12px] text-ink-soft font-data">
-                    {child.birth_date ? `${calculateAge(child.birth_date)}세` : '—'}
-                  </td>
-                  <td className="px-3.5 py-2.5 text-[12px] text-ink-soft">
-                    {(child.classes as Class | undefined)?.name ?? '—'}
-                  </td>
-                  <td className="px-3.5 py-2.5">
-                    <Badge className={CHILD_STATUS_COLORS[child.status]}>{CHILD_STATUS_LABELS[child.status]}</Badge>
-                  </td>
-                  <td className="px-3.5 py-2.5">
-                    <div className="flex items-center gap-0.5 justify-end">
-                      <Link href={`/children/${child.id}`} title="상세 보기" className="text-ink-ghost hover:text-accent transition-colors p-1">
-                        <ExternalLink size={13} />
-                      </Link>
-                      <button onClick={() => openEdit(child)} title="편집" className="text-ink-ghost hover:text-ink transition-colors p-1">
-                        <Pencil size={13} />
-                      </button>
-                      <button onClick={() => setPendingDel(child.id)} title="삭제" className="text-ink-ghost hover:text-danger transition-colors p-1">
-                        <Trash2 size={13} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              ) : grouped ? (
+                grouped.map(([label, rows]) => (
+                  <Fragment key={label}>
+                    <tr className="bg-fill-2/70 border-b border-line">
+                      <td colSpan={6} className="px-3.5 py-1.5 text-[10.5px] font-semibold text-ink-faint uppercase tracking-wider sticky">
+                        {label} <span className="text-ink-ghost font-data ml-1">{rows.length}명</span>
+                      </td>
+                    </tr>
+                    {rows.map(renderRow)}
+                  </Fragment>
+                ))
+              ) : filtered.map(renderRow)}
             </tbody>
           </table>
         </div>
