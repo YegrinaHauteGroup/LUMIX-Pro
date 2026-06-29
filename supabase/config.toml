@@ -14,3 +14,9 @@ verify_jwt = true
 
 [functions.recompute_sna_brandes]
 verify_jwt = true
+
+[functions.run_quest]
+verify_jwt = true
+
+[functions.dashboard_feed]
+verify_jwt = true

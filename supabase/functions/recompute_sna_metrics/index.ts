@@ -22,57 +22,19 @@
 //
 // Body: { center_id: string, rebuild?: boolean, project_shared?: boolean }
 // ============================================================
-import { createClient } from 'npm:@supabase/supabase-js@2.47.1'
 import { assertCenterMember } from '../_shared/auth.ts'
+import { CORS, json } from '../_shared/http.ts'
+import { serviceClient } from '../_shared/client.ts'
+import { valence } from '../_shared/sna.ts'
 
 type Body = { center_id?: string; rebuild?: boolean; project_shared?: boolean }
 
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-}
-
-// ── Edge valence → relationship strength ──────────────────────────────────
-// Maps interaction sentiment + domain onto a signed multiplier so that the
-// *quality* of a relationship (not just its frequency) drives the geometry:
-//   positive (cooperation / yielding / care)  →  strong, "close"
-//   conflict / avoidance                       →  negative, "far" (≈∞)
-function valence(relationType: string, label: string | null): number {
-  const l = label ?? ''
-  if (relationType === 'conflict' || /갈등|분쟁|기피|거부|편식|다툼/.test(l)) return -2
-  if (relationType === 'caregiving' || /돌봄|보살핌/.test(l)) return 1.6
-  if (relationType === 'help_seeking' || /협동|양보|도움|위로|배려|나눔/.test(l)) return 1.5
-  if (/단짝|친밀|모방/.test(l)) return 1.3
-  if (relationType === 'play' || /놀이/.test(l)) return 1
-  if (relationType === 'communication' || relationType === 'proximity' || /선호|소통|근접/.test(l)) return 0.8
-  return 1
-}
 const FAR = 1e4 // pseudo-∞ distance applied to conflict-dominant ties
 // Convert a (dynamically normalised) signed net strength into a graph distance.
 function netToDistance(net: number, maxAbs: number): number {
   const m = maxAbs > 0 ? maxAbs : 1
   if (net > 0) return m / net                 // strongest positive ≈ 1, weak ties far
   return FAR * (1 + Math.abs(net) / m)        // conflict ties pushed toward ∞
-}
-
-function mustEnv(name: string): string {
-  const v = Deno.env.get(name)
-  if (!v) throw new Error(`${name} is required`)
-  return v
-}
-
-function serviceClient() {
-  const url = mustEnv('SUPABASE_URL')
-  // Edge functions auto-inject SUPABASE_SERVICE_ROLE_KEY; fall back to the
-  // project's custom SUPABASE_SECRET_KEYS map for older deployments.
-  let key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
-  if (!key) {
-    const raw = Deno.env.get('SUPABASE_SECRET_KEYS')
-    if (raw) { try { key = JSON.parse(raw)['sb_secret_5x67m'] } catch { /* ignore */ } }
-  }
-  if (!key) throw new Error('Service role key not available (SUPABASE_SERVICE_ROLE_KEY)')
-  return createClient(url, key, { auth: { persistSession: false } })
 }
 
 // ---- Graph container -----------------------------------------------------
@@ -234,9 +196,18 @@ function clustering(n: number, adj: Array<Map<number, number>>): number[] {
 function labelPropagation(n: number, adj: Array<Map<number, number>>): number[] {
   const label = Array.from({ length: n }, (_, i) => i)
   const order = Array.from({ length: n }, (_, i) => i)
+  // seeded PRNG (mulberry32) so the visiting order — and therefore the resulting
+  // communities — are deterministic for identical input data (M11).
+  let seed = 0x9e3779b9 >>> 0
+  const rng = () => {
+    seed = (seed + 0x6d2b79f5) | 0
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed)
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
   for (let it = 0; it < 100; it++) {
     for (let i = order.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1))
+      const j = Math.floor(rng() * (i + 1))
       const t = order[i]; order[i] = order[j]; order[j] = t
     }
     let changed = false
@@ -258,10 +229,6 @@ function labelPropagation(n: number, adj: Array<Map<number, number>>): number[] 
   })
 }
 
-function json(obj: unknown, status = 200) {
-  return new Response(JSON.stringify(obj), { status, headers: { 'content-type': 'application/json', ...CORS } })
-}
-
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
   if (req.method !== 'POST') return new Response('Method Not Allowed', { status: 405, headers: CORS })
@@ -273,7 +240,7 @@ Deno.serve(async (req) => {
   const projectShared = body.project_shared !== false
 
   try {
-    const sb = serviceClient()
+    const { sb } = serviceClient()
     if (!(await assertCenterMember(req, sb, center_id))) return json({ ok: false, error: 'forbidden' }, 403)
 
     if (body.rebuild) {

@@ -9,32 +9,12 @@
 //
 // Body: { center_id?, record?, old_record?, skip_metrics? }
 // ============================================================
-import { createClient } from 'npm:@supabase/supabase-js@2.47.1'
 import { assertCenterMember } from '../_shared/auth.ts'
+import { CORS, json } from '../_shared/http.ts'
+import { serviceClient } from '../_shared/client.ts'
 
 type Rec = { id?: string; center_id?: string; child_id?: string; from_child_id?: string }
 type Body = { center_id?: string; record?: Rec | null; old_record?: Rec | null; skip_metrics?: boolean }
-
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-}
-
-function serviceClient() {
-  const url = Deno.env.get('SUPABASE_URL')
-  let key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
-  if (!key) {
-    const raw = Deno.env.get('SUPABASE_SECRET_KEYS')
-    if (raw) { try { key = JSON.parse(raw)['sb_secret_5x67m'] } catch { /* ignore */ } }
-  }
-  if (!url || !key) throw new Error('SUPABASE_URL / service role key required')
-  return { sb: createClient(url, key, { auth: { persistSession: false } }), url, key }
-}
-
-function json(obj: unknown, status = 200) {
-  return new Response(JSON.stringify(obj), { status, headers: { 'Content-Type': 'application/json', ...CORS } })
-}
 
 async function resolveCenterId(sb: any, body: Body): Promise<string> {
   if (body.center_id) return body.center_id

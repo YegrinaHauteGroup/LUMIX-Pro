@@ -8,33 +8,12 @@
 //
 // Body: { center_id: string }
 // ============================================================
-import { createClient } from 'npm:@supabase/supabase-js@2.47.1'
 import { assertCenterMember } from '../_shared/auth.ts'
+import { CORS, json } from '../_shared/http.ts'
+import { serviceClient } from '../_shared/client.ts'
+import { weightToDistance } from '../_shared/sna.ts'
 
 type Body = { center_id?: string }
-
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-}
-
-function weightToDistance(w: number): number { return 1 / Math.max(w, 1e-6) }
-
-function serviceClient() {
-  const url = Deno.env.get('SUPABASE_URL')
-  let key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
-  if (!key) {
-    const raw = Deno.env.get('SUPABASE_SECRET_KEYS')
-    if (raw) { try { key = JSON.parse(raw)['sb_secret_5x67m'] } catch { /* ignore */ } }
-  }
-  if (!url || !key) throw new Error('SUPABASE_URL / service role key required')
-  return createClient(url, key, { auth: { persistSession: false } })
-}
-
-function json(obj: unknown, status = 200) {
-  return new Response(JSON.stringify(obj), { status, headers: { 'content-type': 'application/json', ...CORS } })
-}
 
 // Binary min-heap keyed by distance — replaces the O(V) linear scan in
 // Dijkstra so Brandes runs in O(V·E·logV) instead of O(V³) (H1). Stale entries
@@ -79,7 +58,7 @@ Deno.serve(async (req) => {
   const center_id = body.center_id
 
   try {
-    const sb = serviceClient()
+    const { sb } = serviceClient()
     if (!(await assertCenterMember(req, sb, center_id))) return json({ ok: false, error: 'forbidden' }, 403)
     const { data: children } = await sb.from('children').select('id')
       .eq('center_id', center_id).eq('status', 'active').is('deleted_at', null)

@@ -8,23 +8,10 @@
 // Body: { center_id: string, quest_id: string }
 // Result shape: { headline, stats:[{label,value}], rows:[{primary,secondary,tag}] }
 // ============================================================
-import { createClient } from 'npm:@supabase/supabase-js@2.47.1'
 import { assertCenterMember } from '../_shared/auth.ts'
-
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-}
-const json = (o: unknown, s = 200) => new Response(JSON.stringify(o), { status: s, headers: { 'content-type': 'application/json', ...CORS } })
-
-function serviceClient() {
-  const url = Deno.env.get('SUPABASE_URL')
-  let key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
-  if (!key) { const raw = Deno.env.get('SUPABASE_SECRET_KEYS'); if (raw) { try { key = JSON.parse(raw)['sb_secret_5x67m'] } catch { /* ignore */ } } }
-  if (!url || !key) throw new Error('SUPABASE_URL / service role key required')
-  return createClient(url, key, { auth: { persistSession: false } })
-}
+import { CORS, json } from '../_shared/http.ts'
+import { serviceClient } from '../_shared/client.ts'
+import { valence } from '../_shared/sna.ts'
 
 type Row = { primary: string; secondary?: string; tag?: string }
 type Result = { headline: string; stats: { label: string; value: string | number }[]; rows: Row[] }
@@ -77,18 +64,6 @@ async function refLabels(sb: SB, domain: string) {
   for (const r of data ?? []) m.set(r.code, { label: r.label, meta: r.meta ?? {} })
   return m
 }
-// Relationship valence (mirrors recompute_sna_metrics): conflict negative, cooperation/care positive.
-function valence(rt: string, label: string | null): number {
-  const l = label ?? ''
-  if (rt === 'conflict' || /갈등|분쟁|기피|거부|편식|다툼/.test(l)) return -2
-  if (rt === 'caregiving' || /돌봄|보살핌/.test(l)) return 1.6
-  if (rt === 'help_seeking' || /협동|양보|도움|위로|배려|나눔/.test(l)) return 1.5
-  if (/단짝|친밀|모방/.test(l)) return 1.3
-  if (rt === 'play' || /놀이/.test(l)) return 1
-  if (rt === 'communication' || rt === 'proximity' || /선호|소통|근접/.test(l)) return 0.8
-  return 1
-}
-
 async function questIsolation(sb: SB, center: string, classId: string | null): Promise<Result> {
   const children = await activeChildren(sb, center, classId)
   const metrics = await latestMetrics(sb, center)
@@ -484,7 +459,7 @@ Deno.serve(async (req) => {
   const { center_id, quest_id } = body as { center_id?: string; quest_id?: string }
   if (!center_id || !quest_id) return json({ ok: false, error: 'center_id and quest_id required' }, 400)
 
-  const sb = serviceClient()
+  const { sb } = serviceClient()
   // C2: caller must belong to the center they're acting on
   if (!(await assertCenterMember(req, sb, center_id))) return json({ ok: false, error: 'forbidden' }, 403)
   try {
