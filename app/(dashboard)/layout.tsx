@@ -2,6 +2,7 @@ import { Sidebar } from '@/components/layout/Sidebar'
 import { Header } from '@/components/layout/Header'
 import { WorkspaceProvider } from '@/lib/workspace'
 import { WorkspacePanel } from '@/components/workspace/WorkspacePanel'
+import { TimerToast } from '@/components/workspace/TimerToast'
 import { getCenterInfo } from '@/lib/center'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -25,6 +26,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
             <WorkspacePanel />
           </div>
         </div>
+        {/* global timer-completion popup (top-right) */}
+        <TimerToast />
       </div>
     </WorkspaceProvider>
   )

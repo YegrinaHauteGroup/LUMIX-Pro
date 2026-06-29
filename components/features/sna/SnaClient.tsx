@@ -174,6 +174,8 @@ export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) 
   const [searchValue, setSearchValue] = useState('')
   const [searchError, setSearchError] = useState(false)
   const [report, setReport] = useState<Report | null>(null)
+  const [analysisQuery, setAnalysisQuery] = useState('')
+  const [analysisError, setAnalysisError] = useState(false)
 
   const nodeById = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes])
   const maxBetw = useMemo(() => Math.max(1, ...nodes.map((n) => n.betweenness || 0)), [nodes])
@@ -253,16 +255,25 @@ export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) 
   }, [nodes, edges])
 
   // ---- focus / fade engine ----------------------------------------------
-  function applyFocus(focusNodes: Set<string> | null, focusEdges: Set<string> | null) {
+  // hide=true → unrelated nodes/edges are fully hidden (clean ego-network view,
+  // used when a single node is selected). hide=false → they stay but fade back,
+  // keeping context for the multi-node scenario insights.
+  function applyFocus(focusNodes: Set<string> | null, focusEdges: Set<string> | null, hide = false) {
     const ds = dsRef.current
     if (!ds) return
-    ds.nodes.update(nodes.map((n) => ({ id: n.id, opacity: !focusNodes || focusNodes.has(n.id) ? 1 : 0.12 })))
+    ds.nodes.update(nodes.map((n) => {
+      const inFocus = !focusNodes || focusNodes.has(n.id)
+      return hide
+        ? { id: n.id, hidden: !inFocus, opacity: 1 }
+        : { id: n.id, hidden: false, opacity: inFocus ? 1 : 0.12 }
+    }))
     ds.edges.update(edges.map((e) => {
       const s = edgeStyle(e)
-      const on = !focusEdges
-        ? true
-        : focusEdges.has(e.id) || (!!focusNodes && focusNodes.has(e.source_id) && focusNodes.has(e.target_id))
-      return { id: e.id, color: { color: s.color, opacity: on ? 0.9 : 0.04 }, font: { color: on ? '#64748b' : 'rgba(100,116,139,0.05)' } }
+      const bothIn = !!focusNodes && focusNodes.has(e.source_id) && focusNodes.has(e.target_id)
+      const on = focusEdges ? (focusEdges.has(e.id) || bothIn) : (focusNodes ? bothIn : true)
+      return hide
+        ? { id: e.id, hidden: !on, color: { color: s.color, opacity: 0.9 }, font: { color: '#64748b' } }
+        : { id: e.id, hidden: false, color: { color: s.color, opacity: on ? 0.9 : 0.04 }, font: { color: on ? '#64748b' : 'rgba(100,116,139,0.05)' } }
     }))
     if (netRef.current && focusNodes && focusNodes.size > 0) {
       netRef.current.fit({ nodes: [...focusNodes], animation: { duration: 700, easingFunction: 'easeInOutCubic' } })
@@ -337,7 +348,7 @@ export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) 
     const n = nodeById.get(id)
     if (!n) return
     const set = new Set<string>([id]); adj.get(id)?.forEach((x) => set.add(x))
-    applyFocus(set, null)
+    applyFocus(set, null, true)
     const conn = edges.filter((e) => e.source_id === id || e.target_id === id)
     const other = (e: SnaEdge) => nodeById.get(e.source_id === id ? e.target_id : e.source_id)
 
@@ -511,6 +522,90 @@ export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) 
     }
   }
 
+  // ---- natural-language analysis query ----------------------------------
+  // maps a free-text request to the closest scenario / focused view, like the
+  // data-pipeline goal bar, and writes a textual answer into the insight drawer.
+  function focusIsolation(q: string) {
+    const iso = nodes.filter((n) => n.group === 'child_isolated' || n.is_isolated).map((n) => n.id)
+    applyFocus(neighborhood(iso), null, true)
+    setReport({
+      title: '고립 위험 분석',
+      body: (
+        <div>
+          <p className="text-[12px] text-ink-faint mb-2">질의: “{q}”</p>
+          {list('고립·관찰요망 아동', (insights?.isolated ?? []).map((m) => `${m.name}${m.class_name ? ` · ${m.class_name}` : ''}`), 'text-slate-700')}
+          <p className="text-[12px] text-ink-soft mt-1">{iso.length === 0 ? '뚜렷한 고립 신호가 없습니다.' : '고립 아동의 선호 공간·관심사를 매개로 또래 짝 활동을 배정하고 담당 교사 관찰 빈도를 높이세요.'}</p>
+        </div>
+      ),
+    })
+  }
+  function focusConflict(q: string) {
+    const inv = edges.filter((e) => e.has_conflict || e.relation_type === 'conflict' || (e.label ?? '').includes('갈등') || (e.label ?? '').includes('분쟁'))
+    const fn = new Set<string>(); inv.forEach((e) => { fn.add(e.source_id); fn.add(e.target_id) })
+    applyFocus(fn, new Set(inv.map((e) => e.id)), true)
+    setReport({
+      title: '갈등 관계 분석',
+      body: (
+        <div>
+          <p className="text-[12px] text-ink-faint mb-2">질의: “{q}”</p>
+          {list('갈등 쌍', inv.map((e) => `${nodeById.get(e.source_id)?.name ?? ''} ↔ ${nodeById.get(e.target_id)?.name ?? ''} · ${e.label ?? '갈등'}`), 'text-red-600')}
+          <p className="text-[12px] text-ink-soft mt-1">{inv.length === 0 ? '감지된 갈등 엣지가 없습니다.' : '갈등 쌍은 좌석·활동을 분리하고 중재 프로그램을 적용하세요.'}</p>
+        </div>
+      ),
+    })
+  }
+  function focusStructure(q: string) {
+    const ids = [...(insights?.top_brokers ?? []).map((b) => b.child_id), ...(insights?.most_influential ?? []).map((b) => b.child_id)]
+    applyFocus(neighborhood(ids), null, true)
+    setReport({
+      title: '관계망 구조 분석',
+      body: (
+        <div>
+          <p className="text-[12px] text-ink-faint mb-2">질의: “{q}”</p>
+          {list('핵심 매개자 (허브)', (insights?.top_brokers ?? []).slice(0, 5).map((b) => `${b.name} · 매개 ${b.betweenness.toFixed(1)}`), 'text-emerald-600')}
+          {list('영향력 상위', (insights?.most_influential ?? []).slice(0, 5).map((b) => `${b.name} · ${b.eigenvector.toFixed(2)}`), 'text-indigo-600')}
+          <p className="text-[12px] text-ink-soft mt-1">허브 아동에 의존이 집중되면 부재 시 관계망이 분열될 수 있습니다 — 퀘스트의 허브 붕괴 시뮬레이션으로 정밀 분석하세요.</p>
+        </div>
+      ),
+    })
+  }
+
+  const ANALYZE_RULES: { re: RegExp; scenario?: string; fn?: (q: string) => void }[] = [
+    { re: /고립|외톨이|혼자|소외|친구\s*없/, fn: focusIsolation },
+    { re: /갈등|싸움|다툼|분쟁|괴롭/, fn: focusConflict },
+    { re: /허브|중재자|매개|영향력|네트워크|구조|핵심/, fn: focusStructure },
+    { re: /전염|감염|질병|확산|독감|유행|보건|건강|아픈/, scenario: 'health' },
+    { re: /알레르|알러지|식단|급식|편식|영양/, scenario: 'diet' },
+    { re: /멘토|튜터|또래|짝꿍|짝/, scenario: 'tutor' },
+    { re: /선호|기피|공간|교실|환경/, scenario: 'preference' },
+    { re: /성취|학습|보충|학력|성적/, scenario: 'achievement' },
+    { re: /생태계|vms|콘텐츠/i, scenario: 'ecosystem' },
+  ]
+
+  function runAnalysis() {
+    const q = analysisQuery.trim()
+    if (!q) return
+    setAnalysisError(false)
+    // 1) explicit name match → focus that object
+    const named = nodes.find((n) => n.name.toLowerCase().includes(q.toLowerCase()))
+    if (named && q.length >= 2) { netRef.current?.selectNodes?.([named.id]); focusNode(named.id); return }
+    // 2) intent rules → scenario / focused view
+    const rule = ANALYZE_RULES.find((r) => r.re.test(q))
+    if (rule?.fn) { rule.fn(q); return }
+    if (rule?.scenario) { runScenario(rule.scenario); return }
+    // 3) fallback → overview answer
+    setAnalysisError(true)
+    setReport({
+      title: 'Athenae AI 리포트',
+      body: (
+        <div>
+          <p className="text-[12px] text-ink-faint mb-2">질의: “{q}”</p>
+          <p className="text-[12px] text-ink-soft">특정 분석 의도를 찾지 못했습니다. 아동 이름을 입력하거나 “고립”, “갈등”, “보건”, “알레르기”, “또래 튜터”, “공간 선호”, “학습 성취”, “허브 구조” 같은 키워드로 질의해 보세요.</p>
+        </div>
+      ),
+    })
+  }
+
   async function handleRecompute() {
     if (!centerId) return
     setRecomputing(true)
@@ -568,6 +663,18 @@ export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) 
             <button onClick={search} className="h-9 px-3 rounded-[3px] bg-ink text-white text-[12px] hover:opacity-90">검색</button>
           </div>
           {searchError && <p className="text-[11px] text-danger mt-1.5">검색 결과가 존재하지 않습니다.</p>}
+        </div>
+
+        {/* AI analysis query — natural-language → focused insight */}
+        <div className="mb-4 pb-4 border-b border-line">
+          <p className="text-[11px] font-semibold text-ink-faint uppercase tracking-[0.1em] mb-2">AI 분석 질의</p>
+          <div className="flex gap-1.5">
+            <input value={analysisQuery} onChange={(e) => { setAnalysisQuery(e.target.value); setAnalysisError(false) }} onKeyDown={(e) => e.key === 'Enter' && runAnalysis()}
+              placeholder="예: 고립 위험 아동 · 갈등 관계 · 보건 전파 · 알레르기"
+              className="flex-1 h-9 px-3 bg-fill-2 border border-line rounded-[3px] text-[13px] text-ink placeholder-ink-ghost focus:outline-none focus:border-accent" />
+            <button onClick={runAnalysis} className="h-9 px-3 rounded-[3px] bg-accent text-white text-[12px] hover:bg-accent-hover whitespace-nowrap">분석</button>
+          </div>
+          {analysisError && <p className="text-[11px] text-warn mt-1.5">분석 의도를 찾지 못했습니다. 키워드를 바꿔 보세요.</p>}
         </div>
 
         {/* scope */}
