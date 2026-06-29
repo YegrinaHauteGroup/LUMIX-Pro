@@ -39,16 +39,10 @@ export function HeaderTools() {
 
   return (
     <div className="flex items-center gap-2">
-      {/* live clock — one block, same height as the header buttons */}
-      <div className="hidden md:flex items-center gap-1.5 h-8 px-2.5 rounded-[3px] border border-line bg-fill leading-none">
-        <span className="text-[11px] text-ink-faint tabular-nums">{date}</span>
-        <span className="text-[12.5px] tabular-nums text-ink tracking-tight">{hhmm}</span>
-      </div>
-
-      {/* emergency — same height as the other header buttons */}
+      {/* emergency first — muted, darker red (less alarming bright red) */}
       <div ref={wrap} className="relative">
         <button onClick={() => setOpen((v) => !v)} title="응급 상황"
-          className="flex items-center h-8 px-2.5 rounded-[3px] bg-danger text-white text-[10px] font-bold tracking-[0.06em] hover:opacity-90 transition-opacity">
+          className="flex items-center h-8 px-2.5 rounded-[3px] bg-[#a4524b] text-white/95 text-[10px] font-bold tracking-[0.06em] hover:bg-[#8f463f] transition-colors">
           EMERGENCY
         </button>
         {open && (
@@ -97,6 +91,12 @@ export function HeaderTools() {
             )}
           </div>
         )}
+      </div>
+
+      {/* live clock — one block, same height as the header buttons */}
+      <div className="hidden md:flex items-center gap-1.5 h-8 px-2.5 rounded-[3px] border border-line bg-fill leading-none">
+        <span className="text-[11px] text-ink-faint tabular-nums">{date}</span>
+        <span className="text-[12.5px] tabular-nums text-ink tracking-tight">{hhmm}</span>
       </div>
     </div>
   )

@@ -104,7 +104,6 @@ export default async function DashboardPage() {
   const genderStats = [
     { name: '남아', value: children.filter((c) => c.gender === 'male').length },
     { name: '여아', value: children.filter((c) => c.gender === 'female').length },
-    { name: '기타', value: children.filter((c) => c.gender === 'other').length },
   ].filter((s) => s.value > 0)
 
   const statusStats = [

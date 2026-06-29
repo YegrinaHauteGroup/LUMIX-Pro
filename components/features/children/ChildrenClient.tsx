@@ -40,7 +40,7 @@ export function ChildrenClient({ initialChildren, classes, centerId }: Props) {
   const [search, setSearch] = useState('')
   const [filterStatus, setFilterStatus] = useState<Child['status'] | 'all'>('all')
   const [filterClass, setFilterClass] = useState('all')
-  const [filterGender, setFilterGender] = useState<'all' | 'male' | 'female' | 'other'>('all')
+  const [filterGender, setFilterGender] = useState<'all' | 'male' | 'female'>('all')
   const [groupBy, setGroupBy] = useState<'none' | 'gender' | 'age' | 'class'>('none')
   const [page, setPage] = useState(1)
   const PAGE_SIZE = 50
@@ -213,7 +213,6 @@ export function ChildrenClient({ initialChildren, classes, centerId }: Props) {
           <option value="all">전체 성별</option>
           <option value="male">남아</option>
           <option value="female">여아</option>
-          <option value="other">기타</option>
         </select>
         <select
           value={groupBy}
@@ -308,7 +307,6 @@ export function ChildrenClient({ initialChildren, classes, centerId }: Props) {
               onChange={(e) => setForm({ ...form, gender: e.target.value as Child['gender'] })}>
               <option value="male">남</option>
               <option value="female">여</option>
-              <option value="other">기타</option>
             </Select>
             <Select label="반" value={form.class_id}
               onChange={(e) => setForm({ ...form, class_id: e.target.value })}>

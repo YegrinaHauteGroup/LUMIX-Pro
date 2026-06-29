@@ -242,7 +242,7 @@ export function ChildDetailClient({ child, centerId, classes, staff, health, lin
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <Select label="성별" value={form.gender} onChange={(e) => set('gender', e.target.value as Child['gender'])}>
-                    <option value="male">남</option><option value="female">여</option><option value="other">기타</option>
+                    <option value="male">남</option><option value="female">여</option>
                   </Select>
                   <Select label="재원 상태" value={form.status} onChange={(e) => set('status', e.target.value as Child['status'])}>
                     <option value="active">재원</option><option value="leave">휴원</option><option value="inactive">퇴원</option>

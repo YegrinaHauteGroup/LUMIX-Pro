@@ -477,7 +477,8 @@ export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) 
 
   // ---- scenarios (data-driven over the real graph) ----------------------
   function runScenario(type: string) {
-    if (scope !== 'ALL') { setScope('ALL'); applyVisibility('ALL') }
+    // keep the current 조회 범위 (scope) — applyFocus respects it via baseHidden,
+    // so a Vertex simulation insight is shown within the selected class scope
     const childIds = (kind: (n: SnaNode) => boolean) => nodes.filter(kind).map((n) => n.id)
 
     if (type === 'achievement') {

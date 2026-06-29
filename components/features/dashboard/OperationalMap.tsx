@@ -421,8 +421,8 @@ export function OperationalMap({ lat, lng, label, airPm25, airGrade }: Props) {
         .leaflet-control-attribution a{color:#137cbd}`}</style>
       <div ref={elRef} className="absolute inset-0" />
 
-      {/* Title + live briefing (left stack) */}
-      <div className="absolute top-2.5 left-2.5 z-[500] flex flex-col gap-1.5 w-[230px]">
+      {/* Title + briefing + 주변 현황 + 대응 자산 — one left stack, unified width */}
+      <div className="absolute top-2.5 left-2.5 bottom-2.5 z-[500] flex flex-col gap-1.5 w-[230px] overflow-y-auto no-scrollbar">
         <div className={`${panel} px-3 py-2`}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5">
@@ -457,28 +457,78 @@ export function OperationalMap({ lat, lng, label, airPm25, airGrade }: Props) {
             </div>
           </div>
         </div>
+
+        {/* 주변 현황 — moved under the briefing, unified width */}
+        <div className={`${panel} overflow-hidden`}>
+          <div className="px-2.5 py-1.5 border-b border-line flex items-center gap-1.5">
+            <ShieldAlert size={11} className="text-accent" />
+            <span className="text-[9.5px] font-semibold text-ink-faint uppercase tracking-wider">주변 현황</span>
+          </div>
+          <div className="px-2.5 py-1.5 space-y-1">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[10px] text-ink-faint">대기질</span>
+              <span className="text-[10px] font-medium" style={{ color: risk?.color ?? '#8a9ba8' }}>{risk?.text ?? '데이터 없음'}</span>
+            </div>
+            {(([['medical', '최근접 의료'], ['police', '최근접 경찰'], ['fire', '최근접 소방'], ['pharmacy', '최근접 약국']]) as [CatKey, string][]).map(([k, lbl]) => {
+              const nx = nearest[k]
+              return (
+                <div key={k} className="flex items-center justify-between gap-2">
+                  <span className="flex items-center gap-1.5 min-w-0">
+                    <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: CATS[k].color }} />
+                    <span className="text-[10px] text-ink-faint truncate" title={nx?.name}>{nx ? nx.name : lbl}</span>
+                  </span>
+                  <span className="text-[10px] font-mono text-ink-soft tabular-nums shrink-0">{nx ? `${fmtD(nx.d)} ${nx.dir}` : '—'}</span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* 대응 자산 레이어 — moved under 주변 현황, unified width */}
+        <div className={`${panel} overflow-hidden`}>
+          <div className="px-2.5 py-1.5 border-b border-line flex items-center justify-between">
+            <span className="text-[9.5px] font-semibold text-ink-faint uppercase tracking-wider">대응 자산 레이어</span>
+            <button onClick={loadPois} title="새로고침" className="text-ink-ghost hover:text-ink"><RefreshCw size={11} className={loadingPois ? 'animate-spin' : ''} /></button>
+          </div>
+          <div className="p-1.5 grid grid-cols-2 gap-1">
+            {(Object.keys(CATS) as CatKey[]).map((k) => {
+              const on = active[k]; const n = pois.filter((p) => p.cat === k).length
+              return (
+                <button key={k} onClick={() => setActive((a) => ({ ...a, [k]: !a[k] }))}
+                  className={`flex items-center justify-between gap-1 px-1.5 py-1 rounded-[3px] border text-[10px] transition-colors ${on ? 'bg-fill border-line text-ink' : 'border-transparent text-ink-ghost hover:bg-fill/60'}`}>
+                  <span className="flex items-center gap-1.5 min-w-0">
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{ background: on ? CATS[k].color : '#c1ccd6' }} />
+                    <span className="truncate">{CATS[k].label}</span>
+                  </span>
+                  <span className="font-mono tabular-nums text-ink-faint shrink-0">{n}</span>
+                </button>
+              )
+            })}
+          </div>
+          {poiErr && <p className="px-2 pb-1.5 text-[9px] text-danger">주변 정보를 불러오지 못했습니다.</p>}
+        </div>
       </div>
 
-      {/* Unified control bar — 2D / 위성 / 위치초기화 / ± (top center) */}
-      <div className={`absolute top-2.5 left-1/2 -translate-x-1/2 z-[500] flex items-center ${panel} p-0.5`}>
-        <button onClick={() => setView('light')} className={`${ctrlBtn} ${view === 'light' ? 'bg-accent text-white' : 'text-ink-soft hover:bg-fill'}`}><Layers size={11} /> 2D</button>
-        <button onClick={() => setView('sat')} className={`${ctrlBtn} ${view === 'sat' ? 'bg-accent text-white' : 'text-ink-soft hover:bg-fill'}`}><Satellite size={11} /> 위성</button>
-        <span className="w-px h-4 bg-line mx-0.5" />
-        <button onClick={recenter} title="위치 초기화" className={`${ctrlBtn} text-ink-soft hover:bg-fill`}><Locate size={12} /></button>
-        <span className="w-px h-4 bg-line mx-0.5" />
-        <button onClick={() => zoom(-1)} title="축소" className={`${ctrlBtn} text-ink-soft hover:bg-fill`}><Minus size={13} /></button>
-        <button onClick={() => zoom(1)} title="확대" className={`${ctrlBtn} text-ink-soft hover:bg-fill`}><Plus size={13} /></button>
-        <span className="w-px h-4 bg-line mx-0.5" />
-        <button onClick={() => setShowSaved((v) => !v)} title="내 장소 표시" className={`${ctrlBtn} ${showSaved ? 'text-[#d98a00]' : 'text-ink-soft hover:bg-fill'}`}><Star size={12} className={showSaved ? 'fill-[#f5a623]' : ''} /> {savedPlaces.length}</button>
-      </div>
-
-      {/* Search + selected-place info card (top-right) */}
+      {/* Merged control + search panel (top-right, where search was) — map/view
+          controls on top, facility/place search below (stacked) */}
       <div className="absolute top-2.5 right-2.5 z-[600] w-[250px] flex flex-col gap-1.5">
-        <div className={`${panel} flex items-center gap-1.5 px-2.5 py-1.5`}>
-          <Search size={13} className="text-ink-faint shrink-0" />
-          <input value={searchQ} onChange={(e) => { setSearchQ(e.target.value); setSearchOpen(true) }} onFocus={() => setSearchOpen(true)}
-            placeholder="시설·기관·장소 검색" className="flex-1 min-w-0 bg-transparent text-[11.5px] text-ink placeholder:text-ink-ghost outline-none" />
-          {searchQ && <button onClick={() => { setSearchQ(''); setRemoteResults([]) }} className="text-ink-faint hover:text-ink shrink-0"><X size={12} /></button>}
+        <div className={`${panel} overflow-hidden`}>
+          <div className="flex items-center p-0.5 border-b border-line">
+            <button onClick={() => setView('light')} className={`${ctrlBtn} ${view === 'light' ? 'bg-accent text-white' : 'text-ink-soft hover:bg-fill'}`}><Layers size={11} /> 2D</button>
+            <button onClick={() => setView('sat')} className={`${ctrlBtn} ${view === 'sat' ? 'bg-accent text-white' : 'text-ink-soft hover:bg-fill'}`}><Satellite size={11} /> 위성</button>
+            <span className="w-px h-4 bg-line mx-0.5" />
+            <button onClick={recenter} title="위치 초기화" className={`${ctrlBtn} text-ink-soft hover:bg-fill`}><Locate size={12} /></button>
+            <button onClick={() => zoom(-1)} title="축소" className={`${ctrlBtn} text-ink-soft hover:bg-fill`}><Minus size={13} /></button>
+            <button onClick={() => zoom(1)} title="확대" className={`${ctrlBtn} text-ink-soft hover:bg-fill`}><Plus size={13} /></button>
+            <span className="w-px h-4 bg-line mx-0.5" />
+            <button onClick={() => setShowSaved((v) => !v)} title="내 장소 표시" className={`${ctrlBtn} ${showSaved ? 'text-[#d98a00]' : 'text-ink-soft hover:bg-fill'}`}><Star size={12} className={showSaved ? 'fill-[#f5a623]' : ''} /> {savedPlaces.length}</button>
+          </div>
+          <div className="flex items-center gap-1.5 px-2.5 py-1.5">
+            <Search size={13} className="text-ink-faint shrink-0" />
+            <input value={searchQ} onChange={(e) => { setSearchQ(e.target.value); setSearchOpen(true) }} onFocus={() => setSearchOpen(true)}
+              placeholder="시설·기관·장소 검색" className="flex-1 min-w-0 bg-transparent text-[11.5px] text-ink placeholder:text-ink-ghost outline-none" />
+            {searchQ && <button onClick={() => { setSearchQ(''); setRemoteResults([]) }} className="text-ink-faint hover:text-ink shrink-0"><X size={12} /></button>}
+          </div>
         </div>
 
         {searchOpen && searchResults.length > 0 && (
@@ -540,57 +590,6 @@ export function OperationalMap({ lat, lng, label, airPm25, airGrade }: Props) {
             </div>
           </div>
         )}
-      </div>
-
-      {/* 주변 현황 + 대응 자산 — stacked vertically, unified width (bottom-right) */}
-      <div className="absolute bottom-2.5 right-2.5 z-[500] flex flex-col gap-1.5 w-[212px]">
-        <div className={`${panel} overflow-hidden`}>
-          <div className="px-2.5 py-1.5 border-b border-line flex items-center gap-1.5">
-            <ShieldAlert size={11} className="text-accent" />
-            <span className="text-[9.5px] font-semibold text-ink-faint uppercase tracking-wider">주변 현황</span>
-          </div>
-          <div className="px-2.5 py-1.5 space-y-1">
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-[10px] text-ink-faint">대기질</span>
-              <span className="text-[10px] font-medium" style={{ color: risk?.color ?? '#8a9ba8' }}>{risk?.text ?? '데이터 없음'}</span>
-            </div>
-            {(([['medical', '최근접 의료'], ['police', '최근접 경찰'], ['fire', '최근접 소방'], ['pharmacy', '최근접 약국']]) as [CatKey, string][]).map(([k, lbl]) => {
-              const nx = nearest[k]
-              return (
-                <div key={k} className="flex items-center justify-between gap-2">
-                  <span className="flex items-center gap-1.5 min-w-0">
-                    <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: CATS[k].color }} />
-                    <span className="text-[10px] text-ink-faint truncate" title={nx?.name}>{nx ? nx.name : lbl}</span>
-                  </span>
-                  <span className="text-[10px] font-mono text-ink-soft tabular-nums shrink-0">{nx ? `${fmtD(nx.d)} ${nx.dir}` : '—'}</span>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-
-        <div className={`${panel} overflow-hidden`}>
-          <div className="px-2.5 py-1.5 border-b border-line flex items-center justify-between">
-            <span className="text-[9.5px] font-semibold text-ink-faint uppercase tracking-wider">대응 자산 레이어</span>
-            <button onClick={loadPois} title="새로고침" className="text-ink-ghost hover:text-ink"><RefreshCw size={11} className={loadingPois ? 'animate-spin' : ''} /></button>
-          </div>
-          <div className="p-1.5 grid grid-cols-2 gap-1">
-            {(Object.keys(CATS) as CatKey[]).map((k) => {
-              const on = active[k]; const n = pois.filter((p) => p.cat === k).length
-              return (
-                <button key={k} onClick={() => setActive((a) => ({ ...a, [k]: !a[k] }))}
-                  className={`flex items-center justify-between gap-1 px-1.5 py-1 rounded-[3px] border text-[10px] transition-colors ${on ? 'bg-fill border-line text-ink' : 'border-transparent text-ink-ghost hover:bg-fill/60'}`}>
-                  <span className="flex items-center gap-1.5 min-w-0">
-                    <span className="w-2 h-2 rounded-full shrink-0" style={{ background: on ? CATS[k].color : '#c1ccd6' }} />
-                    <span className="truncate">{CATS[k].label}</span>
-                  </span>
-                  <span className="font-mono tabular-nums text-ink-faint shrink-0">{n}</span>
-                </button>
-              )
-            })}
-          </div>
-          {poiErr && <p className="px-2 pb-1.5 text-[9px] text-danger">주변 정보를 불러오지 못했습니다.</p>}
-        </div>
       </div>
     </div>
   )

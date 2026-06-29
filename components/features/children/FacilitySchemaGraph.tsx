@@ -54,6 +54,21 @@ export function FacilitySchemaGraph({ facilityName, classes, unassigned }: Props
     if (d && !d.moved) onClick()
   }
 
+  // drag the empty canvas background to pan freely (node drags stopPropagation,
+  // so this only fires on the background)
+  const pan = useRef<{ x: number; y: number; sl: number; st: number } | null>(null)
+  function bgDown(e: React.PointerEvent) {
+    if (!scrollRef.current) return
+    pan.current = { x: e.clientX, y: e.clientY, sl: scrollRef.current.scrollLeft, st: scrollRef.current.scrollTop }
+    ;(e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId)
+  }
+  function bgMove(e: React.PointerEvent) {
+    const p = pan.current; if (!p || !scrollRef.current) return
+    scrollRef.current.scrollLeft = p.sl - (e.clientX - p.x)
+    scrollRef.current.scrollTop = p.st - (e.clientY - p.y)
+  }
+  function bgUp() { pan.current = null }
+
   // wheel zoom (with limits); preventDefault so it zooms instead of scrolling
   useEffect(() => {
     const el = scrollRef.current
@@ -122,7 +137,9 @@ export function FacilitySchemaGraph({ facilityName, classes, unassigned }: Props
           </div>
         </div>
         <div ref={scrollRef} className="flex-1 min-h-0 overflow-auto bg-fill-2" style={{ backgroundImage: 'linear-gradient(#e7ecf1 1px, transparent 1px), linear-gradient(90deg, #e7ecf1 1px, transparent 1px)', backgroundSize: '24px 24px' }}>
-          <div style={{ width: canvasW * zoom, height: canvasH * zoom }}>
+          <div style={{ width: canvasW * zoom, height: canvasH * zoom }}
+            onPointerDown={bgDown} onPointerMove={bgMove} onPointerUp={bgUp}
+            className={pan.current ? 'cursor-grabbing' : 'cursor-grab'}>
           <div className="relative origin-top-left" style={{ width: canvasW, height: canvasH, transform: `scale(${zoom})` }}>
             <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ width: canvasW, height: canvasH }}>
               {filteredGroups.map((c, i) => {

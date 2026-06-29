@@ -27,9 +27,11 @@ export function Drawer({ open, onClose, title, subtitle, children, footer, width
 
   return (
     <>
+      {/* starts below the 48px header (top-12) so the drawer + its dim overlay
+          never cover the header */}
       <div
         style={{ right: 'var(--workspace-w, 0px)' }}
-        className={cn('fixed inset-y-0 left-0 z-40 bg-[#10161a]/20 transition-opacity duration-200', open ? 'opacity-100' : 'opacity-0 pointer-events-none')}
+        className={cn('fixed top-12 bottom-0 left-0 z-40 bg-[#10161a]/20 transition-opacity duration-200', open ? 'opacity-100' : 'opacity-0 pointer-events-none')}
         onClick={onClose}
       />
       {/* Clipping viewport: spans from the left up to the workspace's left edge
@@ -37,7 +39,7 @@ export function Drawer({ open, onClose, title, subtitle, children, footer, width
           workspace and never travels across it. */}
       <div
         style={{ right: 'var(--workspace-w, 0px)' }}
-        className="fixed inset-y-0 left-0 z-50 overflow-hidden pointer-events-none"
+        className="fixed top-12 bottom-0 left-0 z-50 overflow-hidden pointer-events-none"
       >
         <aside
           style={{ width }}
