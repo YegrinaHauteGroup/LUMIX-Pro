@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/Card'
 import { Input, Select, Textarea } from '@/components/ui/Input'
 import { Drawer } from '@/components/ui/Drawer'
 import { CHILD_STATUS_COLORS, CHILD_STATUS_LABELS, GENDER_LABELS, calculateAge } from '@/lib/utils'
+import { childFormSchema, parseOr } from '@/lib/validation'
 import type { Child, Class } from '@/lib/types'
 import { createClient } from '@/utils/supabase/client'
 import { ExternalLink, Pencil, Plus, Search, Trash2, Users } from 'lucide-react'
@@ -40,6 +41,8 @@ export function ChildrenClient({ initialChildren, classes, centerId }: Props) {
   const [filterClass, setFilterClass] = useState('all')
   const [filterGender, setFilterGender] = useState<'all' | 'male' | 'female' | 'other'>('all')
   const [groupBy, setGroupBy] = useState<'none' | 'gender' | 'age' | 'class'>('none')
+  const [page, setPage] = useState(1)
+  const PAGE_SIZE = 50
   // drawer: add (editId === 'new') / edit (editId === child.id) / closed (null)
   const [editId, setEditId] = useState<string | null>(null)
   const [pendingDel, setPendingDel] = useState<string | null>(null)
@@ -78,6 +81,10 @@ export function ChildrenClient({ initialChildren, classes, centerId }: Props) {
     filtered.forEach((c) => { const k = groupKeyOf(c); (m.get(k) ?? m.set(k, []).get(k)!).push(c) })
     return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0], 'ko'))
   })()
+  // pagination applies to the flat (ungrouped) view (C4)
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const safePage = Math.min(page, totalPages)
+  const pageRows = grouped ? null : filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
 
   function openAdd() { setForm(emptyForm); setError(''); setEditId('new') }
   function openEdit(c: Child) {
@@ -93,9 +100,11 @@ export function ChildrenClient({ initialChildren, classes, centerId }: Props) {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!centerId) { setError('센터 정보를 찾을 수 없습니다.'); return }
+    const valid = parseOr(childFormSchema, form)
+    if (!valid.ok) { setError(valid.error); return }
     setLoading(true); setError('')
     const payload = {
-      name: form.name,
+      name: form.name.trim(),
       birth_date: form.birth_date || null,
       gender: form.gender,
       class_id: form.class_id || null,
@@ -170,13 +179,13 @@ export function ChildrenClient({ initialChildren, classes, centerId }: Props) {
             type="text"
             placeholder="이름 검색"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => { setSearch(e.target.value); setPage(1) }}
             className="w-44 bg-fill-2 border border-line pl-8 pr-3 py-1.5 text-[12px] text-ink placeholder-ink-ghost focus:outline-none focus:border-accent h-8 rounded-[3px]"
           />
         </div>
         <select
           value={filterStatus}
-          onChange={(e) => setFilterStatus(e.target.value as typeof filterStatus)}
+          onChange={(e) => { setFilterStatus(e.target.value as typeof filterStatus); setPage(1) }}
           className="bg-fill-2 border border-line px-3 py-1.5 text-[12px] text-ink-soft focus:outline-none focus:border-accent h-8 rounded-[3px] cursor-pointer"
         >
           <option value="all">전체 상태</option>
@@ -186,7 +195,7 @@ export function ChildrenClient({ initialChildren, classes, centerId }: Props) {
         </select>
         <select
           value={filterClass}
-          onChange={(e) => setFilterClass(e.target.value)}
+          onChange={(e) => { setFilterClass(e.target.value); setPage(1) }}
           className="bg-fill-2 border border-line px-3 py-1.5 text-[12px] text-ink-soft focus:outline-none focus:border-accent h-8 rounded-[3px] cursor-pointer"
         >
           <option value="all">전체 반</option>
@@ -194,7 +203,7 @@ export function ChildrenClient({ initialChildren, classes, centerId }: Props) {
         </select>
         <select
           value={filterGender}
-          onChange={(e) => setFilterGender(e.target.value as typeof filterGender)}
+          onChange={(e) => { setFilterGender(e.target.value as typeof filterGender); setPage(1) }}
           className="bg-fill-2 border border-line px-3 py-1.5 text-[12px] text-ink-soft focus:outline-none focus:border-accent h-8 rounded-[3px] cursor-pointer"
         >
           <option value="all">전체 성별</option>
@@ -250,11 +259,22 @@ export function ChildrenClient({ initialChildren, classes, centerId }: Props) {
                     {rows.map(renderRow)}
                   </Fragment>
                 ))
-              ) : filtered.map(renderRow)}
+              ) : (pageRows ?? filtered).map(renderRow)}
             </tbody>
           </table>
         </div>
       </Card>
+
+      {/* pagination (flat view only) */}
+      {!grouped && totalPages > 1 && (
+        <div className="shrink-0 flex items-center justify-end gap-2 text-[11px] text-ink-faint">
+          <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={safePage <= 1}
+            className="h-7 px-2.5 rounded-[3px] border border-line text-ink-soft hover:bg-fill disabled:opacity-40">이전</button>
+          <span className="font-data tabular-nums">{safePage} / {totalPages}</span>
+          <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={safePage >= totalPages}
+            className="h-7 px-2.5 rounded-[3px] border border-line text-ink-soft hover:bg-fill disabled:opacity-40">다음</button>
+        </div>
+      )}
 
       {/* Add / Edit drawer (right side, Foundry-style) */}
       <Drawer

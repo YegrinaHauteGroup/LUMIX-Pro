@@ -1,5 +1,6 @@
 import { createClient } from '@/utils/supabase/server'
 import { getCenterId } from '@/lib/center'
+import { integrateMemosSchema, parseOr } from '@/lib/validation'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 
@@ -25,8 +26,9 @@ export async function POST(req: Request) {
   const centerId = await getCenterId()
   if (!centerId) return NextResponse.json({ ok: false, error: 'no center' }, { status: 400 })
 
-  const body = await req.json().catch(() => ({})) as { memos?: { title?: string; body?: string; mentions?: string[]; source?: string }[] }
-  const memos = (body.memos ?? []).filter((m) => (m.body ?? '').trim() !== '' || (m.title ?? '').trim() !== '')
+  const parsed = parseOr(integrateMemosSchema, await req.json().catch(() => ({})))
+  if (!parsed.ok) return NextResponse.json({ ok: false, error: parsed.error }, { status: 400 })
+  const memos = parsed.data.memos.filter((m) => (m.body ?? '').trim() !== '' || (m.title ?? '').trim() !== '')
   if (memos.length === 0) return NextResponse.json({ ok: false, error: 'empty' }, { status: 400 })
 
   const { data: { user } } = await supabase.auth.getUser()
