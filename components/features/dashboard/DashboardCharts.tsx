@@ -178,6 +178,7 @@ export function AttendanceTrendPanel({ attendanceTrend, compact }: { attendanceT
   const nudge = (dx: number) => scrollRef.current?.scrollBy({ left: dx, behavior: 'smooth' })
   return (
     <PanelCard title="최근 14일 출결 추이" subtitle="출석·지각·결석 복합 추이"
+      dragTable={{ cols: ['날짜', '출석', '지각', '조퇴', '결석'], rows: trendRows }}
       className={compact ? 'h-full min-h-0' : undefined}
       bodyClassName={compact ? 'min-h-0 !px-1 !py-1.5' : undefined}
       headerRight={compact ? (
@@ -209,6 +210,7 @@ export function DashboardCharts({ genderStats, statusStats, classStats, ageStats
     <div className={layout === 'stack' ? 'grid grid-cols-1 gap-2.5' : 'grid grid-cols-1 sm:grid-cols-2 gap-3'}>
       {monthlyData && (
         <PanelCard title="월별 아동 등록 추이" subtitle="최근 6개월 신규 등록"
+          dragTable={{ cols: ['월', '등록'], rows: monthlyData.map((d) => [d.month, d.등록]) }}
           detailTitle="월별 등록 추이 상세" detail={
             <div className="space-y-4"><MonthlyArea data={monthlyData} h={300} /><DataTable cols={['월', '등록']} rows={monthlyData.map((d) => [d.month, d.등록])} /></div>
           }>
@@ -218,6 +220,7 @@ export function DashboardCharts({ genderStats, statusStats, classStats, ageStats
 
       {activityTypeData && (
         <PanelCard title="활동 유형 분포" subtitle="프로그램 유형별 구성"
+          dragTable={{ cols: ['유형', '건수'], rows: activityTypeData.map((d) => [d.name, d.value]) }}
           detailTitle="활동 유형 분포 상세" detail={
             <div className="space-y-4"><Donut data={activityTypeData} colors={['#3b7fb0', '#6b6fae', '#3f9e7c', '#c08a3e', '#5c7080']} h={260} /><DataTable cols={['유형', '건수']} rows={activityTypeData.map((d) => [d.name, d.value])} /></div>
           }>
@@ -226,6 +229,7 @@ export function DashboardCharts({ genderStats, statusStats, classStats, ageStats
       )}
 
       <PanelCard title="출결 구성 비율" subtitle="일별 100% 정규화 구성"
+        dragTable={{ cols: ['날짜', '출석', '지각', '조퇴', '결석'], rows: trendRows }}
         detailTitle="출결 구성 상세" detail={
           <div className="space-y-4"><CompositionChart data={attendanceTrend} h={320} /><DataTable cols={['날짜', '출석', '지각', '조퇴', '결석']} rows={trendRows} /></div>
         }>
@@ -233,6 +237,7 @@ export function DashboardCharts({ genderStats, statusStats, classStats, ageStats
       </PanelCard>
 
       <PanelCard title="관계망 분석 요약" subtitle="SNA 위험·구조 지표"
+        dragTable={{ cols: ['지표', '값'], rows: snaStats.map((s) => [s.label, s.value]) }}
         detailTitle="관계망 지표 상세" detail={
           <div className="space-y-4">
             <SnaBars data={snaStats} h={300} />
@@ -243,21 +248,25 @@ export function DashboardCharts({ genderStats, statusStats, classStats, ageStats
       </PanelCard>
 
       <PanelCard title="연령 분포" subtitle="재원 아동 연령 구성"
+        dragTable={{ cols: ['연령', '인원'], rows: ageStats.map((s) => [s.name, s.value]) }}
         detailTitle="연령 분포 상세" detail={<div className="space-y-4"><VBar data={ageStats} color="#2f8f9d" h={300} /><DataTable cols={['연령', '인원']} rows={ageStats.map((s) => [s.name, s.value])} /></div>}>
         <VBar data={ageStats} color="#2f8f9d" h={170} />
       </PanelCard>
 
       <PanelCard title="성별 현황"
+        dragTable={{ cols: ['성별', '인원'], rows: genderStats.map((s) => [s.name, s.value]) }}
         detailTitle="성별 현황 상세" detail={<div className="space-y-4"><Donut data={genderStats} colors={GENDER_COLORS} h={260} /><DataTable cols={['성별', '인원']} rows={genderStats.map((s) => [s.name, s.value])} /></div>}>
         <Donut data={genderStats} colors={GENDER_COLORS} h={150} />
       </PanelCard>
 
       <PanelCard title="재원 상태"
+        dragTable={{ cols: ['상태', '인원'], rows: statusStats.map((s) => [s.name, s.value]) }}
         detailTitle="재원 상태 상세" detail={<div className="space-y-4"><Donut data={statusStats} colors={STATUS_COLORS} h={260} /><DataTable cols={['상태', '인원']} rows={statusStats.map((s) => [s.name, s.value])} /></div>}>
         <Donut data={statusStats} colors={STATUS_COLORS} h={150} />
       </PanelCard>
 
       <PanelCard title="반별 아동 수"
+        dragTable={{ cols: ['반', '인원'], rows: classStats.map((s) => [s.name, s.value]) }}
         detailTitle="반별 아동 수 상세" detail={<div className="space-y-4"><VBar data={classStats} color="#3b7fb0" h={300} /><DataTable cols={['반', '인원']} rows={classStats.map((s) => [s.name, s.value])} /></div>}>
         <VBar data={classStats} color="#3b7fb0" h={170} />
       </PanelCard>

@@ -19,6 +19,8 @@ interface PanelCardProps {
   children: React.ReactNode
   className?: string
   bodyClassName?: string
+  /** underlying data carried into the workspace when the card is dragged */
+  dragTable?: { cols: string[]; rows: (string | number)[][] }
 }
 
 /**
@@ -28,13 +30,13 @@ interface PanelCardProps {
  */
 export function PanelCard({
   title, subtitle, onEdit, detail, detailTitle, detailSize = 'xl', headerRight,
-  children, className, bodyClassName,
+  children, className, bodyClassName, dragTable,
 }: PanelCardProps) {
   const [open, setOpen] = useState(false)
   return (
     <div draggable
       onMouseDown={(e) => { const i = (e.target as HTMLElement).closest('input,textarea,select,button,a,label,[contenteditable="true"]'); (e.currentTarget as HTMLDivElement).draggable = !i }}
-      onDragStart={(e) => cardDragStart(e, title)}
+      onDragStart={(e) => cardDragStart(e, title, undefined, dragTable)}
       className={cn('bg-surface border border-line rounded-[3px] shadow-[var(--shadow-card)] flex flex-col', className)}>
       <div className="flex items-center justify-between px-4 h-10 border-b border-line shrink-0">
         <div className="min-w-0">

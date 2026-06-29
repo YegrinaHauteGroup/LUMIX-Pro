@@ -13,6 +13,7 @@ export interface WorkspaceInfoItem extends BaseItem {
   subtitle?: string
   fields?: InfoField[]
   body?: string             // full self-contained snapshot (shown when expanded)
+  table?: { cols: string[]; rows: (string | number)[][] } // re-visualized chart data
   href?: string             // optional link back to the origin
   accent?: string
   expanded?: boolean

@@ -3,10 +3,11 @@
 import { useWorkspace, type SnapshotMeta, type WorkspaceFileItem, type WorkspaceInfoItem, type WorkspaceItem, type WorkspaceLinkItem } from '@/lib/workspace'
 import { hasCardDrag, parseCardDrop } from '@/lib/cardDrag'
 import { MemoPad } from './MemoPad'
+import { WorkspaceTools } from './WorkspaceTools'
 import Link from 'next/link'
 import { Modal } from '@/components/ui/Modal'
-import { Camera, ChevronDown, ChevronRight, Clock, Database, ExternalLink, FilePlus2, FileText, FolderOpen, Image as ImageIcon, Layers, Link2, Loader2, Maximize2, PanelRightClose, Paperclip, Save, Search, Trash2, X } from 'lucide-react'
-import { useMemo, useRef, useState } from 'react'
+import { Calculator, Camera, ChevronDown, ChevronRight, Clock, Database, ExternalLink, FilePlus2, FileText, FolderOpen, Image as ImageIcon, Layers, Link2, Loader2, Maximize2, PanelRightClose, Paperclip, Save, Search, Smartphone, Trash2, X } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 function matches(it: WorkspaceItem, q: string): boolean {
   if (!q) return true
@@ -18,11 +19,42 @@ function matches(it: WorkspaceItem, q: string): boolean {
   return hay.join(' ').toLowerCase().includes(q.toLowerCase())
 }
 
+/** Re-visualizes a dragged chart's data as a mini bar chart + source table. */
+function TableViz({ table, accent, open }: { table: { cols: string[]; rows: (string | number)[][] }; accent: string; open: boolean }) {
+  const cols = table.cols, rows = table.rows
+  // numeric column = the last column with numeric values
+  let valIdx = cols.length - 1
+  for (let j = cols.length - 1; j >= 1; j--) { if (rows.some((r) => !isNaN(Number(r[j])))) { valIdx = j; break } }
+  const nums = rows.map((r) => Number(r[valIdx]) || 0)
+  const max = Math.max(1, ...nums.map(Math.abs))
+  return (
+    <div className="mt-2 border-t border-line pt-2 space-y-2">
+      <div className="space-y-1">
+        {rows.slice(0, 10).map((r, i) => (
+          <div key={i} className="flex items-center gap-1.5">
+            <span className="text-[9.5px] text-ink-faint w-16 truncate shrink-0">{String(r[0])}</span>
+            <div className="flex-1 h-2 bg-fill rounded-full overflow-hidden"><div className="h-full rounded-full" style={{ width: `${(Math.abs(nums[i]) / max) * 100}%`, background: accent }} /></div>
+            <span className="text-[9.5px] font-data tabular-nums text-ink-soft w-9 text-right shrink-0">{r[valIdx]}</span>
+          </div>
+        ))}
+      </div>
+      {open && (
+        <div className="border border-line rounded-[2px] overflow-x-auto">
+          <table className="w-full text-[9.5px]">
+            <thead><tr className="bg-fill-2">{cols.map((c, j) => <th key={c} className={`px-1.5 py-1 text-ink-faint font-semibold ${j === 0 ? 'text-left' : 'text-right'}`}>{c}</th>)}</tr></thead>
+            <tbody>{rows.map((r, i) => <tr key={i} className="border-t border-line">{r.map((v, j) => <td key={j} className={`px-1.5 py-0.5 ${j === 0 ? 'text-ink' : 'text-ink-soft text-right font-data tabular-nums'}`}>{v}</td>)}</tr>)}</tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function InfoCard({ item }: { item: WorkspaceInfoItem }) {
   const { remove, updateItem } = useWorkspace()
   const accent = item.accent ?? '#137cbd'
   const open = !!item.expanded
-  const hasMore = !!item.body || (item.fields?.length ?? 0) > 2
+  const hasMore = !!item.body || (item.fields?.length ?? 0) > 2 || !!item.table
   return (
     <div className="bg-surface border border-line rounded-[4px] shadow-[0_1px_3px_rgba(16,22,26,0.08)] overflow-hidden">
       <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-line" style={{ background: accent + '0f' }}>
@@ -48,6 +80,7 @@ function InfoCard({ item }: { item: WorkspaceInfoItem }) {
             ))}
           </div>
         )}
+        {item.table && item.table.rows.length > 0 && <TableViz table={item.table} accent={accent} open={open} />}
         {open && item.body && (
           <pre className="mt-2 whitespace-pre-wrap break-words text-[10.5px] leading-relaxed text-ink-soft font-sans border-t border-line pt-2">{item.body}</pre>
         )}
@@ -55,6 +88,28 @@ function InfoCard({ item }: { item: WorkspaceInfoItem }) {
           <Link href={item.href} className="mt-2 inline-flex items-center gap-1 text-[10px] text-accent hover:text-accent-hover">원본 페이지 <ChevronRight size={11} /></Link>
         )}
       </div>
+    </div>
+  )
+}
+
+/** Renders a site at a 375px mobile viewport, scaled down to fit the panel width. */
+function MobilePreview({ url, title }: { url: string; title: string }) {
+  const wrapRef = useRef<HTMLDivElement>(null)
+  const [scale, setScale] = useState(1)
+  const MOBILE_W = 375, MOBILE_H = 620
+  useEffect(() => {
+    const el = wrapRef.current
+    if (!el) return
+    const measure = () => setScale(Math.min(1, el.clientWidth / MOBILE_W))
+    measure()
+    const ro = new ResizeObserver(measure); ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+  return (
+    <div ref={wrapRef} className="border-t border-line bg-fill-2 overflow-hidden" style={{ height: MOBILE_H * scale }}>
+      <iframe src={url} title={title} className="bg-white origin-top-left"
+        style={{ width: MOBILE_W, height: MOBILE_H, transform: `scale(${scale})` }}
+        sandbox="allow-scripts allow-same-origin allow-popups" />
     </div>
   )
 }
@@ -78,8 +133,9 @@ function LinkCard({ item }: { item: WorkspaceLinkItem }) {
         {item.note && <p className="text-[10.5px] text-ink-soft mt-1">{item.note}</p>}
       </div>
       {open && (
-        <div className="border-t border-line">
-          <iframe src={item.url} title={item.title} className="w-full h-[260px] bg-white" sandbox="allow-scripts allow-same-origin allow-popups" />
+        <div>
+          <span className="flex items-center gap-1 px-2.5 pt-1.5 pb-1 text-[9px] text-ink-ghost"><Smartphone size={10} /> 모바일 미리보기</span>
+          <MobilePreview url={item.url} title={item.title} />
           <p className="px-2.5 py-1 text-[9px] text-ink-ghost">일부 사이트는 미리보기를 차단합니다 — <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-accent">외부에서 열기</a></p>
         </div>
       )}
@@ -118,7 +174,7 @@ export function WorkspacePanel() {
   function onDrop(e: React.DragEvent) {
     e.preventDefault(); setDragOver(false)
     const p = parseCardDrop(e)
-    if (p) { addInfo({ source: p.source, title: p.title, body: p.body, accent: '#5c7080' }); setOpen(true) }
+    if (p) { addInfo({ source: p.source, title: p.title, body: p.table ? undefined : p.body, table: p.table, accent: '#5c7080' }); setOpen(true) }
   }
   const filtered = useMemo(() => items.filter((it) => matches(it, query)), [items, query])
   const memoCount = items.filter((i) => i.kind === 'memo').length
@@ -129,6 +185,7 @@ export function WorkspacePanel() {
   const [savedOk, setSavedOk] = useState(false)
   const [loadOpen, setLoadOpen] = useState(false)
   const [snaps, setSnaps] = useState<SnapshotMeta[] | null>(null)
+  const [toolsOpen, setToolsOpen] = useState(false)
 
   async function openLoad() { setLoadOpen(true); setSnaps(null); setSnaps(await listSnapshots()) }
   async function doSave() { await saveSnapshot(); setSavedOk(true); setTimeout(() => setSavedOk(false), 1800) }
@@ -160,15 +217,21 @@ export function WorkspacePanel() {
         </div>
       </div>
 
-      {/* toolbar */}
+      {/* toolbar — compact icon buttons */}
       <div className="shrink-0 px-2.5 py-2 space-y-1.5">
-        <button onClick={captureScreen} className="w-full inline-flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-[3px] text-[11px] font-medium bg-ink text-white hover:opacity-90"><Camera size={13} /> 이 화면 담기 (전체 내역)</button>
-        <div className="grid grid-cols-3 gap-1.5">
-          <button onClick={() => addMemo()} className="inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded-[3px] text-[10.5px] font-medium bg-accent text-white hover:bg-accent-hover"><FilePlus2 size={12} /> 메모</button>
-          <button onClick={() => setLinkOpen((v) => !v)} className="inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded-[3px] text-[10.5px] font-medium border border-line text-ink-soft hover:bg-fill"><Link2 size={12} /> 링크</button>
-          <button onClick={() => fileRef.current?.click()} className="inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded-[3px] text-[10.5px] font-medium border border-line text-ink-soft hover:bg-fill"><Paperclip size={12} /> 파일</button>
+        <button onClick={captureScreen} className="w-full inline-flex items-center justify-center gap-1.5 px-2 py-1 rounded-[3px] text-[10.5px] font-medium bg-ink text-white hover:opacity-90"><Camera size={12} /> 이 화면 담기</button>
+        <div className="grid grid-cols-6 gap-1">
+          <button onClick={() => addMemo()} title="메모 추가" className="h-7 inline-flex items-center justify-center rounded-[3px] bg-accent text-white hover:bg-accent-hover"><FilePlus2 size={13} /></button>
+          <button onClick={() => setLinkOpen((v) => !v)} title="링크 추가" className={`h-7 inline-flex items-center justify-center rounded-[3px] border hover:bg-fill ${linkOpen ? 'border-accent text-accent bg-accent-soft/40' : 'border-line text-ink-soft'}`}><Link2 size={13} /></button>
+          <button onClick={() => fileRef.current?.click()} title="파일 첨부" className="h-7 inline-flex items-center justify-center rounded-[3px] border border-line text-ink-soft hover:bg-fill"><Paperclip size={13} /></button>
+          <button onClick={() => setToolsOpen((v) => !v)} title="계산기·스톱워치·타이머" className={`h-7 inline-flex items-center justify-center rounded-[3px] border hover:bg-fill ${toolsOpen ? 'border-accent text-accent bg-accent-soft/40' : 'border-line text-ink-soft'}`}><Calculator size={13} /></button>
+          <button onClick={doSave} disabled={busy || items.length === 0} title="작업창 저장" className="h-7 inline-flex items-center justify-center rounded-[3px] border border-accent/50 text-accent hover:bg-accent-soft/50 disabled:opacity-40">{savedOk ? <span className="text-[9px] font-semibold">OK</span> : <Save size={13} />}</button>
+          <button onClick={openLoad} disabled={busy} title="불러오기" className="h-7 inline-flex items-center justify-center rounded-[3px] border border-line text-ink-soft hover:bg-fill disabled:opacity-50"><FolderOpen size={13} /></button>
           <input ref={fileRef} type="file" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) addFile(f); e.currentTarget.value = '' }} />
         </div>
+        {memoCount > 0 && (
+          <button onClick={() => integrate()} disabled={busy} title="메모를 시설 데이터에 반영" className="w-full inline-flex items-center justify-center gap-1 px-2 py-1 rounded-[3px] text-[10px] font-medium border border-line text-ink-soft hover:bg-fill disabled:opacity-40">{busy ? <Loader2 size={11} className="animate-spin" /> : <Database size={11} />} 메모 {memoCount}개 통합</button>
+        )}
         {linkOpen && (
           <form onSubmit={(e) => { e.preventDefault(); if (linkUrl.trim()) { addLink(linkUrl.trim()); setLinkUrl(''); setLinkOpen(false) } }}
             className="flex items-center gap-1.5">
@@ -176,11 +239,7 @@ export function WorkspacePanel() {
             <button type="submit" className="px-2.5 py-1.5 rounded-[3px] bg-accent text-white text-[10.5px] font-medium">추가</button>
           </form>
         )}
-        <div className="grid grid-cols-3 gap-1.5">
-          <button onClick={doSave} disabled={busy || items.length === 0} className="inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded-[3px] text-[10.5px] font-medium border border-accent/50 text-accent hover:bg-accent-soft/50 disabled:opacity-40">{savedOk ? '저장됨' : <><Save size={12} /> 저장</>}</button>
-          <button onClick={openLoad} disabled={busy} className="inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded-[3px] text-[10.5px] font-medium border border-line text-ink-soft hover:bg-fill disabled:opacity-50"><FolderOpen size={12} /> 불러오기</button>
-          <button onClick={() => integrate()} disabled={busy || memoCount === 0} title="메모를 시설 데이터에 반영" className="inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded-[3px] text-[10.5px] font-medium border border-line text-ink-soft hover:bg-fill disabled:opacity-40">{busy ? <Loader2 size={12} className="animate-spin" /> : <Database size={12} />} 통합</button>
-        </div>
+        {toolsOpen && <WorkspaceTools />}
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto px-2.5 pb-3 space-y-2">
@@ -193,11 +252,14 @@ export function WorkspacePanel() {
         ) : filtered.length === 0 ? (
           <p className="text-[11px] text-ink-ghost text-center py-8">검색 결과가 없습니다</p>
         ) : (
-          filtered.map((it) =>
-            it.kind === 'memo' ? <MemoPad key={it.id} memo={it} />
-              : it.kind === 'link' ? <LinkCard key={it.id} item={it} />
-                : it.kind === 'file' ? <FileCard key={it.id} item={it} />
-                  : <InfoCard key={it.id} item={it} />)
+          filtered.map((it) => (
+            <div key={it.id} className="ws-resizable overflow-auto" style={{ resize: 'vertical', minHeight: 44 }}>
+              {it.kind === 'memo' ? <MemoPad memo={it} />
+                : it.kind === 'link' ? <LinkCard item={it} />
+                  : it.kind === 'file' ? <FileCard item={it} />
+                    : <InfoCard item={it} />}
+            </div>
+          ))
         )}
       </div>
 

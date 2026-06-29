@@ -3,18 +3,20 @@
 
 export const WS_DRAG_MIME = 'application/x-lumix-card'
 
-export interface CardDragPayload { source: string; title: string; body: string }
+export interface CardTable { cols: string[]; rows: (string | number)[][] }
+export interface CardDragPayload { source: string; title: string; body: string; table?: CardTable }
 
 /** Attach to a card's onDragStart. Skips drags that begin on interactive
- *  elements so inputs/buttons/links keep working. */
-export function cardDragStart(e: React.DragEvent, source = '카드', title?: string) {
+ *  elements so inputs/buttons/links keep working. Pass `table` to carry the
+ *  card's underlying data so charts re-visualize in the workspace. */
+export function cardDragStart(e: React.DragEvent, source = '카드', title?: string, table?: CardTable) {
   const t = e.target as HTMLElement
   if (t.closest('input,textarea,select,button,a,[contenteditable="true"]')) { e.preventDefault(); return }
   const el = e.currentTarget as HTMLElement
   const text = (el.innerText || '').replace(/\n{3,}/g, '\n\n').trim().slice(0, 6000)
-  if (!text) { e.preventDefault(); return }
+  if (!text && !table) { e.preventDefault(); return }
   const heading = el.querySelector('h1,h2,h3,[data-card-title]')?.textContent?.trim()
-  const payload: CardDragPayload = { source, title: (title || heading || text.split('\n')[0] || '카드').slice(0, 90), body: text }
+  const payload: CardDragPayload = { source, title: (title || heading || text.split('\n')[0] || '카드').slice(0, 90), body: text, ...(table && table.rows.length ? { table } : {}) }
   try {
     e.dataTransfer.setData(WS_DRAG_MIME, JSON.stringify(payload))
     e.dataTransfer.setData('text/plain', text)
