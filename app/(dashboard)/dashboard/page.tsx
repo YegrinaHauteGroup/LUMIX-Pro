@@ -24,7 +24,9 @@ export default async function DashboardPage() {
     supabase.from('activities').select('*, classes(name)').eq('center_id', centerId ?? '').order('created_at', { ascending: false }).limit(10),
     supabase.from('classes').select('*, children(id)').eq('center_id', centerId ?? ''),
     supabase.from('centers').select('latitude, longitude, region_name, address, name').eq('id', centerId ?? '').maybeSingle(),
-    supabase.from('attendances').select('attendance_date, status').eq('center_id', centerId ?? '').gte('attendance_date', since).is('deleted_at', null),
+    // raise the default 1000-row cap: 14 days × N children can exceed it and
+    // silently truncate the trend (corrupts the daily counts)
+    supabase.from('attendances').select('attendance_date, status').eq('center_id', centerId ?? '').gte('attendance_date', since).is('deleted_at', null).limit(20000),
     supabase.rpc('get_sna_insights', { p_center_id: centerId ?? '' }),
     supabase.from('activities').select('id, title, type, status, activity_date, activity_time').eq('center_id', centerId ?? '').is('deleted_at', null).not('activity_date', 'is', null),
     supabase.from('care_notes').select('id, child_id, content, noted_on, note_type, children(name)').eq('center_id', centerId ?? '').is('deleted_at', null).order('noted_on', { ascending: false }).limit(120),
@@ -69,8 +71,10 @@ export default async function DashboardPage() {
     summary?: { children: number; isolated: number; communities: number; avg_betweenness: number }
     allergy_children?: unknown[]; conflict_children?: unknown[]; health_alerts?: unknown[]
   }
+  // analyzed-child count is kept separate from the event signals so it doesn't
+  // dwarf them on the shared bar scale (item 3)
+  const snaTotal = ins.summary?.children ?? 0
   const snaStats = [
-    { label: '분석 아동', value: ins.summary?.children ?? 0 },
     { label: '고립 신호', value: ins.summary?.isolated ?? 0 },
     { label: '갈등 관계', value: ins.conflict_children?.length ?? 0 },
     { label: '보건 경보', value: ins.health_alerts?.length ?? 0 },
@@ -163,9 +167,10 @@ export default async function DashboardPage() {
             <AddToWorkspaceButton source="대시보드" title="운영 현황 요약" subtitle={`${new Date().toLocaleDateString('ko-KR')} 기준`}
               fields={[
                 ...stats.map((s) => ({ label: s.label, value: String(s.value) })),
+                { label: '분석 아동', value: String(snaTotal) },
                 ...snaStats.map((s) => ({ label: s.label, value: String(s.value) })),
               ]}
-              body={`운영 현황 — ${stats.map((s) => `${s.label} ${s.value}`).join(', ')}\n관계망 — ${snaStats.map((s) => `${s.label} ${s.value}`).join(', ')}`}
+              body={`운영 현황 — ${stats.map((s) => `${s.label} ${s.value}`).join(', ')}\n관계망 — 분석 아동 ${snaTotal}, ${snaStats.map((s) => `${s.label} ${s.value}`).join(', ')}`}
               href="/dashboard" accent="#137cbd" />
           </div>
           <div className="grid grid-cols-2 gap-2">
@@ -190,6 +195,7 @@ export default async function DashboardPage() {
             ageStats={ageStats}
             attendanceTrend={attendanceTrend}
             snaStats={snaStats}
+            snaTotal={snaTotal}
             monthlyData={monthlyData}
             activityTypeData={activityTypeData}
           />

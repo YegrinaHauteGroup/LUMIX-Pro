@@ -170,6 +170,7 @@ export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) 
   const dsRef = useRef<{ nodes: any; edges: any } | null>(null)
 
   const [scope, setScope] = useState<string>('ALL')
+  const scopeRef = useRef('ALL')
   const [recomputing, setRecomputing] = useState(false)
   const [searchValue, setSearchValue] = useState('')
   const [searchError, setSearchError] = useState(false)
@@ -260,6 +261,20 @@ export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nodes, edges])
 
+  // class-scope is the single source of truth for node `hidden`; focus only
+  // *adds* hiding (ego view) so it never undoes the scope filter.
+  function baseHidden(n: SnaNode): boolean {
+    const sc = scopeRef.current
+    if (sc === 'ALL') return false
+    if (n.kind === 'child') return n.class_id !== sc
+    if (n.kind === 'guardian') {
+      const nbrs = [...(adj.get(n.id) ?? [])]
+      if (nbrs.length === 0) return false
+      return !nbrs.some((c) => { const cn = nodeById.get(c); return cn?.kind === 'child' && cn.class_id === sc })
+    }
+    return false // shared entities + staff stay visible across scopes
+  }
+
   // ---- focus / fade engine ----------------------------------------------
   // hide=true → unrelated nodes/edges are fully hidden (clean ego-network view,
   // used when a single node is selected). hide=false → they stay but fade back,
@@ -269,9 +284,8 @@ export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) 
     if (!ds) return
     ds.nodes.update(nodes.map((n) => {
       const inFocus = !focusNodes || focusNodes.has(n.id)
-      return hide
-        ? { id: n.id, hidden: !inFocus, opacity: 1 }
-        : { id: n.id, hidden: false, opacity: inFocus ? 1 : 0.12 }
+      const hidden = baseHidden(n) || (hide && !inFocus)
+      return { id: n.id, hidden, opacity: hide ? 1 : (inFocus ? 1 : 0.12) }
     }))
     ds.edges.update(edges.map((e) => {
       const s = edgeStyle(e)
@@ -300,19 +314,10 @@ export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) 
 
   // class scope: hide children outside the class (+ their guardians)
   function applyVisibility(scopeVal: string) {
+    scopeRef.current = scopeVal
     const ds = dsRef.current
     if (!ds) return
-    const visibleChild = new Set(nodes.filter((n) => n.kind === 'child' && (scopeVal === 'ALL' || n.class_id === scopeVal)).map((n) => n.id))
-    ds.nodes.update(nodes.map((n) => {
-      let hidden = false
-      if (scopeVal !== 'ALL' && n.kind === 'child') hidden = !visibleChild.has(n.id)
-      if (scopeVal !== 'ALL' && n.kind === 'guardian') {
-        // guardian connected only to hidden children → hide
-        const nbrs = [...(adj.get(n.id) ?? [])]
-        hidden = nbrs.length > 0 && nbrs.every((c) => !visibleChild.has(c))
-      }
-      return { id: n.id, hidden }
-    }))
+    ds.nodes.update(nodes.map((n) => ({ id: n.id, hidden: baseHidden(n) })))
   }
 
   function handleScope(s: string) { setScope(s); applyVisibility(s); applyFocus(null, null); setReport(scopeReport(s)) }
@@ -375,6 +380,27 @@ export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) 
       const statusText = n.group === 'child_sick' ? '보건 확진' : n.group === 'child_highrisk' ? '감염 고위험' : n.group === 'child_isolated' ? '고립/관찰요망' : '일반/활발'
       const statusTone = n.group === 'child_sick' ? 'text-[#db3737] bg-[#fbeaea] border-[#f5cccc]' : n.group === 'child_highrisk' ? 'text-[#bf7326] bg-[#fdf3e7] border-[#f5dcb8]' : n.group === 'child_isolated' ? 'text-ink-soft bg-fill border-line' : 'text-[#0d8050] bg-[#e8f5ef] border-[#bfe0cf]'
       const actions = childActions(n.group, n.has_allergy, edges.some((e) => e.has_conflict && (e.source_id === id || e.target_id === id)), n.betweenness > maxBetw * 0.5)
+      // live relationship summary (meaningful even before centrality recompute)
+      const liveDeg = adj.get(id)?.size ?? 0
+      const degForBar = Math.max(n.connection_count, liveDeg)
+      let cChild = 0, cConflict = 0, cStaff = 0, cGuardian = 0, cSpace = 0, cDomain = 0
+      conn.forEach((e) => {
+        const t = other(e); if (!t) return
+        const lbl = e.label ?? ''
+        if (t.kind === 'child') ((lbl.includes('갈등') || lbl.includes('분쟁')) ? cConflict++ : cChild++)
+        else if (t.kind === 'staff') cStaff++
+        else if (t.kind === 'guardian') cGuardian++
+        else if (t.kind === 'space') cSpace++
+        else cDomain++
+      })
+      const classmates = nodes.filter((x) => x.kind === 'child' && x.class_id === n.class_id)
+      const myRank = classmates.filter((x) => (adj.get(x.id)?.size ?? 0) > liveDeg).length + 1
+      const summaryChips: { label: string; value: number; tone: string }[] = [
+        { label: '또래 친구', value: cChild, tone: 'text-[#137cbd]' },
+        { label: '갈등', value: cConflict, tone: 'text-[#db3737]' },
+        { label: '활동·성취', value: cSpace + cDomain, tone: 'text-[#0d8050]' },
+        { label: '보호자·교사', value: cGuardian + cStaff, tone: 'text-ink-soft' },
+      ]
       setReport({
         title: n.name,
         body: (
@@ -384,9 +410,24 @@ export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) 
               <span className="text-[11px] text-ink-faint">{cls}{n.has_allergy ? ' · 알레르기 주의' : ''}{n.community_id != null ? ` · 그룹 ${n.community_id}` : ''}</span>
             </div>
 
+            {/* relationship summary — at-a-glance counts + class rank */}
+            <div className="grid grid-cols-4 gap-1.5">
+              {summaryChips.map((c) => (
+                <div key={c.label} className="px-1.5 py-1.5 bg-fill-2 border border-line rounded-[3px] text-center">
+                  <p className={`text-[15px] font-semibold tabular-nums ${c.tone}`}>{c.value}</p>
+                  <p className="text-[9px] text-ink-faint mt-0.5">{c.label}</p>
+                </div>
+              ))}
+            </div>
+            <p className="text-[11px] text-ink-soft -mt-1.5">
+              또래 연결 <strong className="text-ink">{liveDeg}</strong>회
+              {classmates.length > 1 && <> · 반 내 연결 순위 <strong className="text-ink">{myRank}</strong>/{classmates.length}</>}
+              {liveDeg === 0 && <span className="text-[#bf7326]"> · 관계 신호 없음(고립 관찰)</span>}
+            </p>
+
             <div className="space-y-2.5 border border-line rounded-[3px] p-3 bg-fill-2">
               <p className="text-[10px] font-semibold text-ink-faint uppercase tracking-wider">중심성 지표</p>
-              <MetricBar label="연결 (Degree)" value={String(n.connection_count)} pct={(n.connection_count / maxConn) * 100} color="#137cbd" />
+              <MetricBar label="연결 (Degree)" value={String(degForBar)} pct={(degForBar / Math.max(maxConn, 1)) * 100} color="#137cbd" />
               <MetricBar label="매개 (Betweenness)" value={n.betweenness.toFixed(1)} pct={(n.betweenness / maxBetw) * 100} color="#8b5cf6" />
               <MetricBar label="영향력 (Eigenvector)" value={n.eigenvector.toFixed(2)} pct={(n.eigenvector / maxEig) * 100} color="#0f9960" />
               <MetricBar label="근접 (Closeness)" value={n.closeness.toFixed(2)} pct={n.closeness * 100} color="#d9822b" />
