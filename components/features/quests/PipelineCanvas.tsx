@@ -255,7 +255,7 @@ export function PipelineCanvas({ centerId, classes, insights, staffCount, entity
       <div className="flex">
         {/* canvas — wheel to zoom, drag empty space to pan, drag node to move */}
         <div ref={canvasRef} onPointerDown={startPan}
-          className="relative flex-1 h-[520px] overflow-hidden bg-fill-2 touch-none"
+          className="relative flex-1 h-[620px] overflow-hidden bg-fill-2 touch-none"
           style={{ backgroundImage: 'linear-gradient(#e7ecf1 1px, transparent 1px), linear-gradient(90deg, #e7ecf1 1px, transparent 1px)', backgroundSize: `${24 * zoom}px ${24 * zoom}px`, backgroundPosition: `${pan.x}px ${pan.y}px` }}>
           {/* zoom controls */}
           <div onPointerDown={(e) => e.stopPropagation()} className="absolute top-2 right-2 z-10 flex items-center bg-surface/90 backdrop-blur border border-line rounded-[3px] overflow-hidden">

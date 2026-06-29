@@ -4,7 +4,7 @@ import { createClient } from '@/utils/supabase/client'
 import { withTimeout } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
-import { Database, Filter, FlaskConical, Play, BarChart3, ChevronRight, Trash2, Sparkles } from 'lucide-react'
+import { FlaskConical, Play, Trash2, Sparkles } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { PipelineCanvas } from './PipelineCanvas'
 import { AddToWorkspaceButton } from '@/components/workspace/AddToWorkspaceButton'
@@ -183,14 +183,6 @@ export function QuestsClient({ centerId, initialQuests, insights, classes, staff
     setQuests((q) => q.filter((x) => x.id !== id))
   }
 
-  const STAGES = [
-    { icon: Database, title: '데이터 소스', body: `아동 ${totalChildren} · 교사 ${staffCount} · SNA노드 ${entityCount} · 환경` },
-    { icon: Filter, title: '조건 설정', body: `${selected.title} · ${scopeName} · ${SENS[sensitivity].label}` },
-    { icon: FlaskConical, title: '시뮬레이션', body: sim ? `${sim.label} ${sim.estimate} / ${sim.pool}명` : '미실행' },
-    { icon: Play, title: '실행 엔진', body: running ? '실행 중…' : 'Edge Function' },
-    { icon: BarChart3, title: '결과', body: `${quests.filter((q) => q.status === 'done').length}건 저장` },
-  ]
-
   return (
     <div className="flex-1 min-h-0 p-3 w-full flex flex-col gap-2.5 overflow-hidden">
       {/* GOAL BAR — natural-language goal seeds the pipeline */}
@@ -213,22 +205,6 @@ export function QuestsClient({ centerId, initialQuests, insights, classes, staff
           onQuestType={(v) => changeType(v)} onScope={(v) => { setScope(v); setSim(null) }}
           onResult={(q) => setQuests((prev) => [q as unknown as Quest, ...prev.filter((x) => x.id !== q.id)])}
         />
-
-        {/* Pipeline summary strip — compact */}
-        <div className="flex items-stretch gap-0 overflow-x-auto pb-0.5 shrink-0">
-          {STAGES.map((s, i) => (
-            <div key={s.title} className="flex items-center shrink-0">
-              <div className="w-[150px] bg-surface border border-line rounded-[3px] shadow-[var(--shadow-card)] px-2.5 py-1.5">
-                <div className="flex items-center gap-1.5 mb-0.5">
-                  <s.icon size={12} className="text-accent" />
-                  <span className="text-[10px] font-semibold text-ink uppercase tracking-wider truncate">{s.title}</span>
-                </div>
-                <p className="text-[10px] text-ink-soft leading-snug line-clamp-2">{s.body}</p>
-              </div>
-              {i < STAGES.length - 1 && <ChevronRight size={14} className="text-ink-ghost mx-0.5 shrink-0" />}
-            </div>
-          ))}
-        </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-2.5">
           {/* Config — synced with the canvas analysis/filter nodes */}
@@ -334,13 +310,13 @@ export function QuestsClient({ centerId, initialQuests, insights, classes, staff
             <Card><CardContent><p className="text-[13px] text-ink-faint py-8 text-center">아직 실행된 퀘스트가 없습니다. 좌측에서 구성 후 시뮬레이션·실행하세요.</p></CardContent></Card>
           ) : quests.map((q) => (
             <Card key={q.id}>
-              <CardHeader className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <span className="text-[13px] font-semibold text-ink truncate">{q.title}</span>
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded-[2px] ${STATUS_STYLE[q.status]}`}>{STATUS_LABEL[q.status]}</span>
+              <CardHeader className="flex items-start justify-between gap-2 flex-wrap">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-[13px] font-semibold text-ink break-keep line-clamp-2 leading-snug">{q.title}</span>
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded-[2px] whitespace-nowrap shrink-0 ${STATUS_STYLE[q.status]}`}>{STATUS_LABEL[q.status]}</span>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  <span className="text-[11px] text-ink-ghost">{new Date(q.created_at).toLocaleString('ko-KR')}</span>
+                  <span className="text-[11px] text-ink-ghost whitespace-nowrap">{new Date(q.created_at).toLocaleString('ko-KR')}</span>
                   {q.result && (
                     <AddToWorkspaceButton source="퀘스트 분석" title={q.title} subtitle={q.result.headline}
                       fields={[

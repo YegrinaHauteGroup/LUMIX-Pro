@@ -158,10 +158,9 @@ export function OperationalMap({ lat, lng, label, airPm25, airGrade }: Props) {
       const L = (await import('leaflet')).default as any
       if (disposed || !elRef.current) return
       const map = L.map(elRef.current, {
-        center: [lat, lng], zoom: 16, zoomControl: false, attributionControl: true,
+        center: [lat, lng], zoom: 16, zoomControl: false, attributionControl: false,
         minZoom: 7, maxBounds: KR_BOUNDS, maxBoundsViscosity: 0.7,
       })
-      map.attributionControl?.setPosition?.('bottomleft')
       const base = L.tileLayer(vworld('Base'), {
         maxZoom: 19, attribution: '&copy; <a href="https://www.vworld.kr">VWorld</a> · 국토교통부',
       }).addTo(map)
@@ -406,12 +405,12 @@ export function OperationalMap({ lat, lng, label, airPm25, airGrade }: Props) {
   const ctrlBtn = 'inline-flex items-center justify-center gap-1 px-2 py-1.5 text-[10.5px] font-medium rounded-[2px] transition-colors'
 
   return (
-    <div className={`relative isolate h-full w-full rounded-[3px] border border-line overflow-hidden bg-[#eef1f5] ${view === 'light' ? 'lm-pastel' : ''}`}>
+    <div className={`relative isolate h-full w-full rounded-[3px] border border-line overflow-hidden bg-[#f3f6f9] ${view === 'light' ? 'lm-pastel' : ''}`}>
       <style>{`@keyframes lmpulse{0%{transform:scale(1);opacity:.55}100%{transform:scale(2.4);opacity:0}}
         @keyframes lmlive{0%,100%{opacity:1}50%{opacity:.25}}
-        .leaflet-container{background:#eef1f5;font-family:inherit}
-        /* softer pastel base map (2D view only) */
-        .lm-pastel .leaflet-tile-pane{filter:saturate(.66) brightness(1.06) contrast(.92)}
+        .leaflet-container{background:#f3f6f9;font-family:inherit}
+        /* softer, whiter base map (2D view only) */
+        .lm-pastel .leaflet-tile-pane{filter:saturate(.52) brightness(1.13) contrast(.88)}
         .lm-dot{display:block;width:11px;height:11px;border-radius:50%;border:1.5px solid #fff;box-shadow:0 1px 3px rgba(16,22,26,.28);transition:transform .12s ease;cursor:pointer}
         .leaflet-marker-icon:hover .lm-dot{transform:scale(1.3)}
         .lm-sel{display:block;width:22px;height:22px;border-radius:50%;border:3px solid currentColor;background:transparent}
