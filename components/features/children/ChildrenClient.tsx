@@ -7,6 +7,7 @@ import { Input, Select, Textarea } from '@/components/ui/Input'
 import { Drawer } from '@/components/ui/Drawer'
 import { CHILD_STATUS_COLORS, CHILD_STATUS_LABELS, GENDER_LABELS, calculateAge } from '@/lib/utils'
 import { childFormSchema, parseOr } from '@/lib/validation'
+import { useRealtimeRefresh } from '@/lib/useRealtimeRefresh'
 import type { Child, Class } from '@/lib/types'
 import { createClient } from '@/utils/supabase/client'
 import { ExternalLink, Pencil, Plus, Search, Trash2, Users } from 'lucide-react'
@@ -43,6 +44,9 @@ export function ChildrenClient({ initialChildren, classes, centerId }: Props) {
   const [groupBy, setGroupBy] = useState<'none' | 'gender' | 'age' | 'class'>('none')
   const [page, setPage] = useState(1)
   const PAGE_SIZE = 50
+
+  // live-refresh when children change elsewhere (H6)
+  useRealtimeRefresh('children', centerId)
   // drawer: add (editId === 'new') / edit (editId === child.id) / closed (null)
   const [editId, setEditId] = useState<string | null>(null)
   const [pendingDel, setPendingDel] = useState<string | null>(null)

@@ -113,6 +113,40 @@ class Graph {
 // Edge values are pre-computed geodesic distances (positive ties short,
 // conflict ties ≈∞), so mediators bridging positive clusters score high while
 // "social butterflies" with many shallow/negative ties do not.
+// Binary min-heap keyed by distance — replaces the O(V) linear scan in the
+// Dijkstra inner loops so betweenness/closeness run in O(V·E·logV) instead of
+// O(V³) (H1). Stale entries are skipped via the caller's `done` array.
+class MinHeap {
+  private d: number[] = []
+  private v: number[] = []
+  get size() { return this.v.length }
+  push(dist: number, node: number) {
+    this.d.push(dist); this.v.push(node)
+    let i = this.v.length - 1
+    while (i > 0) { const p = (i - 1) >> 1; if (this.d[p] <= this.d[i]) break; this.swap(i, p); i = p }
+  }
+  pop(): number {
+    const tv = this.v[0]
+    const ld = this.d.pop()!, lv = this.v.pop()!
+    if (this.v.length) { this.d[0] = ld; this.v[0] = lv; this.down(0) }
+    return tv
+  }
+  private down(i: number) {
+    const n = this.v.length
+    for (;;) {
+      let s = i; const l = 2 * i + 1, r = 2 * i + 2
+      if (l < n && this.d[l] < this.d[s]) s = l
+      if (r < n && this.d[r] < this.d[s]) s = r
+      if (s === i) break
+      this.swap(i, s); i = s
+    }
+  }
+  private swap(i: number, j: number) {
+    const td = this.d[i]; this.d[i] = this.d[j]; this.d[j] = td
+    const tv = this.v[i]; this.v[i] = this.v[j]; this.v[j] = tv
+  }
+}
+
 function weightedBetweenness(n: number, adjDist: Array<Map<number, number>>): number[] {
   const Cb = new Array<number>(n).fill(0)
   for (let s = 0; s < n; s++) {
@@ -122,14 +156,14 @@ function weightedBetweenness(n: number, adjDist: Array<Map<number, number>>): nu
     const dist = new Array<number>(n).fill(Infinity)
     const done = new Array<boolean>(n).fill(false)
     sigma[s] = 1; dist[s] = 0
-    for (;;) {
-      let v = -1, best = Infinity
-      for (let i = 0; i < n; i++) if (!done[i] && dist[i] < best) { best = dist[i]; v = i }
-      if (v === -1) break
+    const heap = new MinHeap(); heap.push(0, s)
+    while (heap.size) {
+      const v = heap.pop()
+      if (done[v]) continue
       done[v] = true; stack.push(v)
       for (const [to, d] of adjDist[v]) {
         const nd = dist[v] + d, eps = 1e-9
-        if (nd < dist[to] - eps) { dist[to] = nd; sigma[to] = sigma[v]; pred[to] = [v] }
+        if (nd < dist[to] - eps) { dist[to] = nd; sigma[to] = sigma[v]; pred[to] = [v]; heap.push(nd, to) }
         else if (Math.abs(nd - dist[to]) <= eps) { sigma[to] += sigma[v]; pred[to].push(v) }
       }
     }
@@ -150,14 +184,14 @@ function weightedCloseness(n: number, adjDist: Array<Map<number, number>>): numb
     const dist = new Array<number>(n).fill(Infinity)
     const done = new Array<boolean>(n).fill(false)
     dist[s] = 0
-    for (;;) {
-      let v = -1, best = Infinity
-      for (let i = 0; i < n; i++) if (!done[i] && dist[i] < best) { best = dist[i]; v = i }
-      if (v === -1) break
+    const heap = new MinHeap(); heap.push(0, s)
+    while (heap.size) {
+      const v = heap.pop()
+      if (done[v]) continue
       done[v] = true
       for (const [to, d] of adjDist[v]) {
         const nd = dist[v] + d
-        if (nd < dist[to]) dist[to] = nd
+        if (nd < dist[to]) { dist[to] = nd; heap.push(nd, to) }
       }
     }
     let sum = 0, reach = 0

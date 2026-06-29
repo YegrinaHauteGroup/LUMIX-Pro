@@ -36,6 +36,40 @@ function json(obj: unknown, status = 200) {
   return new Response(JSON.stringify(obj), { status, headers: { 'content-type': 'application/json', ...CORS } })
 }
 
+// Binary min-heap keyed by distance — replaces the O(V) linear scan in
+// Dijkstra so Brandes runs in O(V·E·logV) instead of O(V³) (H1). Stale entries
+// (a node re-pushed at a shorter distance) are skipped via the caller's `done`.
+class MinHeap {
+  private d: number[] = []
+  private v: number[] = []
+  get size() { return this.v.length }
+  push(dist: number, node: number) {
+    this.d.push(dist); this.v.push(node)
+    let i = this.v.length - 1
+    while (i > 0) { const p = (i - 1) >> 1; if (this.d[p] <= this.d[i]) break; this.swap(i, p); i = p }
+  }
+  pop(): [number, number] {
+    const td = this.d[0], tv = this.v[0]
+    const ld = this.d.pop()!, lv = this.v.pop()!
+    if (this.v.length) { this.d[0] = ld; this.v[0] = lv; this.down(0) }
+    return [td, tv]
+  }
+  private down(i: number) {
+    const n = this.v.length
+    for (;;) {
+      let s = i; const l = 2 * i + 1, r = 2 * i + 2
+      if (l < n && this.d[l] < this.d[s]) s = l
+      if (r < n && this.d[r] < this.d[s]) s = r
+      if (s === i) break
+      this.swap(i, s); i = s
+    }
+  }
+  private swap(i: number, j: number) {
+    const td = this.d[i]; this.d[i] = this.d[j]; this.d[j] = td
+    const tv = this.v[i]; this.v[i] = this.v[j]; this.v[j] = tv
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
   if (req.method !== 'POST') return new Response('Method Not Allowed', { status: 405, headers: CORS })
@@ -87,14 +121,14 @@ Deno.serve(async (req) => {
       const dist = new Array<number>(n).fill(Infinity)
       const done = new Array<boolean>(n).fill(false)
       sigma[s] = 1; dist[s] = 0
-      for (;;) {
-        let x = -1, best = Infinity
-        for (let i = 0; i < n; i++) if (!done[i] && dist[i] < best) { best = dist[i]; x = i }
-        if (x === -1) break
+      const heap = new MinHeap(); heap.push(0, s)
+      while (heap.size) {
+        const [, x] = heap.pop()
+        if (done[x]) continue // stale (already finalized at a shorter distance)
         done[x] = true; stack.push(x)
         for (const e of adj[x]) {
           const nd = dist[x] + e.w, eps = 1e-12
-          if (nd < dist[e.v] - eps) { dist[e.v] = nd; sigma[e.v] = sigma[x]; pred[e.v] = [x] }
+          if (nd < dist[e.v] - eps) { dist[e.v] = nd; sigma[e.v] = sigma[x]; pred[e.v] = [x]; heap.push(nd, e.v) }
           else if (Math.abs(nd - dist[e.v]) <= eps) { sigma[e.v] += sigma[x]; pred[e.v].push(x) }
         }
       }
