@@ -220,6 +220,9 @@ export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) 
       )
       dsRef.current = { nodes: visNodes, edges: visEdges }
 
+      // scale stabilization down as the graph grows, and freeze physics once
+      // settled so a 400+ node graph doesn't simulate every frame (idle CPU).
+      const iterations = Math.max(110, Math.min(220, Math.round(9000 / Math.max(1, nodes.length))))
       const network = new vis.Network(containerRef.current, { nodes: visNodes, edges: visEdges }, {
         nodes: { borderWidth: 1.5, shadow: { enabled: true, color: 'rgba(14,23,38,0.06)', size: 6, x: 0, y: 2 } },
         groups: GROUP_STYLE,
@@ -227,11 +230,14 @@ export function SnaClient({ centerId, nodes, edges, insights, classes }: Props) 
         physics: {
           solver: 'forceAtlas2Based',
           forceAtlas2Based: { gravitationalConstant: -120, centralGravity: 0.012, springLength: 150, springConstant: 0.05, avoidOverlap: 0.6 },
-          stabilization: { iterations: 220 },
+          stabilization: { iterations },
         },
         interaction: { hover: true, tooltipDelay: 200, navigationButtons: false, keyboard: false },
       })
       netRef.current = network
+      // once the layout settles, stop the solver — interactions stay cheap and
+      // node positions are frozen (dragging one node no longer reflows the rest)
+      network.once('stabilizationIterationsDone', () => network.setOptions({ physics: false }))
 
       network.on('click', (params: { nodes: string[] }) => {
         if (params.nodes.length > 0) focusNode(params.nodes[0])
